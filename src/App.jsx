@@ -4513,7 +4513,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
   return (
     <div style={{ paddingBottom: 90 }}>
       <SectionHeader title="Almacén" />
-      <div style={{ display: "flex", gap: 8, padding: "16px 16px 0" }}>
+      <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "16px 16px 0" }}>
         <FilterPill label="Bases" active={tab === "bases"} onClick={() => setTab("bases")} color={C.secondary} />
         <FilterPill label="Panorámicas" active={tab === "panoramicas"} onClick={() => setTab("panoramicas")} color={C.primary} />
         <FilterPill label="Diplomas" active={tab === "diplomas"} onClick={() => setTab("diplomas")} color={C.accent1} />
@@ -4740,6 +4740,15 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
                 </div>
               );
             })}
+            {basesFiltradas.length === 0 && (
+              <EmptyState
+                text={
+                  catalogo === "Todos"
+                    ? "Todavía no hay bases registradas en esta sucursal. Agrega una con el botón + de aquí abajo, o pídele al administrador que use \"Cargar catálogo 2026\" en Editar inventario → Bases."
+                    : `Todavía no hay bases del catálogo "${catalogo}" en esta sucursal.`
+                }
+              />
+            )}
           </div>
           <FAB
             color={C.secondary}
