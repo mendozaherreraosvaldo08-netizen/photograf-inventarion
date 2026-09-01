@@ -642,3 +642,80 @@ solo al entrar a la pantalla, y la tecla "Ir" del teclado no siempre enviaba
 el formulario. Se corrigió con un enfoque manual con un pequeño retraso y
 envolviendo el campo en un `<form>` de verdad, para que tanto "Ir" como
 "Enter" funcionen.
+
+---
+
+## Notificaciones push reales (con la app cerrada) — por sucursal
+
+Antes, `sw.js` ya traía la estructura lista pero no había nada del lado del
+servidor que de verdad mandara el push — esto lo conecta.
+
+### Cómo funciona
+
+- **Un empleado** que activa notificaciones (Más → Activar notificaciones)
+  solo recibe avisos de **su propia sucursal**.
+- **El administrador** activa las suyas por separado, desde **Panel de
+  administrador → Ajustes → Activar notificaciones de administrador**, y
+  recibe avisos de **las dos sucursales**.
+- Por ahora el push real solo se dispara en el caso que importa entre
+  sucursales — transferencias:
+  - Al **enviar** equipo o un préstamo de base a la otra sucursal: le llega
+    a la sucursal que lo va a **recibir** (+ admin).
+  - Al **confirmar** que llegó: le llega a la sucursal que lo **envió**
+    (+ admin).
+- Todo lo demás (stock bajo, paquetes vencidos, equipo atrasado, etc.) se
+  sigue viendo en **Más → Notificaciones** dentro de la app, como antes —
+  eso no manda push todavía, a propósito, para no saturar de avisos antes
+  de probar que el circuito de transferencias funciona bien.
+
+### Configurar (dos variables, una sola vez)
+
+Esto solo lo puedes hacer tú, porque necesita tu propia cuenta de Firebase y
+de Vercel — es exactamente lo mismo que ya hiciste una vez para conectar
+Firebase a la app.
+
+1. Entra a [console.firebase.google.com](https://console.firebase.google.com)
+   → tu proyecto **photograf-2026** → el engranito ⚙️ arriba a la izquierda
+   → **"Configuración del proyecto"** → pestaña **"Cuentas de servicio"**
+   ("Service accounts").
+2. Botón **"Generar nueva clave privada"** ("Generate new private key") →
+   confirma. Se descarga un archivo `.json` — dentro trae tres datos que se
+   necesitan: `project_id`, `client_email` y `private_key`.
+3. Entra a [vercel.com](https://vercel.com) → tu proyecto de Photograf
+   Inventario → **"Settings"** → **"Environment Variables"** → agrega estas
+   tres, copiando el valor de cada una directo del archivo `.json` que se
+   descargó:
+
+   | Nombre de la variable | Valor (del archivo .json) |
+   |---|---|
+   | `FIREBASE_PROJECT_ID` | el valor de `project_id` |
+   | `FIREBASE_CLIENT_EMAIL` | el valor de `client_email` |
+   | `FIREBASE_PRIVATE_KEY` | el valor de `private_key` (pégalo completo, con los `-----BEGIN PRIVATE KEY-----` y `-----END PRIVATE KEY-----`) |
+
+4. Guarda, y vuelve a publicar (**"Deployments" → los tres puntitos del
+   último → "Redeploy"**, o simplemente vuelve a correr `vercel --prod` si
+   publicas así) para que tome las variables nuevas.
+
+Mientras no configures esto, el resto de la app sigue funcionando exactamente
+igual — nada más el push real entre sucursales no hace nada todavía (falla
+en silencio, no truena la app).
+
+### Cómo probarlo
+
+1. En un celular (o navegador) entra como empleado de Querétaro y activa
+   notificaciones. En otro, como empleado de Salinas, también. En un
+   tercero, entra al Panel de administrador → Ajustes y activa las de
+   administrador.
+2. Desde Querétaro, envía un equipo o un préstamo a Salinas.
+3. El celular de Salinas (y el de admin) deben recibir la notificación aunque
+   tengan la app cerrada o el celular bloqueado — si Salinas la confirma como
+   recibida, ahora le toca a Querétaro (y admin) recibir el aviso de vuelta.
+
+### Archivos nuevos
+
+```
+api/
+  notify.js   → función serverless: recibe {sucursales, titulo, cuerpo} y
+                manda el push real a los celulares de esas sucursales,
+                usando Firebase Admin (las 3 variables de arriba)
+```
