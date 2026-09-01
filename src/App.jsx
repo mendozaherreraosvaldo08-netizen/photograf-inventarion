@@ -2898,12 +2898,34 @@ function AdminCategorias({ allData, setAllData, registrar, onBack, mostrarToast 
 /* =========================================================================
    ADMIN · Ajustes (contraseñas, mínimos, respaldo, accesos)
    ========================================================================= */
-function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEmpleados, transferencias, setTransferencias, transferenciasBases, setTransferenciasBases, onBack, mostrarToast }) {
+function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEmpleados, transferencias, setTransferencias, transferenciasBases, setTransferenciasBases, onBack, mostrarToast, permisoNotificaciones, onActivarNotificacionesAdmin }) {
   const [pw, setPw] = useState({ ...config.passwords });
   const [umbral, setUmbral] = useState(String(config.umbralStock));
   const [porRestaurar, setPorRestaurar] = useState(null);
   const [sucRendimiento, setSucRendimiento] = useState(SUCURSALES[0]);
   const archivoRef = useRef(null);
+
+  /* No usamos permisoNotificaciones (el permiso del navegador) para decidir
+     si ya quedó activado como admin: ese permiso es del dispositivo, no de
+     "para qué sucursal se guardó el token" — un empleado pudo haberlo
+     activado antes en este mismo celular. Por eso este toggle es aparte,
+     guardado en este propio celular. */
+  const [notifAdminOk, setNotifAdminOk] = useState(() => {
+    try {
+      return localStorage.getItem("pf_admin_notif") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const activarComoAdmin = async () => {
+    const ok = await onActivarNotificacionesAdmin();
+    if (ok) {
+      try {
+        localStorage.setItem("pf_admin_notif", "1");
+      } catch {}
+      setNotifAdminOk(true);
+    }
+  };
 
   const guardarRendimiento = (tamaño, tipo, valorStr) => {
     const valor = valorStr === "" ? 0 : Math.max(0, parseInt(valorStr, 10) || 0);
@@ -3000,6 +3022,30 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
     <div style={{ paddingBottom: 40, minHeight: "100vh" }}>
       <SectionHeader title="Ajustes" onBack={onBack} />
       <div style={{ padding: 16 }}>
+        {permisoNotificaciones !== "unsupported" && (
+          <>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.foreground, marginBottom: 4 }}>Notificaciones de administrador</div>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>
+              Actívalas en este celular para recibir el aviso, con la app cerrada, cuando se envíe o se confirme una transferencia entre Querétaro y Salinas — de las dos sucursales, a diferencia de un empleado que solo ve avisos de la suya.
+            </div>
+            <button
+              onClick={notifAdminOk ? undefined : activarComoAdmin}
+              disabled={notifAdminOk || permisoNotificaciones === "denied"}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 8, cursor: notifAdminOk || permisoNotificaciones === "denied" ? "default" : "pointer", opacity: permisoNotificaciones === "denied" && !notifAdminOk ? 0.6 : 1 }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <Bell size={20} color={notifAdminOk ? C.success : C.muted} />
+                <span style={{ fontSize: 14, fontWeight: 600, color: C.foreground }}>
+                  {notifAdminOk ? "Notificaciones de administrador activadas" : permisoNotificaciones === "denied" ? "Notificaciones bloqueadas en este navegador" : "Activar notificaciones de administrador"}
+                </span>
+              </div>
+              {notifAdminOk && <Check size={18} color={C.success} />}
+            </button>
+
+            <div style={{ height: 32 }} />
+          </>
+        )}
+
         <div style={{ fontSize: 15, fontWeight: 700, color: C.foreground, marginBottom: 4 }}>Contraseñas</div>
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>
           Cámbialas cuando alguien deje de trabajar aquí. El cambio se aplica en todos los celulares al momento.
@@ -3450,7 +3496,7 @@ function exportarInventarioExcel(allData, config) {
 /* =========================================================================
    ADMIN · Pantalla principal del panel
    ========================================================================= */
-function AdminScreen({ empleados, setEmpleados, allData, setAllData, config, setConfig, transferencias, setTransferencias, transferenciasBases, setTransferenciasBases, onBack, mostrarToast }) {
+function AdminScreen({ empleados, setEmpleados, allData, setAllData, config, setConfig, transferencias, setTransferencias, transferenciasBases, setTransferenciasBases, onBack, mostrarToast, permisoNotificaciones, onActivarNotificacionesAdmin }) {
   const [seccion, setSeccion] = useState(null);
 
   /* Todo lo que hace el administrador queda anotado en la bitácora de la
@@ -3487,6 +3533,8 @@ function AdminScreen({ empleados, setEmpleados, allData, setAllData, config, set
         setTransferenciasBases={setTransferenciasBases}
         onBack={volver}
         mostrarToast={mostrarToast}
+        permisoNotificaciones={permisoNotificaciones}
+        onActivarNotificacionesAdmin={onActivarNotificacionesAdmin}
       />
     );
 
@@ -8256,6 +8304,35 @@ export default function PhotografInventario() {
     }
   };
 
+  /* Igual que activarNotificaciones, pero para quien lo activa desde el
+     Panel de Administrador: se guarda con sucursal "admin" en vez de la
+     sucursal de un empleado, para que le lleguen los avisos de las DOS
+     sucursales (ver /api/notify.js). No depende de haber elegido "quién
+     eres" ni una sucursal — el admin entra con su propia contraseña. */
+  const activarNotificacionesAdmin = async () => {
+    if (typeof Notification === "undefined") return false;
+    const resultado = await Notification.requestPermission();
+    setPermisoNotificaciones(resultado);
+    if (resultado === "granted" && messaging) {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+        if (token) {
+          await setDoc(doc(db, "fcm_tokens", token), {
+            usuario: "Administrador",
+            sucursal: "admin",
+            actualizado: new Date().toISOString(),
+          });
+          mostrarToast("Notificaciones de administrador activadas ✓");
+          return true;
+        }
+      } catch (e) {
+        // Mismo caso que en el flujo de empleado: si falla, no truena nada.
+      }
+    }
+    return false;
+  };
+
   // Cuando llega una notificación real con la app abierta en primer plano,
   // el navegador no la muestra solo — aquí se recibe y se enseña como toast.
   useEffect(() => {
@@ -8391,6 +8468,23 @@ export default function PhotografInventario() {
     setSnapshot((s) => ({ ...s, [sucursalActiva]: null }));
   };
 
+  /* Notificación push real (llega aunque el celular esté bloqueado o la app
+     cerrada) — solo para lo que de verdad cruza de una sucursal a otra: al
+     enviar una transferencia y al confirmarla. "sucursales" es a quién le
+     llega: la otra sucursal involucrada, más "admin" siempre. La función
+     serverless en /api/notify.js reparte el push a cada celular que haya
+     activado notificaciones para esa sucursal (o para admin).
+     Es "dispara y olvida": si falla (sin internet, o si todavía no se
+     configuró la llave de Firebase en Vercel — ver README), no interrumpe
+     el flujo, la transferencia ya quedó registrada igual. */
+  const enviarNotificacionPush = (sucursales, titulo, cuerpo) => {
+    fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sucursales, titulo, cuerpo }),
+    }).catch(() => {});
+  };
+
   /* Envía un equipo a la otra sucursal: lo saca de la sucursal activa y lo
      deja "En tránsito" hasta que la sucursal destino confirme su recepción.
      Antes, este paso borraba el equipo y nunca lo volvía a agregar en
@@ -8423,6 +8517,11 @@ export default function PhotografInventario() {
     ]);
     agregarBitacora(`${item.nombre} enviado a ${NOMBRES_SUCURSAL[destino]}`, quien);
     mostrarToast(`Enviado a ${NOMBRES_SUCURSAL[destino]} ✓`);
+    enviarNotificacionPush(
+      [destino, "admin"],
+      `Equipo en camino — ${NOMBRES_SUCURSAL[destino]}`,
+      `${item.nombre} viene de ${NOMBRES_SUCURSAL[sucursalActiva]}. Confírmalo en Más → Transferencias cuando llegue.`
+    );
   };
 
   /* Confirma la recepción del lado del destino: recién aquí el equipo
@@ -8470,6 +8569,13 @@ export default function PhotografInventario() {
     });
     setTransferenciasPendientes((ts) => ts.map((x) => (x.id === transferId ? { ...x, estado: "Recibido", quienRecibio: quienRecibe, fechaRecepcion: fmt(hoy) } : x)));
     mostrarToast("Transferencia confirmada ✓");
+    enviarNotificacionPush(
+      [t.origen, "admin"],
+      `Transferencia confirmada — ${NOMBRES_SUCURSAL[t.origen]}`,
+      llegoBien
+        ? `${t.nombre} llegó bien a ${NOMBRES_SUCURSAL[t.destino]}, recibido por ${quienRecibe}.`
+        : `${t.nombre} llegó con un problema a ${NOMBRES_SUCURSAL[t.destino]}: ${motivoProblema}`
+    );
   };
 
   /* Transferencia de bases entre sucursales — mismo espíritu que la de
@@ -8498,6 +8604,11 @@ export default function PhotografInventario() {
       },
     ]);
     mostrarToast(`Préstamo enviado a ${NOMBRES_SUCURSAL[destino]} ✓`);
+    enviarNotificacionPush(
+      [destino, "admin"],
+      `Préstamo en camino — ${NOMBRES_SUCURSAL[destino]}`,
+      `${cantidad} × ${base.nombre} viene de ${NOMBRES_SUCURSAL[sucursalActiva]}. Confírmalo en Más → Transferencias cuando llegue.`
+    );
   };
 
   /* Al confirmar, la cantidad recibida entra al inventario de la sucursal
@@ -8548,6 +8659,13 @@ export default function PhotografInventario() {
     });
     setTransferenciasBasesPendientes((ts) => ts.map((x) => (x.id === transferId ? { ...x, estado: "Recibido", quienRecibio: quienRecibe, fechaRecepcion: fmt(hoy), cantidadRecibida } : x)));
     mostrarToast("Recepción confirmada ✓");
+    enviarNotificacionPush(
+      [t.origen, "admin"],
+      `Préstamo confirmado — ${NOMBRES_SUCURSAL[t.origen]}`,
+      cantidadRecibida === t.cantidad
+        ? `${cantidadRecibida} × ${t.nombre} llegó bien a ${NOMBRES_SUCURSAL[t.destino]}, recibido por ${quienRecibe}.`
+        : `${t.nombre} llegó a ${NOMBRES_SUCURSAL[t.destino]}: se enviaron ${t.cantidad}, llegaron ${cantidadRecibida}. ${notaDiferencia || ""}`
+    );
   };
 
   if (!datosListos) {
@@ -8578,6 +8696,8 @@ export default function PhotografInventario() {
             setTransferenciasBases={setTransferenciasBasesPendientes}
             mostrarToast={mostrarToast}
             onBack={() => setMostrarAdmin(false)}
+            permisoNotificaciones={permisoNotificaciones}
+            onActivarNotificacionesAdmin={activarNotificacionesAdmin}
           />
         ) : (
           <AdminGate config={config} onSuccess={entrarComoAdmin} onCancel={() => setMostrarAdmin(false)} />
