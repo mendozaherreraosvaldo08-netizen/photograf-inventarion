@@ -256,6 +256,14 @@ function normalizarSucursal(d) {
       ...g,
       items: (g.items || []).map((it) => ({ costo: 0, notas: "", ...it })),
     })),
+    // Mismo mecanismo, pero para pestañas propias dentro de Almacén (junto
+    // a Bases/Panorámicas/Diplomas/Pedidos a proveedor) — separado de las
+    // de Materiales porque son cosas distintas.
+    gruposAlmacen: (base.gruposAlmacen || []).map((g) => ({
+      color: C.secondary,
+      ...g,
+      items: (g.items || []).map((it) => ({ costo: 0, notas: "", ...it })),
+    })),
     // Listas de "Tipo" de cada apartado (Indumentaria, Emblemáticos,
     // Mobiliario, Piezas, Placas chicas). Empiezan con lo que ya manejaba
     // el negocio, pero cada sucursal las puede editar desde la propia
@@ -307,7 +315,7 @@ function normalizarTodo(allData) {
 const LLAVES_SUCURSAL = [
   "equipo", "materiales", "bases", "pedidos", "indumentaria", "emblematicos",
   "mobiliario", "piezas", "hojasGrandes", "placasChicas", "rendimientos",
-  "produccionPlacas", "eventos", "transferencias", "bitacora", "gruposPersonalizados",
+  "produccionPlacas", "eventos", "transferencias", "bitacora", "gruposPersonalizados", "gruposAlmacen",
   "tiposIndumentaria", "tiposEmblematicos", "tiposMobiliario", "tiposPorGrupoPieza", "tiposPlacaChica",
 ];
 
@@ -713,6 +721,7 @@ function generarDatosIniciales(sucursal) {
     transferencias: [],
     bitacora: [{ texto: "Sistema inicializado", quien: "Sistema", fecha: fmt(hoy) }],
     gruposPersonalizados: [],
+    gruposAlmacen: [],
     tiposIndumentaria: [...TIPOS_INDUMENTARIA],
     tiposEmblematicos: [...TIPOS_EMBLEMATICO],
     tiposMobiliario: [...TIPOS_MOBILIARIO],
@@ -4178,6 +4187,27 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
   const [nuevoPaquete, setNuevoPaquete] = useState({ cliente: "", correo: "", telefono: "", fecha: fmt(hoy) });
   const [porDesarmar, setPorDesarmar] = useState(null);
   const [panoAmpliado, setPanoAmpliado] = useState(null); // { pano, entradas }
+  const [agregandoGrupoAlmacen, setAgregandoGrupoAlmacen] = useState(false);
+  const [nombreGrupoAlmacenNuevo, setNombreGrupoAlmacenNuevo] = useState("");
+  const [colorGrupoAlmacenNuevo, setColorGrupoAlmacenNuevo] = useState(C.secondary);
+
+  const gruposAlmacen = data.gruposAlmacen || [];
+  const COLORES_GRUPO_ALMACEN = [C.primary, C.secondary, C.accent1, C.warning, C.success];
+
+  const crearGrupoAlmacen = () => {
+    if (!nombreGrupoAlmacenNuevo.trim()) return;
+    const nuevoId = Date.now();
+    setData((d) => ({
+      ...d,
+      gruposAlmacen: [...(d.gruposAlmacen || []), { id: nuevoId, nombre: nombreGrupoAlmacenNuevo.trim(), color: colorGrupoAlmacenNuevo, items: [] }],
+    }));
+    bitacora(`Nueva pestaña creada en Almacén: ${nombreGrupoAlmacenNuevo.trim()}`, usuarioActual);
+    mostrarToast("Pestaña creada ✓");
+    setAgregandoGrupoAlmacen(false);
+    setNombreGrupoAlmacenNuevo("");
+    setColorGrupoAlmacenNuevo(C.secondary);
+    setTab(`custom:${nuevoId}`);
+  };
 
   const esQueretaro = sucursal === "queretaro";
   // Salvaguarda: aunque los datos ya separan por sucursal, nunca se muestra
@@ -4475,12 +4505,12 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
     setNuevaBase({ nombre: "", tenemos: "", catalogo: "General" });
     setOrigenNombreBase("catalogo");
     setBuscaCatalogoBase("");
-    // Si se agregó desde "Panorámicas" o "Diplomas", esas pestañas solo
-    // muestran panos que YA tienen foto compartida — la base recién creada
-    // no aparecería ahí hasta tener esa foto. En vez de dejarla perdida de
-    // vista, se abre aquí mismo el editor de foto de la base nueva: en
-    // cuanto se le pone la foto, aparece sola en esa misma pestaña.
-    if (tab === "panoramicas" || tab === "diplomas") {
+    // "Panorámicas" y "Diplomas" solo muestran panos que YA tienen foto
+    // cargada — una base nueva de tipo panorámica/diploma no aparecería ahí
+    // hasta tener esa foto, sin importar desde qué pestaña se haya creado.
+    // En vez de dejarla perdida de vista, se abre aquí mismo el editor de
+    // foto de la base nueva: en cuanto se le pone la foto, aparece sola.
+    if (["Universidad", "UNICEQ"].includes(catalogoFinal)) {
       setEditandoFotoDe({ id: nuevoId, nombre: nuevaBase.nombre, catalogo: catalogoFinal, imagen: null, imagenDiploma: null });
     }
   };
@@ -4518,7 +4548,55 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
         <FilterPill label="Panorámicas" active={tab === "panoramicas"} onClick={() => setTab("panoramicas")} color={C.primary} />
         <FilterPill label="Diplomas" active={tab === "diplomas"} onClick={() => setTab("diplomas")} color={C.accent1} />
         <FilterPill label="Pedidos a proveedor" active={tab === "pedidos"} onClick={() => setTab("pedidos")} color={C.secondary} />
+        {gruposAlmacen.map((g) => (
+          <FilterPill key={g.id} label={g.nombre} active={tab === `custom:${g.id}`} onClick={() => setTab(`custom:${g.id}`)} color={g.color || C.secondary} />
+        ))}
+        <button
+          onClick={() => { setNombreGrupoAlmacenNuevo(""); setColorGrupoAlmacenNuevo(C.secondary); setAgregandoGrupoAlmacen(true); }}
+          style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, border: `1.5px dashed ${C.border}`, borderRadius: 20, padding: "8px 14px", background: "none", color: C.muted, fontSize: 12.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+        >
+          <Plus size={14} /> Nueva pestaña
+        </button>
       </div>
+
+      {tab.startsWith("custom:") && (
+        <GrupoPersonalizadoScreen
+          grupo={gruposAlmacen.find((g) => `custom:${g.id}` === tab)}
+          setData={setData}
+          bitacora={bitacora}
+          usuarioActual={usuarioActual}
+          mostrarToast={mostrarToast}
+          campo="gruposAlmacen"
+          onEliminarGrupo={() => {
+            const grupo = gruposAlmacen.find((g) => `custom:${g.id}` === tab);
+            setData((d) => ({ ...d, gruposAlmacen: (d.gruposAlmacen || []).filter((g) => `custom:${g.id}` !== tab) }));
+            if (grupo) bitacora(`Pestaña personalizada de Almacén borrada: ${grupo.nombre}`, usuarioActual);
+            mostrarToast("Pestaña borrada");
+            setTab("bases");
+          }}
+        />
+      )}
+
+      {agregandoGrupoAlmacen && (
+        <Modal title="Nueva pestaña" onClose={() => setAgregandoGrupoAlmacen(false)}>
+          <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 4 }}>
+            Crea tu propia pestaña de Almacén para lo que no encaje en Bases, Panorámicas, Diplomas o Pedidos a proveedor — se guarda como una lista simple de artículo, cantidad y costo.
+          </div>
+          <FieldLabel>Nombre de la pestaña</FieldLabel>
+          <TextInput value={nombreGrupoAlmacenNuevo} onChange={(e) => setNombreGrupoAlmacenNuevo(e.target.value)} placeholder="Ej. Accesorios" />
+          <FieldLabel>Color</FieldLabel>
+          <div style={{ display: "flex", gap: 8 }}>
+            {COLORES_GRUPO_ALMACEN.map((col) => (
+              <button
+                key={col}
+                onClick={() => setColorGrupoAlmacenNuevo(col)}
+                style={{ width: 30, height: 30, borderRadius: 15, background: col, border: colorGrupoAlmacenNuevo === col ? `3px solid ${C.foreground}` : `1px solid ${C.border}`, cursor: "pointer" }}
+              />
+            ))}
+          </div>
+          <PrimaryButton onClick={crearGrupoAlmacen} disabled={!nombreGrupoAlmacenNuevo.trim()}>Crear pestaña</PrimaryButton>
+        </Modal>
+      )}
 
       {(tab === "panoramicas" || tab === "diplomas") && (
         <div style={{ padding: "16px 16px 0" }}>
@@ -5152,17 +5230,31 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
             </>
           ) : (
             <>
-              <FieldLabel>Nombre</FieldLabel>
+              <FieldLabel>Nombre del paquete</FieldLabel>
               <TextInput value={nuevaBase.nombre} onChange={(e) => setNuevaBase({ ...nuevaBase, nombre: e.target.value })} placeholder="Ej. Base Sur" />
-              {esQueretaro && (
+              <FieldLabel>Tipo</FieldLabel>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <FilterPill label="General" active={nuevaBase.catalogo === "General"} onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "General" })} />
+                <FilterPill
+                  label="Panorámica y diploma"
+                  active={["Universidad", "UNICEQ"].includes(nuevaBase.catalogo)}
+                  onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "Universidad" })}
+                  color={C.secondary}
+                />
+              </div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
+                {["Universidad", "UNICEQ"].includes(nuevaBase.catalogo)
+                  ? "Al guardar se abre para ponerle la foto de la panorámica y/o el diploma — así aparece en esas pestañas."
+                  : "Para lo que no lleva panorámica ni diploma (por ejemplo, paquetes escolares)."}
+              </div>
+              {esQueretaro && ["Universidad", "UNICEQ"].includes(nuevaBase.catalogo) && (
                 <>
-                  <FieldLabel>Catálogo</FieldLabel>
+                  <FieldLabel>Proveedor</FieldLabel>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <FilterPill label="General" active={nuevaBase.catalogo === "General"} onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "General" })} />
                     <FilterPill label="Universidad" active={nuevaBase.catalogo === "Universidad"} onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "Universidad" })} color={C.secondary} />
                     <FilterPill label="UNICEQ" active={nuevaBase.catalogo === "UNICEQ"} onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "UNICEQ" })} color={C.accent1} />
                   </div>
-                  <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>UNICEQ solo aparece en Querétaro.</div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>Solo para saber de qué proveedor viene — no afecta el conteo. UNICEQ solo aplica en Querétaro.</div>
                 </>
               )}
             </>
@@ -5244,7 +5336,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
    no encaje en ninguna de las categorías fijas. Se puede renombrar o
    borrar en cualquier momento desde el lápiz del encabezado.
    ========================================================================= */
-function GrupoPersonalizadoScreen({ grupo, setData, bitacora, usuarioActual, mostrarToast, onEliminarGrupo }) {
+function GrupoPersonalizadoScreen({ grupo, setData, bitacora, usuarioActual, mostrarToast, onEliminarGrupo, campo = "gruposPersonalizados" }) {
   const [busca, setBusca] = useState("");
   const [editId, setEditId] = useState(null);
   const [nuevoValor, setNuevoValor] = useState("");
@@ -5262,7 +5354,7 @@ function GrupoPersonalizadoScreen({ grupo, setData, bitacora, usuarioActual, mos
   const actualizarGrupo = (fn) => {
     setData((d) => ({
       ...d,
-      gruposPersonalizados: (d.gruposPersonalizados || []).map((g) => (g.id === grupo.id ? fn(g) : g)),
+      [campo]: (d[campo] || []).map((g) => (g.id === grupo.id ? fn(g) : g)),
     }));
   };
 
