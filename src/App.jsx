@@ -3892,7 +3892,18 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
   const [confirmandoBaja, setConfirmandoBaja] = useState(false);
 
   const filters = ["Todas", "Disponible", "En uso", "Dañado", "En reparación"];
-  const items = data.equipo.filter((i) => (filter === "Todas" || i.estado === filter) && i.nombre.toLowerCase().includes(search.toLowerCase()));
+  // Categorías: no es una lista aparte como las pestañas de Materiales o
+  // Almacén — aquí cada pieza de equipo ya se registra una por una (con su
+  // propia foto, estado y préstamo), así que la "pestaña" es simplemente
+  // agrupar por lo que se haya escrito en Categoría. Aparece sola en
+  // cuanto das de alta la primera pieza con ese nombre.
+  const categoriasEquipo = [...new Set(data.equipo.map((e) => e.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  const [categoriaFiltro, setCategoriaFiltro] = useState("Todas");
+  const [agregandoCategoria, setAgregandoCategoria] = useState(false);
+  const [categoriaNueva, setCategoriaNueva] = useState("");
+  const items = data.equipo.filter(
+    (i) => (filter === "Todas" || i.estado === filter) && (categoriaFiltro === "Todas" || i.categoria === categoriaFiltro) && i.nombre.toLowerCase().includes(search.toLowerCase())
+  );
   const selected = data.equipo.find((e) => e.id === selectedId);
   const atrasado = selected && selected.estado === "En uso" && selected.fechaDevolucion && selected.fechaDevolucion < fmt(hoy);
 
@@ -4128,6 +4139,18 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
           <FilterPill key={f} label={f} active={filter === f} onClick={() => setFilter(f)} />
         ))}
       </div>
+      <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "10px 16px 0" }}>
+        <FilterPill label="Todas las categorías" active={categoriaFiltro === "Todas"} onClick={() => setCategoriaFiltro("Todas")} color={C.secondary} />
+        {categoriasEquipo.map((c) => (
+          <FilterPill key={c} label={c} active={categoriaFiltro === c} onClick={() => setCategoriaFiltro(c)} color={C.secondary} />
+        ))}
+        <button
+          onClick={() => { setCategoriaNueva(""); setAgregandoCategoria(true); }}
+          style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, border: `1.5px dashed ${C.border}`, borderRadius: 20, padding: "8px 14px", background: "none", color: C.muted, fontSize: 12.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+        >
+          <Plus size={14} /> Nueva categoría
+        </button>
+      </div>
       <div className="pf-list-grid" style={{ padding: 16 }}>
         {items.map((i) => {
           const itemAtrasado = i.estado === "En uso" && i.fechaDevolucion && i.fechaDevolucion < fmt(hoy);
@@ -4135,18 +4158,48 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
         })}
         {items.length === 0 && <EmptyState icon={Camera} text="No se encontró equipo con ese filtro." />}
       </div>
-      <FAB color={C.primary} onClick={() => { setForm({ nombre: "", categoria: "", foto: null }); setModal("alta"); }} />
+      <FAB color={C.primary} onClick={() => { setForm({ nombre: "", categoria: categoriaFiltro === "Todas" ? "" : categoriaFiltro, foto: null }); setModal("alta"); }} />
 
       {modal === "alta" && (
         <Modal title="Nuevo equipo" onClose={() => setModal(null)}>
           <FieldLabel>Nombre</FieldLabel>
           <TextInput value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} placeholder="Ej. Cámara Sony A7III" />
           <FieldLabel>Categoría</FieldLabel>
+          {categoriasEquipo.length > 0 && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+              {categoriasEquipo.map((c) => (
+                <FilterPill key={c} label={c} active={form.categoria === c} onClick={() => setForm({ ...form, categoria: c })} color={C.secondary} />
+              ))}
+            </div>
+          )}
           <TextInput value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })} placeholder="Ej. Cámaras, Lentes, Soportes..." />
           <FieldLabel>Costo aproximado (opcional)</FieldLabel>
           <TextInput type="number" value={form.costo || ""} onChange={(e) => setForm({ ...form, costo: e.target.value })} placeholder="$0" />
           <PhotoInput value={form.foto} onChange={(v) => setForm({ ...form, foto: v })} />
           <PrimaryButton onClick={confirmarAlta} disabled={!form.nombre || !form.categoria}>Agregar equipo</PrimaryButton>
+        </Modal>
+      )}
+
+      {agregandoCategoria && (
+        <Modal title="Nueva categoría" onClose={() => setAgregandoCategoria(false)}>
+          <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 4 }}>
+            Cada pieza de equipo se sigue dando de alta una por una, con su propia foto, estado y préstamo — esto solo arranca una categoría nueva para agruparlas. En cuanto agregues la primera pieza, la categoría queda creada.
+          </div>
+          <FieldLabel>Nombre de la categoría</FieldLabel>
+          <TextInput value={categoriaNueva} onChange={(e) => setCategoriaNueva(e.target.value)} placeholder="Ej. Herramientas" />
+          <PrimaryButton
+            onClick={() => {
+              const nombre = categoriaNueva.trim();
+              if (!nombre) return;
+              setCategoriaFiltro(nombre);
+              setAgregandoCategoria(false);
+              setForm({ nombre: "", categoria: nombre, foto: null });
+              setModal("alta");
+            }}
+            disabled={!categoriaNueva.trim()}
+          >
+            Crear y agregar la primera pieza
+          </PrimaryButton>
         </Modal>
       )}
     </div>
