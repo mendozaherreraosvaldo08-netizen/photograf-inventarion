@@ -8261,7 +8261,13 @@ export default function PhotografInventario() {
     typeof Notification !== "undefined" ? Notification.permission : "unsupported"
   );
 
-  const activarNotificaciones = async () => {
+  /* silencioso=true: no muestra el toast ni cuenta como que el usuario lo
+     acaba de activar — se usa para refrescar el token solo, en segundo
+     plano (ver el useEffect de abajo), porque el permiso del navegador
+     puede quedar en "granted" mientras el token real ya se perdió o
+     rotó, y antes no había forma de reintentarlo (el botón se deshabilita
+     en cuanto el permiso está concedido). */
+  const activarNotificaciones = async (silencioso = false) => {
     if (typeof Notification === "undefined") return;
     const resultado = await Notification.requestPermission();
     setPermisoNotificaciones(resultado);
@@ -8275,7 +8281,7 @@ export default function PhotografInventario() {
             sucursal: sucursalActiva || "desconocida",
             actualizado: new Date().toISOString(),
           });
-          mostrarToast("Notificaciones activadas ✓");
+          if (!silencioso) mostrarToast("Notificaciones activadas ✓");
         }
       } catch (e) {
         // Si falla obtener el token (navegador no compatible, sin
@@ -8285,12 +8291,22 @@ export default function PhotografInventario() {
     }
   };
 
+  // Reintento silencioso: cada vez que se abre la app con una sucursal y
+  // usuario ya elegidos, si el navegador ya tiene el permiso concedido se
+  // vuelve a guardar el token (por si cambió o nunca se guardó bien la
+  // primera vez), sin pedirle nada al empleado ni mostrarle un toast.
+  useEffect(() => {
+    if (!sucursalActiva || !usuarioActual) return;
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    activarNotificaciones(true);
+  }, [sucursalActiva, usuarioActual]);
+
   /* Igual que activarNotificaciones, pero para quien lo activa desde el
      Panel de Administrador: se guarda con sucursal "admin" en vez de la
      sucursal de un empleado, para que le lleguen los avisos de las DOS
      sucursales (ver /api/notify.js). No depende de haber elegido "quién
      eres" ni una sucursal — el admin entra con su propia contraseña. */
-  const activarNotificacionesAdmin = async () => {
+  const activarNotificacionesAdmin = async (silencioso = false) => {
     if (typeof Notification === "undefined") return false;
     const resultado = await Notification.requestPermission();
     setPermisoNotificaciones(resultado);
@@ -8304,7 +8320,7 @@ export default function PhotografInventario() {
             sucursal: "admin",
             actualizado: new Date().toISOString(),
           });
-          mostrarToast("Notificaciones de administrador activadas ✓");
+          if (!silencioso) mostrarToast("Notificaciones de administrador activadas ✓");
           return true;
         }
       } catch (e) {
@@ -8313,6 +8329,15 @@ export default function PhotografInventario() {
     }
     return false;
   };
+
+  // Mismo reintento silencioso que el de empleado, pero para cuando se
+  // entra al Panel de Administrador con el permiso del navegador ya
+  // concedido de antes.
+  useEffect(() => {
+    if (!adminAutenticado) return;
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    activarNotificacionesAdmin(true);
+  }, [adminAutenticado]);
 
   // Cuando llega una notificación real con la app abierta en primer plano,
   // el navegador no la muestra solo — aquí se recibe y se enseña como toast.
@@ -8326,6 +8351,13 @@ export default function PhotografInventario() {
     return () => unsub && unsub();
   }, []);
 
+  /* Alertas (stock bajo, choques de reservas, paquetes vencidos, equipo
+     atrasado, etc.): antes solo se enseñaban como Notification local, que
+     sólo suena si la pestaña sigue abierta en ese celular en ese momento
+     — con la app cerrada, nunca llegaban. Ahora, además de eso, se manda
+     un push real a la sucursal (y a admin) apenas se detecta una alerta
+     nueva, igual que con las transferencias — así llega aunque nadie
+     tenga la app abierta en ese momento. */
   useEffect(() => {
     if (!sucursalActiva) return;
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
@@ -8341,6 +8373,7 @@ export default function PhotografInventario() {
           // sin un service worker; si falla, el aviso se sigue viendo en la
           // pantalla de Notificaciones dentro de la app.
         }
+        enviarNotificacionPush([sucursalActiva, "admin"], `Photograf — ${a.tipo}`, a.texto);
       }
     });
   }, [allData, sucursalActiva]);
