@@ -5534,23 +5534,14 @@ function GrupoPersonalizadoScreen({ grupo, setData, bitacora, usuarioActual, mos
    ========================================================================= */
 
 function MaterialesScreen({ data, setData, bitacora, usuarioActual, mostrarToast, config, onPedir, sucursal }) {
-  const [tab, setTab] = useState("materiales");
+  // La pestaña "Materiales" (lista genérica por cantidad) se quitó a
+  // petición del negocio: lo que traía se organiza mejor en pestañas
+  // propias (como "Papelería"), creadas con el botón "+ Nueva pestaña" de
+  // aquí abajo. Catálogos queda como pestaña de arranque.
+  const [tab, setTab] = useState("catalogos");
   const [agregandoGrupo, setAgregandoGrupo] = useState(false);
   const [nombreGrupoNuevo, setNombreGrupoNuevo] = useState("");
   const [colorGrupoNuevo, setColorGrupoNuevo] = useState(C.secondary);
-
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("Todas");
-  const [editId, setEditId] = useState(null);
-  const [nuevoValor, setNuevoValor] = useState("");
-  const [quien, setQuien] = useState("");
-  const [confirmGrande, setConfirmGrande] = useState(null);
-  const [modalAlta, setModalAlta] = useState(false);
-  const [nuevoMat, setNuevoMat] = useState({ nombre: "", categoria: "", cantidad: "", foto: null });
-  const [porEliminar, setPorEliminar] = useState(null);
-  const [pidiendo, setPidiendo] = useState(null);
-  const [cantPedido, setCantPedido] = useState("");
-  const [urgPedido, setUrgPedido] = useState("Normal");
 
   const gruposPersonalizados = data.gruposPersonalizados || [];
   const COLORES_GRUPO = [C.primary, C.secondary, C.accent1, C.warning, C.success];
@@ -5570,50 +5561,11 @@ function MaterialesScreen({ data, setData, bitacora, usuarioActual, mostrarToast
     setTab(`custom:${nuevoId}`);
   };
 
-  const categorias = ["Todas", ...new Set(data.materiales.map((m) => m.categoria))];
-  const items = data.materiales.filter((m) => (filter === "Todas" || m.categoria === filter) && m.nombre.toLowerCase().includes(search.toLowerCase()));
-
-  const guardar = (mat) => {
-    const nuevo = parseInt(nuevoValor, 10);
-    if (isNaN(nuevo) || !quien) return;
-    const cambioGrande = mat.cantidad > 0 && Math.abs(nuevo - mat.cantidad) / mat.cantidad > 0.5;
-    if (cambioGrande && !confirmGrande) {
-      setConfirmGrande({ mat, nuevo });
-      return;
-    }
-    setData((d) => ({ ...d, materiales: d.materiales.map((m) => (m.id === mat.id ? { ...m, cantidad: nuevo } : m)) }));
-    bitacora(`${mat.nombre} editado de ${mat.cantidad} a ${nuevo}`, quien);
-    mostrarToast("Cantidad actualizada ✓");
-    setEditId(null);
-    setConfirmGrande(null);
-    setNuevoValor("");
-    setQuien("");
-  };
-
-  const confirmarAlta = () => {
-    if (!nuevoMat.nombre || !nuevoMat.categoria || nuevoMat.cantidad === "") return;
-    const nuevoId = Math.max(0, ...data.materiales.map((m) => m.id)) + 1;
-    setData((d) => ({ ...d, materiales: [...d.materiales, { id: nuevoId, nombre: nuevoMat.nombre, categoria: nuevoMat.categoria, cantidad: parseInt(nuevoMat.cantidad, 10) || 0, costo: parseFloat(nuevoMat.costo) || 0, notas: "", foto: nuevoMat.foto }] }));
-    bitacora(`Nuevo material agregado: ${nuevoMat.nombre}`, usuarioActual);
-    mostrarToast("Material agregado ✓");
-    setModalAlta(false);
-    setNuevoMat({ nombre: "", categoria: "", cantidad: "", foto: null });
-  };
-
-  const eliminarMaterial = () => {
-    setData((d) => ({ ...d, materiales: d.materiales.filter((m) => m.id !== porEliminar.id) }));
-    bitacora(`Material eliminado: ${porEliminar.nombre}`, usuarioActual);
-    mostrarToast("Material eliminado");
-    setPorEliminar(null);
-    setEditId(null);
-  };
-
   return (
     <div style={{ paddingBottom: 90 }}>
       <div style={{ padding: "16px 16px 0" }}>
         <div className="pf-heading" style={{ fontSize: 20, fontWeight: 700, color: C.foreground, marginBottom: 12 }}>Materiales y producción</div>
         <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-          <FilterPill label="Materiales" active={tab === "materiales"} onClick={() => setTab("materiales")} color={C.accent1} />
           <FilterPill label="Catálogos" active={tab === "catalogos"} onClick={() => setTab("catalogos")} color={C.primary} />
           <FilterPill label="Indumentaria" active={tab === "indumentaria"} onClick={() => setTab("indumentaria")} color={C.accent1} />
           <FilterPill label="Emblemáticos" active={tab === "emblematicos"} onClick={() => setTab("emblematicos")} color={C.warning} />
@@ -5650,7 +5602,7 @@ function MaterialesScreen({ data, setData, bitacora, usuarioActual, mostrarToast
             setData((d) => ({ ...d, gruposPersonalizados: (d.gruposPersonalizados || []).filter((g) => `custom:${g.id}` !== tab) }));
             if (grupo) bitacora(`Pestaña personalizada borrada: ${grupo.nombre}`, usuarioActual);
             mostrarToast("Pestaña borrada");
-            setTab("materiales");
+            setTab("catalogos");
           }}
         />
       )}
@@ -5673,131 +5625,6 @@ function MaterialesScreen({ data, setData, bitacora, usuarioActual, mostrarToast
             ))}
           </div>
           <PrimaryButton onClick={crearGrupo} disabled={!nombreGrupoNuevo.trim()}>Crear pestaña</PrimaryButton>
-        </Modal>
-      )}
-
-      {tab === "materiales" && (
-        <>
-      <SearchBar placeholder="Buscar materiales..." value={search} onChange={(e) => setSearch(e.target.value)} />
-      <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "16px 16px 0" }}>
-        {categorias.map((c) => (
-          <FilterPill key={c} label={c} active={filter === c} onClick={() => setFilter(c)} />
-        ))}
-      </div>
-      <div className="pf-list-grid" style={{ padding: 16 }}>
-        {items.map((m) => (
-          <InventoryCard
-            key={m.id}
-            nombre={m.nombre}
-            categoria={`${m.categoria} · ${codigoArticulo("MAT", sucursal, m.id)}` + (m.notas ? ` · ${m.notas}` : "")}
-            foto={m.foto}
-            right={
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 22, fontWeight: 700, color: C.primary }}>{m.cantidad}</div>
-                {m.cantidad <= minimoDe(m, config) && (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, marginTop: 4 }}>
-                    <LowStockBadge />
-                    <button
-                      onClick={(ev) => { ev.stopPropagation(); setPidiendo(m); setCantPedido(String(Math.max(1, minimoDe(m, config) * 2 - m.cantidad))); setUrgPedido("Normal"); }}
-                      style={{ background: "none", border: `1px solid ${C.warning}`, color: C.warning, borderRadius: 6, padding: "4px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
-                    >
-                      Pedir más
-                    </button>
-                  </div>
-                )}
-              </div>
-            }
-            onEdit={() => { setEditId(m.id); setNuevoValor(String(m.cantidad)); setQuien(usuarioActual); }}
-          />
-        ))}
-      </div>
-      <FAB color={C.accent1} onClick={() => setModalAlta(true)} />
-        </>
-      )}
-
-      {editId !== null && !confirmGrande && (
-        <Modal title="Editar cantidad" onClose={() => setEditId(null)}>
-          <FieldLabel>Nueva cantidad</FieldLabel>
-          <TextInput type="number" value={nuevoValor} onChange={(e) => setNuevoValor(e.target.value)} />
-          <FieldLabel>Tu nombre</FieldLabel>
-          <TextInput value={quien} onChange={(e) => setQuien(e.target.value)} placeholder="Quién edita" />
-          <PrimaryButton onClick={() => guardar(data.materiales.find((m) => m.id === editId))} color={C.accent1} disabled={!quien}>Guardar</PrimaryButton>
-          <button
-            onClick={() => setPorEliminar(data.materiales.find((m) => m.id === editId))}
-            style={{ width: "100%", background: "none", border: "none", color: C.error, fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-          >
-            <Trash2 size={14} /> Eliminar este material
-          </button>
-        </Modal>
-      )}
-
-      {porEliminar && (
-        <Modal title="Eliminar material" onClose={() => setPorEliminar(null)} danger>
-          <div style={{ fontSize: 14, color: C.foreground }}>
-            ¿Eliminar "{porEliminar.nombre}" del inventario? Esto no se puede deshacer; si fue un error de captura, mejor edita la cantidad.
-          </div>
-          <PrimaryButton onClick={eliminarMaterial} color={C.error}>Sí, eliminar</PrimaryButton>
-        </Modal>
-      )}
-
-      {confirmGrande && (
-        <Modal title="Confirmar cambio grande" onClose={() => setConfirmGrande(null)} danger>
-          <div style={{ fontSize: 14, color: C.foreground }}>Vas a cambiar {confirmGrande.mat.nombre} de {confirmGrande.mat.cantidad} a {confirmGrande.nuevo}. ¿Confirmas?</div>
-          <PrimaryButton
-            onClick={() => {
-              setData((d) => ({ ...d, materiales: d.materiales.map((m) => (m.id === confirmGrande.mat.id ? { ...m, cantidad: confirmGrande.nuevo } : m)) }));
-              bitacora(`${confirmGrande.mat.nombre} editado de ${confirmGrande.mat.cantidad} a ${confirmGrande.nuevo}`, quien);
-              setEditId(null);
-              setConfirmGrande(null);
-              setNuevoValor("");
-              setQuien("");
-            }}
-            color={C.error}
-          >
-            Sí, confirmar
-          </PrimaryButton>
-        </Modal>
-      )}
-
-      {pidiendo && (
-        <Modal title={`Pedir ${pidiendo.nombre}`} onClose={() => setPidiendo(null)}>
-          <div style={{ fontSize: 12.5, color: C.muted }}>
-            Quedan {pidiendo.cantidad}. El pedido se manda al administrador para que lo autorice; después aparece en Almacén → Pedidos para marcarlo como recibido.
-          </div>
-          <FieldLabel>¿Cuántas piezas?</FieldLabel>
-          <TextInput type="number" value={cantPedido} onChange={(e) => setCantPedido(e.target.value)} />
-          <FieldLabel>¿Qué tan urgente?</FieldLabel>
-          <div style={{ display: "flex", gap: 8 }}>
-            <FilterPill label="Normal" active={urgPedido === "Normal"} onClick={() => setUrgPedido("Normal")} color={C.success} />
-            <FilterPill label="Urgente" active={urgPedido === "Urgente"} onClick={() => setUrgPedido("Urgente")} color={C.error} />
-          </div>
-          <PrimaryButton
-            onClick={() => { onPedir(pidiendo.nombre, "material", parseInt(cantPedido, 10) || 1, urgPedido); setPidiendo(null); }}
-            color={C.warning}
-            disabled={!cantPedido || parseInt(cantPedido, 10) < 1}
-          >
-            Mandar a autorizar
-          </PrimaryButton>
-        </Modal>
-      )}
-
-      {modalAlta && (
-        <Modal title="Nuevo material" onClose={() => setModalAlta(false)}>
-          <FieldLabel>Nombre</FieldLabel>
-          <TextInput value={nuevoMat.nombre} onChange={(e) => setNuevoMat({ ...nuevoMat, nombre: e.target.value })} placeholder="Ej. Toga rosa" />
-          <FieldLabel>Categoría</FieldLabel>
-          <TextInput value={nuevoMat.categoria} onChange={(e) => setNuevoMat({ ...nuevoMat, categoria: e.target.value })} placeholder="Ej. Togas, Accesorios..." />
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: -8, marginBottom: 14 }}>
-            {CATEGORIAS_SUGERIDAS_MATERIAL.map((c) => (
-              <FilterPill key={c} label={c} active={nuevoMat.categoria === c} onClick={() => setNuevoMat({ ...nuevoMat, categoria: c })} />
-            ))}
-          </div>
-          <FieldLabel>Cantidad inicial</FieldLabel>
-          <TextInput type="number" value={nuevoMat.cantidad} onChange={(e) => setNuevoMat({ ...nuevoMat, cantidad: e.target.value })} placeholder="0" />
-          <FieldLabel>Costo unitario (opcional)</FieldLabel>
-          <TextInput type="number" value={nuevoMat.costo || ""} onChange={(e) => setNuevoMat({ ...nuevoMat, costo: e.target.value })} placeholder="$0" />
-          <PhotoInput value={nuevoMat.foto} onChange={(v) => setNuevoMat({ ...nuevoMat, foto: v })} />
-          <PrimaryButton onClick={confirmarAlta} color={C.accent1} disabled={!nuevoMat.nombre || !nuevoMat.categoria || nuevoMat.cantidad === ""}>Agregar material</PrimaryButton>
         </Modal>
       )}
     </div>
