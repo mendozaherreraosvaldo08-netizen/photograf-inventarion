@@ -4222,7 +4222,6 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
   const [nuevaVariante, setNuevaVariante] = useState({ color: "", cantidad: "" });
   const [editandoVariante, setEditandoVariante] = useState(null); // { base, variante }
   const [varianteCantEdit, setVarianteCantEdit] = useState("");
-  const [catalogo, setCatalogo] = useState("Todos");
   const [editBase, setEditBase] = useState(null);
   const [nuevoValor, setNuevoValor] = useState("");
   const [quien, setQuien] = useState("");
@@ -4266,7 +4265,10 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
   // Salvaguarda: aunque los datos ya separan por sucursal, nunca se muestra
   // UNICEQ fuera de Querétaro, ni siquiera si llegara a existir en los datos.
   const basesVisibles = data.bases.filter((b) => esQueretaro || b.catalogo !== "UNICEQ");
-  const basesFiltradas = basesVisibles.filter((b) => catalogo === "Todos" || b.catalogo === catalogo);
+  // Ya no se filtra por catálogo aquí — se quitó la fila de filtros
+  // General/Universidad/UNICEQ a petición del negocio, la lista de Bases
+  // muestra todo junto.
+  const basesFiltradas = basesVisibles;
 
   /* Catálogo unificado de panos: Universidad y UNICEQ venden por separado
      (con nombre y precio distintos) lo que muchas veces es el mismo diseño
@@ -4705,12 +4707,6 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
 
       {tab === "bases" && (
         <>
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "16px 16px 0" }}>
-            <FilterPill label="Todos los catálogos" active={catalogo === "Todos"} onClick={() => setCatalogo("Todos")} />
-            <FilterPill label="General" active={catalogo === "General"} onClick={() => setCatalogo("General")} />
-            <FilterPill label="Universidad" active={catalogo === "Universidad"} onClick={() => setCatalogo("Universidad")} color={C.secondary} />
-            {esQueretaro && <FilterPill label="UNICEQ" active={catalogo === "UNICEQ"} onClick={() => setCatalogo("UNICEQ")} color={C.accent1} />}
-          </div>
           {sobreReservado.length > 0 && (
             <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
               {sobreReservado.map((b) => (
@@ -4872,13 +4868,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
               );
             })}
             {basesFiltradas.length === 0 && (
-              <EmptyState
-                text={
-                  catalogo === "Todos"
-                    ? "Todavía no hay bases registradas en esta sucursal. Agrega una con el botón + de aquí abajo, o pídele al administrador que use \"Cargar catálogo 2026\" en Editar inventario → Bases."
-                    : `Todavía no hay bases del catálogo "${catalogo}" en esta sucursal.`
-                }
-              />
+              <EmptyState text={"Todavía no hay bases registradas en esta sucursal. Agrega una con el botón + de aquí abajo, o pídele al administrador que use \"Cargar catálogo 2026\" en Editar inventario → Bases."} />
             )}
           </div>
           <FAB
