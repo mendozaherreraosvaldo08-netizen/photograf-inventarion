@@ -184,6 +184,12 @@ const CONFIG_INICIAL = {
   passwords: { queretaro: "qro2024", salinas: "sal2024", admin: "admin2024" },
   umbralStock: 3,
   accesos: [],
+  // ID del Google Calendar de cada sucursal (el que se ve en "Integrar
+  // calendario" dentro de la configuración de ese calendario en Google).
+  // Solo lectura: la app nunca crea ni cambia nada en el calendario real,
+  // solo trae los próximos eventos para poder armarles su lista de equipo
+  // y avisar antes de cada uno. Ver api/agenda.js.
+  calendarios: { queretaro: "", salinas: "" },
 };
 
 /* Mínimo de existencias de un material: si tiene su propio umbral usa ese,
@@ -214,6 +220,8 @@ function normalizarSucursal(d) {
       quienAutorizo: null,
       fechaPrestamo: null,
       fechaDevolucion: null,
+      mantenimientoIntervaloDias: 0,
+      mantenimientoUltima: null,
       ...e,
     })),
     materiales: (base.materiales || []).map((m) => ({ notas: "", costo: 0, foto: null, ...m })),
@@ -347,6 +355,7 @@ function normalizarConfig(config) {
     ...(config || {}),
     passwords: { ...CONFIG_INICIAL.passwords, ...(config?.passwords || {}) },
     accesos: config?.accesos || [],
+    calendarios: { ...CONFIG_INICIAL.calendarios, ...(config?.calendarios || {}) },
   };
 }
 
@@ -1381,6 +1390,9 @@ function calcularAlertas(data, config) {
     if (tol?.nivel === "vencido") alertas.push({ tipo: "Paquete vencido", texto: `${r.evento} (${b.nombre}) lleva ${tol.dias - TOLERANCIA_DIAS} día(s) sin recogerse — desármalo`, color: C.error });
   }));
   data.equipo.filter((e) => e.estado === "En uso" && e.fechaDevolucion && e.fechaDevolucion < fmt(hoy)).forEach((e) => alertas.push({ tipo: "Equipo atrasado", texto: `${e.nombre} debía devolverse el ${e.fechaDevolucion}`, color: C.error }));
+  data.equipo
+    .filter((e) => e.estado !== "Baja" && (e.mantenimientoIntervaloDias || 0) > 0 && e.mantenimientoUltima && diasTranscurridos(e.mantenimientoUltima) >= e.mantenimientoIntervaloDias)
+    .forEach((e) => alertas.push({ tipo: "Mantenimiento pendiente", texto: `${e.nombre}: toca darle mantenimiento (cada ${e.mantenimientoIntervaloDias} días, el último fue el ${e.mantenimientoUltima})`, color: C.warning }));
   (data.indumentaria || []).forEach((i) =>
     (i.prestamos || [])
       .filter((p) => p.estado === "Prestado" && p.fechaEsperada && p.fechaEsperada < fmt(hoy))
@@ -1399,6 +1411,17 @@ function calcularAlertas(data, config) {
         alertas.push({ tipo: "Equipo comprometido", texto: `${item ? item.nombre : "Equipo"} para "${ev.nombre}" (${ev.fecha}): ${conflicto}`, color: C.error });
       }
     });
+    // Recordatorio del evento mismo (venga de Google Calendar o se haya
+    // creado a mano): avisa 2 días antes y el mismo día, para que no se
+    // les vaya la fecha por no traer la app abierta en ese momento.
+    if (ev.fecha >= fmt(hoy) && ev.fecha <= enDias(2)) {
+      const nombresEquipo = ev.equipoIds.map((id) => data.equipo.find((e) => e.id === id)?.nombre).filter(Boolean);
+      alertas.push({
+        tipo: "Sesión próxima",
+        texto: `${ev.nombre} (${ev.fecha})${nombresEquipo.length ? ` — llevar: ${nombresEquipo.join(", ")}` : " — todavía sin equipo asignado"}`,
+        color: C.warning,
+      });
+    }
   });
   return alertas;
 }
@@ -1874,6 +1897,20 @@ function AdminEmpleados({ empleados, setEmpleados, allData, onBack, mostrarToast
    ========================================================================= */
 const ESTADOS_EQUIPO = ["Disponible", "En uso", "Dañado", "En reparación", "Baja"];
 
+/* Intervalos que puede elegir el administrador para el aviso de
+   mantenimiento de un equipo (0 = sin alerta). El conteo arranca desde
+   "mantenimientoUltima" — la fecha en que alguien tocó "Ya se le dio
+   mantenimiento" en la pantalla del equipo (o, si nunca se ha tocado, desde
+   el día en que el administrador activó la alerta). */
+const OPCIONES_MANTENIMIENTO = [
+  { dias: 0, label: "Sin alerta" },
+  { dias: 7, label: "Cada 7 días" },
+  { dias: 15, label: "Cada 15 días" },
+  { dias: 30, label: "Cada mes" },
+  { dias: 60, label: "Cada 2 meses" },
+  { dias: 90, label: "Cada 3 meses" },
+];
+
 function AdminInventario({ allData, setAllData, registrar, config, onBack, mostrarToast }) {
   const [suc, setSuc] = useState(SUCURSALES[0]);
   const [tab, setTab] = useState("equipo");
@@ -1893,7 +1930,7 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
   const TITULO_NUEVO = { equipo: "Nuevo equipo", material: "Nuevo material", base: "Nueva base", indumentaria: "Nueva indumentaria", emblematico: "Nuevo emblemático", mobiliario: "Nuevo mobiliario", pieza: "Nueva pieza" };
   const TITULO_EDITAR = { equipo: "Editar equipo", material: "Editar material", base: "Editar base", indumentaria: "Editar indumentaria", emblematico: "Editar emblemático", mobiliario: "Editar mobiliario", pieza: "Editar pieza" };
   const VALORES_NUEVO = {
-    equipo: { nombre: "", categoria: "", costo: "", notas: "", estado: "Disponible" },
+    equipo: { nombre: "", categoria: "", costo: "", notas: "", estado: "Disponible", mantenimientoIntervaloDias: 0 },
     material: { nombre: "", categoria: "", cantidad: "", costo: "", notas: "", minimo: "" },
     base: { nombre: "", catalogo: "General", tenemos: "", costo: "", pedidoProveedor: "", precio: "", medidas: "", incluye: "", imagen: null },
     indumentaria: { tipo: "", detalle: "", cantidadTotal: "", costo: "" },
@@ -1926,10 +1963,11 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
     if (tipo === "pieza" && !(form.tipo || item?.tipo)) return;
 
     if (tipo === "equipo") {
+      const intervaloElegido = parseInt(form.mantenimientoIntervaloDias, 10) || 0;
       if (esNuevo) {
         setAllData((prev) => {
           const arr = prev[suc].equipo;
-          const nuevoItem = { id: Math.max(0, ...arr.map((e) => e.id)) + 1, nombre, categoria: (form.categoria || "").trim() || "General", estado: form.estado || "Disponible", foto: null, fotos: [], costo: parseFloat(form.costo) || 0, quienLoTiene: null, quienAutorizo: null, fechaPrestamo: null, fechaDevolucion: null, notas: form.notas || "", historial: [{ texto: "Alta de equipo desde el panel de administrador", fecha: fmt(hoy) }] };
+          const nuevoItem = { id: Math.max(0, ...arr.map((e) => e.id)) + 1, nombre, categoria: (form.categoria || "").trim() || "General", estado: form.estado || "Disponible", foto: null, fotos: [], costo: parseFloat(form.costo) || 0, quienLoTiene: null, quienAutorizo: null, fechaPrestamo: null, fechaDevolucion: null, notas: form.notas || "", mantenimientoIntervaloDias: intervaloElegido, mantenimientoUltima: intervaloElegido > 0 ? fmt(hoy) : null, historial: [{ texto: "Alta de equipo desde el panel de administrador", fecha: fmt(hoy) }] };
           return { ...prev, [suc]: { ...prev[suc], equipo: [...arr, nuevoItem] } };
         });
         registrar(suc, `Equipo agregado por el administrador: ${nombre}`);
@@ -1940,7 +1978,12 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
           costo: parseFloat(form.costo) || 0,
           notas: form.notas || "",
           estado: form.estado || item.estado,
+          mantenimientoIntervaloDias: intervaloElegido,
         };
+        // Si se acaba de activar la alerta y el equipo nunca había tenido un
+        // mantenimiento registrado, se usa hoy como punto de partida — así
+        // no sale "vencido" desde el primer día que se activa.
+        if (intervaloElegido > 0 && !item.mantenimientoUltima) cambios.mantenimientoUltima = fmt(hoy);
         setAllData((prev) => ({
           ...prev,
           [suc]: {
@@ -2238,6 +2281,37 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
       <SectionHeader title="Editar inventario" subtitle="Corrige o elimina cualquier artículo" onBack={onBack} />
       <div style={{ padding: 16 }}>
         <SelectorSucursal valor={suc} onChange={setSuc} />
+        {/* Resumen rápido de las dos sucursales a la vez, para no tener que
+            ir cambiando el selector de arriba solo para comparar cómo va
+            cada una. */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+          {SUCURSALES.map((s) => {
+            const ds = allData[s];
+            const disponible = ds.equipo.filter((e) => e.estado === "Disponible").length;
+            const enUso = ds.equipo.filter((e) => e.estado === "En uso").length;
+            const danado = ds.equipo.filter((e) => e.estado === "Dañado").length;
+            const reparacion = ds.equipo.filter((e) => e.estado === "En reparación").length;
+            const alertasSuc = calcularAlertas(ds, config).length;
+            return (
+              <button
+                key={s}
+                onClick={() => setSuc(s)}
+                style={{ textAlign: "left", cursor: "pointer", background: C.surface, border: `1.5px solid ${s === suc ? C.primary : C.border}`, borderRadius: 12, padding: 12 }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.foreground, marginBottom: 6 }}>{NOMBRES_SUCURSAL[s]}</div>
+                <div style={{ fontSize: 11.5, color: C.muted }}>
+                  Disponible <b style={{ color: C.success }}>{disponible}</b> · En uso <b style={{ color: C.primary }}>{enUso}</b>
+                </div>
+                <div style={{ fontSize: 11.5, color: C.muted, marginTop: 2 }}>
+                  Dañado <b style={{ color: C.error }}>{danado}</b> · Reparación <b style={{ color: C.warning }}>{reparacion}</b>
+                </div>
+                <div style={{ fontSize: 11.5, color: alertasSuc > 0 ? C.warning : C.muted, marginTop: 4, fontWeight: alertasSuc > 0 ? 700 : 400 }}>
+                  {alertasSuc} alerta(s) activa(s)
+                </div>
+              </button>
+            );
+          })}
+        </div>
         {/* Antes esta fila se salía de la pantalla y había que arrastrarla
             para ver las últimas pestañas; con flexWrap se acomodan solas en
             dos líneas y se ven todas de un vistazo. */}
@@ -2518,6 +2592,24 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
                   <FilterPill key={es} label={es} active={form.estado === es} onClick={() => setForm({ ...form, estado: es })} color={estadoColorDe(es)} />
                 ))}
               </div>
+              <FieldLabel>Aviso de mantenimiento</FieldLabel>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {OPCIONES_MANTENIMIENTO.map((op) => (
+                  <FilterPill
+                    key={op.dias}
+                    label={op.label}
+                    active={(parseInt(form.mantenimientoIntervaloDias, 10) || 0) === op.dias}
+                    onClick={() => setForm({ ...form, mantenimientoIntervaloDias: op.dias })}
+                  />
+                ))}
+              </div>
+              {(parseInt(form.mantenimientoIntervaloDias, 10) || 0) > 0 && (
+                <div style={{ fontSize: 11.5, color: C.muted, marginTop: -4, marginBottom: 8 }}>
+                  {editando.item?.mantenimientoUltima
+                    ? `Último mantenimiento registrado: ${editando.item.mantenimientoUltima}. Para reiniciar el conteo, usa "Ya se le dio mantenimiento" en la pantalla del equipo.`
+                    : "El conteo arranca desde hoy."}
+                </div>
+              )}
             </>
           )}
 
@@ -3023,6 +3115,7 @@ function AdminCategorias({ allData, setAllData, registrar, onBack, mostrarToast 
 function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEmpleados, transferencias, setTransferencias, transferenciasBases, setTransferenciasBases, onBack, mostrarToast, permisoNotificaciones, onActivarNotificacionesAdmin }) {
   const [pw, setPw] = useState({ ...config.passwords });
   const [umbral, setUmbral] = useState(String(config.umbralStock));
+  const [calendarios, setCalendarios] = useState({ queretaro: "", salinas: "", ...(config.calendarios || {}) });
   const [porRestaurar, setPorRestaurar] = useState(null);
   const [sucRendimiento, setSucRendimiento] = useState(SUCURSALES[0]);
   const archivoRef = useRef(null);
@@ -3082,6 +3175,11 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
     }
     setConfig((c) => ({ ...c, umbralStock: n }));
     mostrarToast("Mínimo general actualizado ✓");
+  };
+
+  const guardarCalendarios = () => {
+    setConfig((c) => ({ ...c, calendarios: { queretaro: (calendarios.queretaro || "").trim(), salinas: (calendarios.salinas || "").trim() } }));
+    mostrarToast("Calendarios guardados ✓");
   };
 
   /* Respaldo: un archivo .json con todo lo que la app guarda. Sirve para
@@ -3189,6 +3287,21 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
         <FieldLabel>Avisar cuando queden esta cantidad o menos</FieldLabel>
         <TextInput type="number" value={umbral} onChange={(e) => setUmbral(e.target.value)} />
         <PrimaryButton onClick={guardarUmbral} color={C.warning}>Guardar mínimo</PrimaryButton>
+
+        <div style={{ height: 32 }} />
+
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.foreground, marginBottom: 4 }}>Google Calendar</div>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>
+          Pega aquí el ID del Google Calendar de cada sucursal para que, en Calendario, se puedan traer sus próximos eventos ya agendados y armarles ahí mismo la lista de equipo que se va a llevar. Es de una sola vía: la app solo lee, nunca crea ni cambia nada en el calendario real.
+        </div>
+        <div style={{ fontSize: 11.5, color: C.muted, background: C.background, border: `1px solid ${C.border}`, borderRadius: 10, padding: 10, marginBottom: 12 }}>
+          Paso previo (una sola vez, por sucursal): en Google Calendar → ⚙️ Configuración de ese calendario → "Compartir con determinadas personas" → agrega el mismo correo de servicio que ya usamos para las notificaciones (el FIREBASE_CLIENT_EMAIL que está en las variables de entorno de Vercel), con permiso "Ver todos los detalles del evento". El ID del calendario está más abajo en esa misma pantalla, en "Integrar calendario".
+        </div>
+        <FieldLabel>ID del calendario — Querétaro</FieldLabel>
+        <TextInput value={calendarios.queretaro} onChange={(e) => setCalendarios({ ...calendarios, queretaro: e.target.value })} placeholder="ejemplo@group.calendar.google.com" />
+        <FieldLabel>ID del calendario — Salinas</FieldLabel>
+        <TextInput value={calendarios.salinas} onChange={(e) => setCalendarios({ ...calendarios, salinas: e.target.value })} placeholder="ejemplo@group.calendar.google.com" />
+        <PrimaryButton onClick={guardarCalendarios} color={C.secondary}>Guardar calendarios</PrimaryButton>
 
         <div style={{ height: 32 }} />
 
@@ -4053,6 +4166,12 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
     mostrarToast("Marcado como en reparación ✓");
   };
 
+  const marcarMantenimiento = () => {
+    actualizarEquipo(selected.id, { mantenimientoUltima: fmt(hoy) }, "Se le dio mantenimiento");
+    bitacora(`${selected.nombre}: se le dio mantenimiento`, usuarioActual);
+    mostrarToast("Mantenimiento registrado ✓");
+  };
+
   const marcarReparado = () => {
     actualizarEquipo(selected.id, { estado: "Disponible", notas: "" }, "Reparado y de vuelta en servicio");
     bitacora(`${selected.nombre} reparado y de vuelta en servicio`, usuarioActual);
@@ -4160,6 +4279,29 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
               </>
             )}
           </div>
+          {(selected.mantenimientoIntervaloDias || 0) > 0 && selected.mantenimientoUltima && (() => {
+            const dias = diasTranscurridos(selected.mantenimientoUltima);
+            const vencido = dias >= selected.mantenimientoIntervaloDias;
+            return (
+              <div style={{ background: C.surface, border: `1px solid ${vencido ? C.warning : C.border}`, borderRadius: 12, padding: 14, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <Wrench size={18} color={vencido ? C.warning : C.muted} />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.foreground }}>
+                      {vencido ? "Toca darle mantenimiento" : `Próximo mantenimiento en ${selected.mantenimientoIntervaloDias - dias} día(s)`}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: C.muted, marginTop: 2 }}>Último: {selected.mantenimientoUltima} · cada {selected.mantenimientoIntervaloDias} días</div>
+                  </div>
+                </div>
+                <button
+                  onClick={marcarMantenimiento}
+                  style={{ background: "none", border: `1.5px solid ${C.primary}`, color: C.primary, borderRadius: 20, padding: "7px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
+                >
+                  Ya se le dio mantenimiento
+                </button>
+              </div>
+            );
+          })()}
           {selected.estado === "En uso" && (
             <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 16 }}>
               <div style={{ fontSize: 13, color: C.foreground }}><strong>Quién lo tiene:</strong> {selected.quienLoTiene}</div>
@@ -7735,11 +7877,51 @@ function conflictoDeEquipo(data, equipoId, fecha, excluirEventoId) {
   return null;
 }
 
-function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast, onBack }) {
+function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast, sucursalActiva, calendarId, onBack }) {
   const [modalNuevo, setModalNuevo] = useState(false);
   const [nombre, setNombre] = useState("");
   const [fecha, setFecha] = useState("");
   const [equipoIds, setEquipoIds] = useState([]);
+
+  /* Eventos que ya están agendados en el Google Calendar real de esta
+     sucursal (de solo lectura — ver api/agenda.js). Sirven para no tener
+     que volver a escribir a mano lo que ya está en la agenda: solo hace
+     falta elegir qué equipo se va a llevar a cada uno. */
+  const [eventosGoogle, setEventosGoogle] = useState([]);
+  const [cargandoGoogle, setCargandoGoogle] = useState(false);
+  const [errorGoogle, setErrorGoogle] = useState("");
+
+  const cargarEventosGoogle = () => {
+    if (!calendarId || !sucursalActiva) return;
+    setCargandoGoogle(true);
+    setErrorGoogle("");
+    fetch(`/api/agenda?sucursal=${encodeURIComponent(sucursalActiva)}`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(res.error || "No se pudo consultar Google Calendar");
+        if (res.error) setErrorGoogle(res.error);
+        setEventosGoogle(res.eventos || []);
+      })
+      .catch((e) => setErrorGoogle(e.message || "No se pudo consultar Google Calendar"))
+      .finally(() => setCargandoGoogle(false));
+  };
+
+  useEffect(() => {
+    cargarEventosGoogle();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calendarId, sucursalActiva]);
+
+  /* De los que ya se importaron como evento propio, para no ofrecerlos dos
+     veces (se compara por nombre + fecha, que es lo que se copia al armar
+     el evento). */
+  const yaImportado = (evG) => (data.eventos || []).some((ev) => ev.nombre === evG.titulo && ev.fecha === evG.fecha);
+
+  const usarEventoGoogle = (evG) => {
+    setNombre(evG.titulo);
+    setFecha(evG.fecha);
+    setEquipoIds([]);
+    setModalNuevo(true);
+  };
 
   const reservasBases = data.bases.flatMap((b) => b.reservas.map((r) => ({ fecha: r.fecha, texto: `${r.evento} (${b.nombre})`, tipo: r.estado })));
   const devoluciones = data.equipo.filter((e) => e.estado === "En uso" && e.fechaDevolucion).map((e) => ({ fecha: e.fechaDevolucion, texto: `Devolución: ${e.nombre}`, tipo: e.fechaDevolucion < fmt(hoy) ? "Atrasado" : "En uso" }));
@@ -7777,6 +7959,45 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
     <div style={{ paddingBottom: 90 }}>
       <SectionHeader title="Calendario" subtitle="Eventos, devoluciones y equipo necesario" onBack={onBack} />
       <div style={{ padding: 16 }}>
+        {calendarId ? (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.foreground, display: "flex", alignItems: "center", gap: 6 }}>
+                <CalendarIcon size={16} color={C.secondary} /> Próximos en tu Google Calendar
+              </div>
+              <button onClick={cargarEventosGoogle} disabled={cargandoGoogle} style={{ background: "none", border: "none", color: C.secondary, fontSize: 12, cursor: cargandoGoogle ? "default" : "pointer" }}>
+                {cargandoGoogle ? "Cargando…" : "Actualizar"}
+              </button>
+            </div>
+            {errorGoogle && <div style={{ fontSize: 11.5, color: C.error, marginBottom: 8 }}>{errorGoogle}</div>}
+            {!errorGoogle && !cargandoGoogle && eventosGoogle.length === 0 && (
+              <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 8 }}>No hay eventos próximos en ese calendario.</div>
+            )}
+            {eventosGoogle.map((evG) => {
+              const importado = yaImportado(evG);
+              return (
+                <div key={evG.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, marginBottom: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: C.foreground, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{evG.titulo}</div>
+                    <div style={{ fontSize: 11, color: C.muted }}>{evG.fecha}{evG.lugar ? ` · ${evG.lugar}` : ""}</div>
+                  </div>
+                  {importado ? (
+                    <span style={{ fontSize: 11.5, color: C.success, fontWeight: 600, whiteSpace: "nowrap" }}>Ya armado ✓</span>
+                  ) : (
+                    <button onClick={() => usarEventoGoogle(evG)} style={{ background: "none", border: `1.5px solid ${C.secondary}`, color: C.secondary, borderRadius: 20, padding: "6px 12px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                      Elegir equipo
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            <div style={{ height: 8 }} />
+          </div>
+        ) : (
+          <div style={{ fontSize: 11.5, color: C.muted, marginBottom: 20 }}>
+            Puedes conectar tu Google Calendar desde el Panel de Administrador → Ajustes, para traer aquí los eventos ya agendados.
+          </div>
+        )}
         {todos.length === 0 && <div style={{ fontSize: 13, color: C.muted, textAlign: "center", marginTop: 24 }}>No hay eventos ni devoluciones próximas.</div>}
         {todos.map((e, i) => (
           <div key={i} style={{ display: "flex", gap: 12, marginBottom: 12 }}>
@@ -8126,7 +8347,7 @@ function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isD
   if (sub === "notificaciones") return <NotificacionesScreen alertas={alertas} onBack={() => setSub(null)} />;
   if (sub === "catalogos") return <CatalogosScreen sucursal={sucursalActiva} onBack={() => setSub(null)} />;
   if (sub === "reportes") return <ReportesScreen data={data} config={config} onBack={() => setSub(null)} />;
-  if (sub === "calendario") return <CalendarioScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} onBack={() => setSub(null)} />;
+  if (sub === "calendario") return <CalendarioScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} sucursalActiva={sucursalActiva} calendarId={config?.calendarios?.[sucursalActiva]} onBack={() => setSub(null)} />;
   if (sub === "cierre") return <CierreScreen data={data} onBack={() => setSub(null)} />;
   if (sub === "indumentaria") return <IndumentariaScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} sucursal={sucursalActiva} onBack={() => setSub(null)} />;
   if (sub === "emblematicos") return <EmblematicosScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} sucursal={sucursalActiva} onBack={() => setSub(null)} />;
