@@ -8538,7 +8538,14 @@ export default function PhotografInventario() {
       if (!notificadasRef.current.has(clave)) {
         notificadasRef.current.add(clave);
         try {
-          new Notification(`Photograf — ${a.tipo}`, { body: a.texto, icon: "/icons/icon-maskable-192.png" });
+          // "badge" con fondo transparente (icon-192) para que la barra de
+          // estado de Android dibuje la silueta del logo en vez de un
+          // cuadro sólido blanco (ver sw.js para la explicación completa).
+          new Notification(`Photograf — ${a.tipo}`, {
+            body: a.texto,
+            icon: "/icons/icon-maskable-192.png",
+            badge: "/icons/icon-192.png",
+          });
         } catch (e) {
           // Algunos navegadores en móvil no dejan crear Notification directo
           // sin un service worker; si falla, el aviso se sigue viendo en la
