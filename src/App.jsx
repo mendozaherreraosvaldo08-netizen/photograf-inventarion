@@ -1887,192 +1887,283 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
 
   const d = allData[suc];
 
+  // Qué tipo de artículo (el mismo que usa "editando"/"guardar") corresponde
+  // a cada pestaña, y cómo se llama el botón de alta en cada una.
+  const TIPO_POR_TAB = { equipo: "equipo", materiales: "material", bases: "base", indumentaria: "indumentaria", emblematicos: "emblematico", mobiliario: "mobiliario", piezas: "pieza" };
+  const TITULO_NUEVO = { equipo: "Nuevo equipo", material: "Nuevo material", base: "Nueva base", indumentaria: "Nueva indumentaria", emblematico: "Nuevo emblemático", mobiliario: "Nuevo mobiliario", pieza: "Nueva pieza" };
+  const TITULO_EDITAR = { equipo: "Editar equipo", material: "Editar material", base: "Editar base", indumentaria: "Editar indumentaria", emblematico: "Editar emblemático", mobiliario: "Editar mobiliario", pieza: "Editar pieza" };
+  const VALORES_NUEVO = {
+    equipo: { nombre: "", categoria: "", costo: "", notas: "", estado: "Disponible" },
+    material: { nombre: "", categoria: "", cantidad: "", costo: "", notas: "", minimo: "" },
+    base: { nombre: "", catalogo: "General", tenemos: "", costo: "", pedidoProveedor: "", precio: "", medidas: "", incluye: "", imagen: null },
+    indumentaria: { tipo: "", detalle: "", cantidadTotal: "", costo: "" },
+    emblematico: { tipo: "", material: "", detalle: "", cantidadTotal: "", costo: "" },
+    mobiliario: { tipo: "", modelo: "", cantidad: "", costo: "", ubicacion: "", notas: "", estado: "Disponible" },
+    pieza: { grupo: GRUPOS_PIEZA[0], tipo: "", detalle: "", cantidad: "", costo: "", notas: "", minimo: "" },
+  };
+
   const abrir = (tipo, item) => {
     setEditando({ tipo, item });
     setForm({ ...item });
   };
 
+  /* Antes esta pantalla solo dejaba editar o borrar lo que ya existía —
+     no había ninguna forma de dar de alta un artículo nuevo desde aquí, ni
+     siquiera un material, desde que se quitó la pestaña de Materiales. */
+  const abrirNuevo = (tipo) => {
+    setEditando({ tipo, item: null });
+    setForm(VALORES_NUEVO[tipo] || {});
+  };
+
   const guardar = () => {
     const { tipo, item } = editando;
+    const esNuevo = !item;
     const nombre = (form.nombre || "").trim();
     if (tipo !== "indumentaria" && tipo !== "emblematico" && tipo !== "mobiliario" && tipo !== "pieza" && !nombre) return;
-    if (tipo === "indumentaria" && !(form.tipo || item.tipo)) return;
-    if (tipo === "emblematico" && !(form.tipo || item.tipo)) return;
+    if (tipo === "indumentaria" && !(form.tipo || item?.tipo)) return;
+    if (tipo === "emblematico" && !(form.tipo || item?.tipo)) return;
     if (tipo === "mobiliario" && !(form.modelo || "").trim()) return;
-    if (tipo === "pieza" && !(form.tipo || item.tipo)) return;
+    if (tipo === "pieza" && !(form.tipo || item?.tipo)) return;
 
     if (tipo === "equipo") {
-      const cambios = {
-        nombre,
-        categoria: (form.categoria || "").trim() || item.categoria,
-        costo: parseFloat(form.costo) || 0,
-        notas: form.notas || "",
-        estado: form.estado || item.estado,
-      };
-      setAllData((prev) => ({
-        ...prev,
-        [suc]: {
-          ...prev[suc],
-          equipo: prev[suc].equipo.map((e) =>
-            e.id === item.id ? { ...e, ...cambios, historial: [...(e.historial || []), { texto: "Editado desde el panel de administrador", fecha: fmt(hoy) }] } : e
-          ),
-        },
-      }));
-      registrar(suc, `Equipo editado por el administrador: ${nombre}`);
+      if (esNuevo) {
+        setAllData((prev) => {
+          const arr = prev[suc].equipo;
+          const nuevoItem = { id: Math.max(0, ...arr.map((e) => e.id)) + 1, nombre, categoria: (form.categoria || "").trim() || "General", estado: form.estado || "Disponible", foto: null, fotos: [], costo: parseFloat(form.costo) || 0, quienLoTiene: null, quienAutorizo: null, fechaPrestamo: null, fechaDevolucion: null, notas: form.notas || "", historial: [{ texto: "Alta de equipo desde el panel de administrador", fecha: fmt(hoy) }] };
+          return { ...prev, [suc]: { ...prev[suc], equipo: [...arr, nuevoItem] } };
+        });
+        registrar(suc, `Equipo agregado por el administrador: ${nombre}`);
+      } else {
+        const cambios = {
+          nombre,
+          categoria: (form.categoria || "").trim() || item.categoria,
+          costo: parseFloat(form.costo) || 0,
+          notas: form.notas || "",
+          estado: form.estado || item.estado,
+        };
+        setAllData((prev) => ({
+          ...prev,
+          [suc]: {
+            ...prev[suc],
+            equipo: prev[suc].equipo.map((e) =>
+              e.id === item.id ? { ...e, ...cambios, historial: [...(e.historial || []), { texto: "Editado desde el panel de administrador", fecha: fmt(hoy) }] } : e
+            ),
+          },
+        }));
+        registrar(suc, `Equipo editado por el administrador: ${nombre}`);
+      }
     } else if (tipo === "material") {
       const sinMinimo = form.minimo === "" || form.minimo === undefined || form.minimo === null;
-      const cambios = {
-        nombre,
-        categoria: (form.categoria || "").trim() || item.categoria,
-        cantidad: parseInt(form.cantidad, 10) || 0,
-        costo: parseFloat(form.costo) || 0,
-        notas: form.notas || "",
-      };
-      setAllData((prev) => ({
-        ...prev,
-        [suc]: {
-          ...prev[suc],
-          materiales: prev[suc].materiales.map((m) => {
-            if (m.id !== item.id) return m;
-            const actualizado = { ...m, ...cambios };
-            // La nube no acepta valores indefinidos: si el material no tiene
-            // mínimo propio se quita la llave en vez de dejarla vacía.
-            if (sinMinimo) delete actualizado.minimo;
-            else actualizado.minimo = parseInt(form.minimo, 10) || 0;
-            return actualizado;
-          }),
-        },
-      }));
-      registrar(suc, `Material editado por el administrador: ${nombre}`);
+      if (esNuevo) {
+        setAllData((prev) => {
+          const arr = prev[suc].materiales;
+          const nuevoItem = { id: Math.max(0, ...arr.map((m) => m.id)) + 1, nombre, categoria: (form.categoria || "").trim() || "General", cantidad: parseInt(form.cantidad, 10) || 0, costo: parseFloat(form.costo) || 0, notas: form.notas || "", foto: null };
+          if (!sinMinimo) nuevoItem.minimo = parseInt(form.minimo, 10) || 0;
+          return { ...prev, [suc]: { ...prev[suc], materiales: [...arr, nuevoItem] } };
+        });
+        registrar(suc, `Material agregado por el administrador: ${nombre}`);
+      } else {
+        const cambios = {
+          nombre,
+          categoria: (form.categoria || "").trim() || item.categoria,
+          cantidad: parseInt(form.cantidad, 10) || 0,
+          costo: parseFloat(form.costo) || 0,
+          notas: form.notas || "",
+        };
+        setAllData((prev) => ({
+          ...prev,
+          [suc]: {
+            ...prev[suc],
+            materiales: prev[suc].materiales.map((m) => {
+              if (m.id !== item.id) return m;
+              const actualizado = { ...m, ...cambios };
+              // La nube no acepta valores indefinidos: si el material no tiene
+              // mínimo propio se quita la llave en vez de dejarla vacía.
+              if (sinMinimo) delete actualizado.minimo;
+              else actualizado.minimo = parseInt(form.minimo, 10) || 0;
+              return actualizado;
+            }),
+          },
+        }));
+        registrar(suc, `Material editado por el administrador: ${nombre}`);
+      }
     } else if (tipo === "indumentaria") {
-      const cambios = {
-        tipo: form.tipo || item.tipo,
-        detalle: (form.detalle || "").trim(),
-        costo: parseFloat(form.costo) || 0,
-      };
-      const nuevoTotal = parseInt(form.cantidadTotal, 10);
-      const diferencia = !isNaN(nuevoTotal) ? nuevoTotal - item.cantidadTotal : 0;
-      setAllData((prev) => ({
-        ...prev,
-        [suc]: {
-          ...prev[suc],
-          indumentaria: prev[suc].indumentaria.map((i) =>
-            i.id === item.id
-              ? {
-                  ...i,
-                  ...cambios,
-                  cantidadTotal: !isNaN(nuevoTotal) ? nuevoTotal : i.cantidadTotal,
-                  movimientos: diferencia !== 0 ? [...(i.movimientos || []), movimientoBase("ajuste", diferencia, "Administrador", "Ajuste desde el panel de administrador")] : i.movimientos,
-                }
-              : i
-          ),
-        },
-      }));
-      registrar(suc, `Indumentaria editada por el administrador: ${cambios.tipo}`);
+      if (esNuevo) {
+        setAllData((prev) => {
+          const arr = prev[suc].indumentaria;
+          const nuevoItem = { id: Math.max(0, ...arr.map((i) => i.id)) + 1, tipo: form.tipo, detalle: (form.detalle || "").trim(), cantidadTotal: parseInt(form.cantidadTotal, 10) || 0, costo: parseFloat(form.costo) || 0, movimientos: [], prestamos: [] };
+          return { ...prev, [suc]: { ...prev[suc], indumentaria: [...arr, nuevoItem] } };
+        });
+        registrar(suc, `Indumentaria agregada por el administrador: ${form.tipo}`);
+      } else {
+        const cambios = {
+          tipo: form.tipo || item.tipo,
+          detalle: (form.detalle || "").trim(),
+          costo: parseFloat(form.costo) || 0,
+        };
+        const nuevoTotal = parseInt(form.cantidadTotal, 10);
+        const diferencia = !isNaN(nuevoTotal) ? nuevoTotal - item.cantidadTotal : 0;
+        setAllData((prev) => ({
+          ...prev,
+          [suc]: {
+            ...prev[suc],
+            indumentaria: prev[suc].indumentaria.map((i) =>
+              i.id === item.id
+                ? {
+                    ...i,
+                    ...cambios,
+                    cantidadTotal: !isNaN(nuevoTotal) ? nuevoTotal : i.cantidadTotal,
+                    movimientos: diferencia !== 0 ? [...(i.movimientos || []), movimientoBase("ajuste", diferencia, "Administrador", "Ajuste desde el panel de administrador")] : i.movimientos,
+                  }
+                : i
+            ),
+          },
+        }));
+        registrar(suc, `Indumentaria editada por el administrador: ${cambios.tipo}`);
+      }
     } else if (tipo === "emblematico") {
-      const cambios = {
-        tipo: form.tipo || item.tipo,
-        material: (form.tipo || item.tipo) === "Anillo" ? form.material || "" : "",
-        detalle: (form.detalle || "").trim(),
-        costo: parseFloat(form.costo) || 0,
-      };
-      const nuevoTotal = parseInt(form.cantidadTotal, 10);
-      const diferencia = !isNaN(nuevoTotal) ? nuevoTotal - item.cantidadTotal : 0;
-      setAllData((prev) => ({
-        ...prev,
-        [suc]: {
-          ...prev[suc],
-          emblematicos: prev[suc].emblematicos.map((e) =>
-            e.id === item.id
-              ? {
-                  ...e,
-                  ...cambios,
-                  cantidadTotal: !isNaN(nuevoTotal) ? nuevoTotal : e.cantidadTotal,
-                  movimientos: diferencia !== 0 ? [...(e.movimientos || []), movimientoBase("ajuste", diferencia, "Administrador", "Ajuste desde el panel de administrador")] : e.movimientos,
-                }
-              : e
-          ),
-        },
-      }));
-      registrar(suc, `Emblemático editado por el administrador: ${cambios.tipo}`);
+      if (esNuevo) {
+        setAllData((prev) => {
+          const arr = prev[suc].emblematicos;
+          const nuevoItem = { id: Math.max(0, ...arr.map((e) => e.id)) + 1, tipo: form.tipo, material: form.tipo === "Anillo" ? form.material || "" : "", detalle: (form.detalle || "").trim(), cantidadTotal: parseInt(form.cantidadTotal, 10) || 0, costo: parseFloat(form.costo) || 0, movimientos: [], custodios: [] };
+          return { ...prev, [suc]: { ...prev[suc], emblematicos: [...arr, nuevoItem] } };
+        });
+        registrar(suc, `Emblemático agregado por el administrador: ${form.tipo}`);
+      } else {
+        const cambios = {
+          tipo: form.tipo || item.tipo,
+          material: (form.tipo || item.tipo) === "Anillo" ? form.material || "" : "",
+          detalle: (form.detalle || "").trim(),
+          costo: parseFloat(form.costo) || 0,
+        };
+        const nuevoTotal = parseInt(form.cantidadTotal, 10);
+        const diferencia = !isNaN(nuevoTotal) ? nuevoTotal - item.cantidadTotal : 0;
+        setAllData((prev) => ({
+          ...prev,
+          [suc]: {
+            ...prev[suc],
+            emblematicos: prev[suc].emblematicos.map((e) =>
+              e.id === item.id
+                ? {
+                    ...e,
+                    ...cambios,
+                    cantidadTotal: !isNaN(nuevoTotal) ? nuevoTotal : e.cantidadTotal,
+                    movimientos: diferencia !== 0 ? [...(e.movimientos || []), movimientoBase("ajuste", diferencia, "Administrador", "Ajuste desde el panel de administrador")] : e.movimientos,
+                  }
+                : e
+            ),
+          },
+        }));
+        registrar(suc, `Emblemático editado por el administrador: ${cambios.tipo}`);
+      }
     } else if (tipo === "mobiliario") {
-      const cambios = {
-        tipo: form.tipo || item.tipo,
-        modelo: (form.modelo || "").trim(),
-        costo: parseFloat(form.costo) || 0,
-        ubicacion: (form.ubicacion || "").trim(),
-        notas: form.notas || "",
-        estado: form.estado || item.estado,
-      };
-      const nuevaCant = parseInt(form.cantidad, 10);
-      const diferencia = !isNaN(nuevaCant) ? nuevaCant - item.cantidad : 0;
-      setAllData((prev) => ({
-        ...prev,
-        [suc]: {
-          ...prev[suc],
-          mobiliario: prev[suc].mobiliario.map((m) =>
-            m.id === item.id
-              ? {
-                  ...m,
-                  ...cambios,
-                  cantidad: !isNaN(nuevaCant) ? nuevaCant : m.cantidad,
-                  movimientos: diferencia !== 0 ? [...(m.movimientos || []), movimientoBase("ajuste", diferencia, "Administrador", "Ajuste desde el panel de administrador")] : m.movimientos,
-                }
-              : m
-          ),
-        },
-      }));
-      registrar(suc, `Mobiliario editado por el administrador: ${cambios.tipo} — ${cambios.modelo}`);
+      if (esNuevo) {
+        setAllData((prev) => {
+          const arr = prev[suc].mobiliario;
+          const nuevoItem = { id: Math.max(0, ...arr.map((m) => m.id)) + 1, tipo: form.tipo || "Otro", modelo: (form.modelo || "").trim(), cantidad: parseInt(form.cantidad, 10) || 0, costo: parseFloat(form.costo) || 0, ubicacion: (form.ubicacion || "").trim(), notas: form.notas || "", estado: form.estado || "Disponible", movimientos: [] };
+          return { ...prev, [suc]: { ...prev[suc], mobiliario: [...arr, nuevoItem] } };
+        });
+        registrar(suc, `Mobiliario agregado por el administrador: ${form.tipo || "Otro"} — ${(form.modelo || "").trim()}`);
+      } else {
+        const cambios = {
+          tipo: form.tipo || item.tipo,
+          modelo: (form.modelo || "").trim(),
+          costo: parseFloat(form.costo) || 0,
+          ubicacion: (form.ubicacion || "").trim(),
+          notas: form.notas || "",
+          estado: form.estado || item.estado,
+        };
+        const nuevaCant = parseInt(form.cantidad, 10);
+        const diferencia = !isNaN(nuevaCant) ? nuevaCant - item.cantidad : 0;
+        setAllData((prev) => ({
+          ...prev,
+          [suc]: {
+            ...prev[suc],
+            mobiliario: prev[suc].mobiliario.map((m) =>
+              m.id === item.id
+                ? {
+                    ...m,
+                    ...cambios,
+                    cantidad: !isNaN(nuevaCant) ? nuevaCant : m.cantidad,
+                    movimientos: diferencia !== 0 ? [...(m.movimientos || []), movimientoBase("ajuste", diferencia, "Administrador", "Ajuste desde el panel de administrador")] : m.movimientos,
+                  }
+                : m
+            ),
+          },
+        }));
+        registrar(suc, `Mobiliario editado por el administrador: ${cambios.tipo} — ${cambios.modelo}`);
+      }
     } else if (tipo === "pieza") {
       const sinMinimo = form.minimo === "" || form.minimo === undefined || form.minimo === null;
-      const cambios = {
-        grupo: form.grupo || item.grupo,
-        tipo: (form.tipo || item.tipo || "").trim(),
-        detalle: (form.detalle || "").trim(),
-        costo: parseFloat(form.costo) || 0,
-        notas: form.notas || "",
-      };
-      const nuevaCant = parseInt(form.cantidad, 10);
-      const diferencia = !isNaN(nuevaCant) ? nuevaCant - item.cantidad : 0;
-      setAllData((prev) => ({
-        ...prev,
-        [suc]: {
-          ...prev[suc],
-          piezas: prev[suc].piezas.map((p) => {
-            if (p.id !== item.id) return p;
-            const actualizado = {
-              ...p,
-              ...cambios,
-              cantidad: !isNaN(nuevaCant) ? nuevaCant : p.cantidad,
-              movimientos: diferencia !== 0 ? [...(p.movimientos || []), movimientoBase("ajuste", diferencia, "Administrador", "Ajuste desde el panel de administrador")] : p.movimientos,
-            };
-            if (sinMinimo) delete actualizado.minimo;
-            else actualizado.minimo = parseInt(form.minimo, 10) || 0;
-            return actualizado;
-          }),
-        },
-      }));
-      registrar(suc, `Pieza editada por el administrador: ${cambios.tipo}`);
+      if (esNuevo) {
+        setAllData((prev) => {
+          const arr = prev[suc].piezas;
+          const nuevoItem = { id: Math.max(0, ...arr.map((p) => p.id)) + 1, grupo: form.grupo || GRUPOS_PIEZA[0], tipo: (form.tipo || "").trim(), detalle: (form.detalle || "").trim(), cantidad: parseInt(form.cantidad, 10) || 0, costo: parseFloat(form.costo) || 0, notas: form.notas || "", movimientos: [] };
+          if (!sinMinimo) nuevoItem.minimo = parseInt(form.minimo, 10) || 0;
+          return { ...prev, [suc]: { ...prev[suc], piezas: [...arr, nuevoItem] } };
+        });
+        registrar(suc, `Pieza agregada por el administrador: ${(form.tipo || "").trim()}`);
+      } else {
+        const cambios = {
+          grupo: form.grupo || item.grupo,
+          tipo: (form.tipo || item.tipo || "").trim(),
+          detalle: (form.detalle || "").trim(),
+          costo: parseFloat(form.costo) || 0,
+          notas: form.notas || "",
+        };
+        const nuevaCant = parseInt(form.cantidad, 10);
+        const diferencia = !isNaN(nuevaCant) ? nuevaCant - item.cantidad : 0;
+        setAllData((prev) => ({
+          ...prev,
+          [suc]: {
+            ...prev[suc],
+            piezas: prev[suc].piezas.map((p) => {
+              if (p.id !== item.id) return p;
+              const actualizado = {
+                ...p,
+                ...cambios,
+                cantidad: !isNaN(nuevaCant) ? nuevaCant : p.cantidad,
+                movimientos: diferencia !== 0 ? [...(p.movimientos || []), movimientoBase("ajuste", diferencia, "Administrador", "Ajuste desde el panel de administrador")] : p.movimientos,
+              };
+              if (sinMinimo) delete actualizado.minimo;
+              else actualizado.minimo = parseInt(form.minimo, 10) || 0;
+              return actualizado;
+            }),
+          },
+        }));
+        registrar(suc, `Pieza editada por el administrador: ${cambios.tipo}`);
+      }
     } else {
-      const cambios = {
-        nombre,
-        catalogo: form.catalogo || item.catalogo,
-        tenemos: parseInt(form.tenemos, 10) || 0,
-        costo: parseFloat(form.costo) || 0,
-        pedidoProveedor: parseInt(form.pedidoProveedor, 10) || 0,
-        precio: parseFloat(form.precio) || 0,
-        medidas: form.medidas || "",
-        incluye: form.incluye || "",
-        imagen: form.imagen ?? item.imagen ?? null,
-      };
-      setAllData((prev) => {
-        const basesConEdicion = prev[suc].bases.map((b) => (b.id === item.id ? { ...b, ...cambios } : b));
-        const bases = conPanoSincronizado(basesConEdicion, { ...item, ...cambios }, cambios.tenemos, "Administrador", `Sincronizado: se editó "${nombre}" en ${panoDe(nombre)} desde el panel de administrador`);
-        return { ...prev, [suc]: { ...prev[suc], bases } };
-      });
-      registrar(suc, `Base editada por el administrador: ${nombre}`);
+      // base
+      if (esNuevo) {
+        setAllData((prev) => {
+          const arr = prev[suc].bases;
+          const cant = parseInt(form.tenemos, 10) || 0;
+          const nuevoItem = { id: Math.max(0, ...arr.map((b) => b.id)) + 1, nombre, catalogo: form.catalogo || "General", tenemos: cant, costo: parseFloat(form.costo) || 0, pedidoProveedor: parseInt(form.pedidoProveedor, 10) || 0, reservas: [], movimientos: cant > 0 ? [movimientoBase("entrada", cant, "Administrador", "Alta desde el panel de administrador")] : [], linea: "", precio: parseFloat(form.precio) || 0, medidas: form.medidas || "", incluye: form.incluye || "", imagen: form.imagen || null, variantes: [] };
+          return { ...prev, [suc]: { ...prev[suc], bases: [...arr, nuevoItem] } };
+        });
+        registrar(suc, `Base agregada por el administrador: ${nombre}`);
+      } else {
+        const cambios = {
+          nombre,
+          catalogo: form.catalogo || item.catalogo,
+          tenemos: parseInt(form.tenemos, 10) || 0,
+          costo: parseFloat(form.costo) || 0,
+          pedidoProveedor: parseInt(form.pedidoProveedor, 10) || 0,
+          precio: parseFloat(form.precio) || 0,
+          medidas: form.medidas || "",
+          incluye: form.incluye || "",
+          imagen: form.imagen ?? item.imagen ?? null,
+        };
+        setAllData((prev) => {
+          const basesConEdicion = prev[suc].bases.map((b) => (b.id === item.id ? { ...b, ...cambios } : b));
+          const bases = conPanoSincronizado(basesConEdicion, { ...item, ...cambios }, cambios.tenemos, "Administrador", `Sincronizado: se editó "${nombre}" en ${panoDe(nombre)} desde el panel de administrador`);
+          return { ...prev, [suc]: { ...prev[suc], bases } };
+        });
+        registrar(suc, `Base editada por el administrador: ${nombre}`);
+      }
     }
-    mostrarToast("Cambios guardados ✓");
+    mostrarToast(esNuevo ? "Artículo agregado ✓" : "Cambios guardados ✓");
     setEditando(null);
   };
 
@@ -2147,7 +2238,10 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
       <SectionHeader title="Editar inventario" subtitle="Corrige o elimina cualquier artículo" onBack={onBack} />
       <div style={{ padding: 16 }}>
         <SelectorSucursal valor={suc} onChange={setSuc} />
-        <div style={{ display: "flex", gap: 8, marginBottom: 12, overflowX: "auto" }}>
+        {/* Antes esta fila se salía de la pantalla y había que arrastrarla
+            para ver las últimas pestañas; con flexWrap se acomodan solas en
+            dos líneas y se ven todas de un vistazo. */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
           <FilterPill label={`Equipo (${d.equipo.length})`} active={tab === "equipo"} onClick={() => setTab("equipo")} />
           <FilterPill label={`Materiales (${d.materiales.length})`} active={tab === "materiales"} onClick={() => setTab("materiales")} color={C.accent1} />
           <FilterPill label={`Bases (${d.bases.length})`} active={tab === "bases"} onClick={() => setTab("bases")} color={C.secondary} />
@@ -2156,8 +2250,17 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
           <FilterPill label={`Mobiliario (${(d.mobiliario || []).length})`} active={tab === "mobiliario"} onClick={() => setTab("mobiliario")} color={C.secondary} />
           <FilterPill label={`Piezas (${(d.piezas || []).length})`} active={tab === "piezas"} onClick={() => setTab("piezas")} color={C.accent1} />
         </div>
-        <TextInput value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nombre..." />
-        <div style={{ height: 14 }} />
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <div style={{ flex: 1 }}>
+            <TextInput value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nombre..." />
+          </div>
+          <button
+            onClick={() => abrirNuevo(TIPO_POR_TAB[tab])}
+            style={{ display: "flex", alignItems: "center", gap: 6, background: C.primary, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+          >
+            <Plus size={16} /> Nuevo
+          </button>
+        </div>
 
         {tab === "equipo" && filtra(d.equipo).map((e) => (
           <InventoryCard
@@ -2268,7 +2371,7 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
       </div>
 
       {editando && (
-        <Modal title={`Editar ${editando.tipo}`} onClose={() => setEditando(null)}>
+        <Modal title={editando.item ? TITULO_EDITAR[editando.tipo] : TITULO_NUEVO[editando.tipo]} onClose={() => setEditando(null)}>
           {editando.tipo === "indumentaria" ? (
             <>
               <FieldLabel>Tipo</FieldLabel>
@@ -2283,13 +2386,15 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
               <TextInput type="number" value={form.cantidadTotal ?? ""} onChange={(e) => setForm({ ...form, cantidadTotal: e.target.value })} />
               <FieldLabel>Costo unitario</FieldLabel>
               <TextInput type="number" value={form.costo ?? ""} onChange={(e) => setForm({ ...form, costo: e.target.value })} placeholder="$0" />
-              <PrimaryButton onClick={guardar} disabled={!(form.tipo || editando.item.tipo)}>Guardar cambios</PrimaryButton>
-              <button
-                onClick={() => setPorEliminar(editando)}
-                style={{ width: "100%", background: "none", border: "none", color: C.error, fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-              >
-                <Trash2 size={14} /> Eliminar del inventario
-              </button>
+              <PrimaryButton onClick={guardar} disabled={!(form.tipo || editando.item?.tipo)}>{editando.item ? "Guardar cambios" : "Agregar"}</PrimaryButton>
+              {editando.item && (
+                <button
+                  onClick={() => setPorEliminar(editando)}
+                  style={{ width: "100%", background: "none", border: "none", color: C.error, fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                >
+                  <Trash2 size={14} /> Eliminar del inventario
+                </button>
+              )}
             </>
           ) : editando.tipo === "emblematico" ? (
             <>
@@ -2315,13 +2420,15 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
               <TextInput type="number" value={form.cantidadTotal ?? ""} onChange={(e) => setForm({ ...form, cantidadTotal: e.target.value })} />
               <FieldLabel>Costo unitario</FieldLabel>
               <TextInput type="number" value={form.costo ?? ""} onChange={(e) => setForm({ ...form, costo: e.target.value })} placeholder="$0" />
-              <PrimaryButton onClick={guardar} disabled={!(form.tipo || editando.item.tipo)}>Guardar cambios</PrimaryButton>
-              <button
-                onClick={() => setPorEliminar(editando)}
-                style={{ width: "100%", background: "none", border: "none", color: C.error, fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-              >
-                <Trash2 size={14} /> Eliminar del inventario
-              </button>
+              <PrimaryButton onClick={guardar} disabled={!(form.tipo || editando.item?.tipo)}>{editando.item ? "Guardar cambios" : "Agregar"}</PrimaryButton>
+              {editando.item && (
+                <button
+                  onClick={() => setPorEliminar(editando)}
+                  style={{ width: "100%", background: "none", border: "none", color: C.error, fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                >
+                  <Trash2 size={14} /> Eliminar del inventario
+                </button>
+              )}
             </>
           ) : editando.tipo === "mobiliario" ? (
             <>
@@ -2347,13 +2454,15 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
                   <FilterPill key={es} label={es} active={form.estado === es} onClick={() => setForm({ ...form, estado: es })} color={estadoColorDe(es)} />
                 ))}
               </div>
-              <PrimaryButton onClick={guardar} disabled={!(form.modelo || "").trim()}>Guardar cambios</PrimaryButton>
-              <button
-                onClick={() => setPorEliminar(editando)}
-                style={{ width: "100%", background: "none", border: "none", color: C.error, fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-              >
-                <Trash2 size={14} /> Eliminar del inventario
-              </button>
+              <PrimaryButton onClick={guardar} disabled={!(form.modelo || "").trim()}>{editando.item ? "Guardar cambios" : "Agregar"}</PrimaryButton>
+              {editando.item && (
+                <button
+                  onClick={() => setPorEliminar(editando)}
+                  style={{ width: "100%", background: "none", border: "none", color: C.error, fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                >
+                  <Trash2 size={14} /> Eliminar del inventario
+                </button>
+              )}
             </>
           ) : editando.tipo === "pieza" ? (
             <>
@@ -2379,13 +2488,15 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
               <TextInput type="number" value={form.costo ?? ""} onChange={(e) => setForm({ ...form, costo: e.target.value })} />
               <FieldLabel>Notas</FieldLabel>
               <TextInput value={form.notas || ""} onChange={(e) => setForm({ ...form, notas: e.target.value })} />
-              <PrimaryButton onClick={guardar} disabled={!(form.tipo || editando.item.tipo)}>Guardar cambios</PrimaryButton>
-              <button
-                onClick={() => setPorEliminar(editando)}
-                style={{ width: "100%", background: "none", border: "none", color: C.error, fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-              >
-                <Trash2 size={14} /> Eliminar del inventario
-              </button>
+              <PrimaryButton onClick={guardar} disabled={!(form.tipo || editando.item?.tipo)}>{editando.item ? "Guardar cambios" : "Agregar"}</PrimaryButton>
+              {editando.item && (
+                <button
+                  onClick={() => setPorEliminar(editando)}
+                  style={{ width: "100%", background: "none", border: "none", color: C.error, fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                >
+                  <Trash2 size={14} /> Eliminar del inventario
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -2427,7 +2538,7 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
                 <FilterPill label="Universidad" active={form.catalogo === "Universidad"} onClick={() => setForm({ ...form, catalogo: "Universidad" })} color={C.secondary} />
                 <FilterPill label="UNICEQ" active={form.catalogo === "UNICEQ"} onClick={() => setForm({ ...form, catalogo: "UNICEQ" })} color={C.accent1} />
               </div>
-              {(editando.item.variantes || []).length > 0 ? (
+              {(editando.item?.variantes || []).length > 0 ? (
                 <>
                   <FieldLabel>Cuántas tenemos (se calcula solo, por color)</FieldLabel>
                   <div style={{ background: C.background, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, marginBottom: 4 }}>
@@ -2471,13 +2582,15 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
             </>
           )}
 
-          <PrimaryButton onClick={guardar} disabled={!(form.nombre || "").trim()}>Guardar cambios</PrimaryButton>
-          <button
-            onClick={() => setPorEliminar(editando)}
-            style={{ width: "100%", background: "none", border: "none", color: C.error, fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-          >
-            <Trash2 size={14} /> Eliminar del inventario
-          </button>
+          <PrimaryButton onClick={guardar} disabled={!(form.nombre || "").trim()}>{editando.item ? "Guardar cambios" : "Agregar"}</PrimaryButton>
+          {editando.item && (
+            <button
+              onClick={() => setPorEliminar(editando)}
+              style={{ width: "100%", background: "none", border: "none", color: C.error, fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+            >
+              <Trash2 size={14} /> Eliminar del inventario
+            </button>
+          )}
             </>
           )}
         </Modal>
