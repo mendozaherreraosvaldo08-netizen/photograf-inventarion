@@ -3953,6 +3953,29 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
     setModal(null);
   };
 
+  const ESTADOS_RAPIDOS = ["Disponible", "En uso", "Dañado", "En reparación"];
+
+  /* Antes, para cambiar el estado había que buscar el botón correcto entre
+     varios que aparecían y desaparecían según el estado actual ("Prestar",
+     "Mandar a reparación", "Ya quedó reparado"...). Ahora hay una fila de
+     pestañas de estado arriba, junto al nombre: tocas la que quieres y se
+     mueve directo ahí. Solo pide datos cuando de verdad hacen falta (a quién
+     se presta, o el motivo si se daña); los demás cambios son instantáneos. */
+  const cambiarEstadoRapido = (nuevoEstado) => {
+    if (nuevoEstado === selected.estado) return;
+    if (nuevoEstado === "En uso") {
+      intentarPrestar(selected);
+    } else if (nuevoEstado === "Dañado") {
+      setForm({ motivo: "", quien: usuarioActual, foto: null });
+      setModal("danado");
+    } else if (nuevoEstado === "En reparación") {
+      mandarAReparacion();
+    } else if (nuevoEstado === "Disponible") {
+      if (selected.estado === "En uso") confirmarDevolucion();
+      else marcarReparado();
+    }
+  };
+
   const confirmarBaja = () => {
     if (!form.motivo || !form.quien) return;
     if (!confirmandoBaja) {
@@ -3999,8 +4022,30 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
         } />
         <div style={{ padding: 16 }}>
           {selected.foto && <img src={selected.foto} alt={selected.nombre} style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 12, marginBottom: 16 }} />}
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-            <EstadoBadges estados={atrasado ? [selected.estado, "Atrasado"] : [selected.estado]} />
+          <div style={{ marginBottom: 16 }}>
+            {selected.estado === "Baja" ? (
+              <EstadoBadges estados={["Baja"]} />
+            ) : (
+              <>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {ESTADOS_RAPIDOS.map((es) => {
+                    const activo = selected.estado === es;
+                    const color = estadoColorDe(es);
+                    return (
+                      <button
+                        key={es}
+                        onClick={() => cambiarEstadoRapido(es)}
+                        disabled={activo}
+                        style={{ background: activo ? color : "none", color: activo ? textoContraste(color) : color, border: `1.5px solid ${color}`, borderRadius: 20, padding: "7px 14px", fontSize: 12.5, fontWeight: 700, cursor: activo ? "default" : "pointer" }}
+                      >
+                        {es}
+                      </button>
+                    );
+                  })}
+                </div>
+                {atrasado && <div style={{ marginTop: 8 }}><Badge estado="Atrasado" /></div>}
+              </>
+            )}
           </div>
           {selected.estado === "En uso" && (
             <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 16 }}>
@@ -4021,20 +4066,8 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
             />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
-            {selected.estado === "Disponible" && <PrimaryButton onClick={() => intentarPrestar(selected)} color={C.primary}>Prestar</PrimaryButton>}
-            {selected.estado === "En uso" && <PrimaryButton onClick={confirmarDevolucion} color={C.success}>Devolver</PrimaryButton>}
-            {/* Un equipo dañado tenía que quedarse dañado para siempre: no
-                había ninguna forma de mandarlo a reparar ni de regresarlo al
-                servicio una vez arreglado. */}
-            {selected.estado === "Dañado" && <PrimaryButton onClick={mandarAReparacion} color={C.warning}>Mandar a reparación</PrimaryButton>}
-            {(selected.estado === "Dañado" || selected.estado === "En reparación") && (
-              <PrimaryButton onClick={marcarReparado} color={C.success}>Ya quedó reparado</PrimaryButton>
-            )}
             {selected.estado !== "Baja" && (
               <>
-                {selected.estado !== "Dañado" && (
-                  <PrimaryButton onClick={() => { setForm({ motivo: "", quien: usuarioActual, foto: null }); setModal("danado"); }} color={C.error}>Marcar como dañado</PrimaryButton>
-                )}
                 {/* Antes se podía mandar a la otra sucursal un equipo que
                     alguien traía prestado, y desaparecía de las dos listas. */}
                 {selected.estado === "En uso" ? (
