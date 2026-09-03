@@ -3890,8 +3890,9 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
   const [form, setForm] = useState({});
   const [warning, setWarning] = useState("");
   const [confirmandoBaja, setConfirmandoBaja] = useState(false);
+  const [porEliminarEquipo, setPorEliminarEquipo] = useState(false);
 
-  const filters = ["Todas", "Disponible", "En uso", "Dañado", "En reparación"];
+  const filters = ["Todas", "Disponible", "En uso", "Dañado", "En reparación", "Baja"];
   // Categorías: no es una lista aparte como las pestañas de Materiales o
   // Almacén — aquí cada pieza de equipo ya se registra una por una (con su
   // propia foto, estado y préstamo), así que la "pestaña" es simplemente
@@ -3965,6 +3966,18 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
     setConfirmandoBaja(false);
   };
 
+  /* Dar de baja solo marca el estado (queda su historial y su lugar en
+     "Todas"/"Baja"), pero no lo borraba nunca del inventario — no había
+     forma de quitarlo de encima. Esto sí lo elimina por completo, y solo
+     está disponible para equipo ya dado de baja (no para uno en uso). */
+  const eliminarEquipo = () => {
+    setData((d) => ({ ...d, equipo: d.equipo.filter((e) => e.id !== selected.id) }));
+    bitacora(`Equipo eliminado del inventario: ${selected.nombre}`, usuarioActual);
+    mostrarToast("Equipo eliminado del inventario");
+    setPorEliminarEquipo(false);
+    setSelectedId(null);
+  };
+
   const confirmarAlta = () => {
     if (!form.nombre || !form.categoria) return;
     const nuevoId = Math.max(0, ...data.equipo.map((e) => e.id)) + 1;
@@ -4034,6 +4047,14 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
                 <PrimaryButton onClick={() => { setForm({ motivo: "", quien: usuarioActual }); setConfirmandoBaja(false); setModal("baja"); }} color={C.muted}>Dar de baja definitiva</PrimaryButton>
               </>
             )}
+            {selected.estado === "Baja" && (
+              <button
+                onClick={() => setPorEliminarEquipo(true)}
+                style={{ width: "100%", background: "none", border: `1px solid ${C.error}`, color: C.error, borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+              >
+                <Trash2 size={16} /> Eliminar del inventario
+              </button>
+            )}
           </div>
           <div style={{ fontSize: 16, fontWeight: 700, color: C.foreground, marginBottom: 10 }}>Historial</div>
           {[...selected.historial].reverse().map((h, i) => (
@@ -4090,6 +4111,20 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
             )}
             <PrimaryButton onClick={confirmarBaja} color={C.error} disabled={!form.motivo || !form.quien}>
               {confirmandoBaja ? "Sí, dar de baja definitivamente" : "Confirmar baja"}
+            </PrimaryButton>
+          </Modal>
+        )}
+
+        {porEliminarEquipo && (
+          <Modal title="Eliminar del inventario" onClose={() => setPorEliminarEquipo(false)} danger>
+            <div style={{ background: C.error, borderRadius: 10, padding: 12, display: "flex", gap: 10 }}>
+              <AlertTriangle size={20} color={textoContraste(C.error)} style={{ flexShrink: 0 }} />
+              <div style={{ fontSize: 13, color: textoContraste(C.error) }}>
+                "{selected.nombre}" se borra por completo del inventario, junto con su historial. Esto no se puede deshacer. ¿Seguro?
+              </div>
+            </div>
+            <PrimaryButton onClick={eliminarEquipo} color={C.error}>
+              Sí, eliminar definitivamente
             </PrimaryButton>
           </Modal>
         )}
