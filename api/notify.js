@@ -86,12 +86,18 @@ export default async function handler(req, res) {
     const lotes = [];
     for (let i = 0; i < tokens.length; i += 500) lotes.push(tokens.slice(i, i + 500));
 
-    // Sin "icon" aquí, el navegador decide solo qué mostrar y en varios
-    // celulares eso salía como un cuadro blanco en vez del logo. Se manda
-    // con URL completa (no "/icons/...") porque esto no lo procesa una
-    // página del sitio — lo entrega el sistema operativo directo.
+    // Se mandan con URL completa (no "/icons/...") porque esto no lo
+    // procesa una página del sitio — lo entrega el sistema operativo
+    // directo. Van dos íconos distintos a propósito: "icon" (el grande,
+    // a color, dentro de la notificación) usa la versión con fondo
+    // blanco para sobrevivir el recorte circular de Android; "badge" (el
+    // chiquito de la barra de estado) tiene que ser la versión con fondo
+    // TRANSPARENTE, porque ahí Android pinta usando solo la
+    // transparencia de la imagen — con fondo sólido pintaba el cuadro
+    // entero de blanco en vez de la silueta del logo.
     const origen = `https://${req.headers.host}`;
     const iconoNotificacion = `${origen}/icons/icon-maskable-192.png`;
+    const badgeNotificacion = `${origen}/icons/icon-192.png`;
 
     let enviados = 0;
     const tokensInvalidos = [];
@@ -104,7 +110,7 @@ export default async function handler(req, res) {
         },
         webpush: {
           fcmOptions: { link: "/" },
-          notification: { icon: iconoNotificacion, badge: iconoNotificacion },
+          notification: { icon: iconoNotificacion, badge: badgeNotificacion },
         },
       });
       enviados += resultado.successCount;
