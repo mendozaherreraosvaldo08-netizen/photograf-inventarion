@@ -86,6 +86,13 @@ export default async function handler(req, res) {
     const lotes = [];
     for (let i = 0; i < tokens.length; i += 500) lotes.push(tokens.slice(i, i + 500));
 
+    // Sin "icon" aquí, el navegador decide solo qué mostrar y en varios
+    // celulares eso salía como un cuadro blanco en vez del logo. Se manda
+    // con URL completa (no "/icons/...") porque esto no lo procesa una
+    // página del sitio — lo entrega el sistema operativo directo.
+    const origen = `https://${req.headers.host}`;
+    const iconoNotificacion = `${origen}/icons/icon-maskable-192.png`;
+
     let enviados = 0;
     const tokensInvalidos = [];
     for (const lote of lotes) {
@@ -95,7 +102,10 @@ export default async function handler(req, res) {
           title: String(titulo).slice(0, 200),
           body: String(cuerpo).slice(0, 500),
         },
-        webpush: { fcmOptions: { link: "/" } },
+        webpush: {
+          fcmOptions: { link: "/" },
+          notification: { icon: iconoNotificacion, badge: iconoNotificacion },
+        },
       });
       enviados += resultado.successCount;
       resultado.responses.forEach((r, i) => {
