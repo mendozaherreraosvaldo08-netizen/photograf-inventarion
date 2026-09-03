@@ -8538,7 +8538,7 @@ export default function PhotografInventario() {
       if (!notificadasRef.current.has(clave)) {
         notificadasRef.current.add(clave);
         try {
-          new Notification(`Photograf — ${a.tipo}`, { body: a.texto });
+          new Notification(`Photograf — ${a.tipo}`, { body: a.texto, icon: "/icons/icon-maskable-192.png" });
         } catch (e) {
           // Algunos navegadores en móvil no dejan crear Notification directo
           // sin un service worker; si falla, el aviso se sigue viendo en la
