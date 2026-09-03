@@ -1,5 +1,10 @@
-const CACHE_NAME = "photograf-cache-v1";
-const APP_SHELL = ["/", "/index.html", "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png"];
+// v2: el logo cambió y las notificaciones pasaron a usar el ícono con
+// relleno (icon-maskable-*). Subir el número de versión fuerza a que el
+// service worker viejo se dé de baja y vuelva a descargar todo de cero —
+// si no, el navegador puede seguir sirviendo el ícono anterior desde su
+// caché aunque el archivo en el servidor ya haya cambiado.
+const CACHE_NAME = "photograf-cache-v2";
+const APP_SHELL = ["/", "/index.html", "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/icon-maskable-192.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -54,8 +59,14 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(titulo, {
       body: cuerpo,
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
+      // El ícono normal (icon-192.png) es transparente y llega casi hasta
+      // el borde — Android suele recortar el ícono de la notificación en
+      // un círculo, y ese recorte se comía el logo dejando solo el hueco
+      // transparente de en medio (por eso salía un cuadro/círculo blanco
+      // en vez del logo). Este otro sí tiene fondo y el logo más chico y
+      // centrado, para que sobreviva a ese recorte lo tape como lo tape.
+      icon: "/icons/icon-maskable-192.png",
+      badge: "/icons/icon-maskable-192.png",
     })
   );
 });
