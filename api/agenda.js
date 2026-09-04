@@ -70,7 +70,7 @@ export default async function handler(req, res) {
     const app = appAdmin();
     const db = getFirestore(app);
     const snap = await db.collection("photograf").doc("inventario-datos").get();
-    const calendarId = snap.exists() ? snap.data()?.config?.calendarios?.[sucursal] : null;
+    const calendarId = snap.exists ? snap.data()?.config?.calendarios?.[sucursal] : null;
 
     if (!calendarId) {
       // Todavía no se conectó el calendario de esta sucursal — no es un
