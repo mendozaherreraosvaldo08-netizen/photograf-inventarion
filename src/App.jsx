@@ -62,6 +62,8 @@ import {
   MessageCircle,
   ShoppingCart,
   FileSpreadsheet,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 /* =========================================================================
@@ -850,8 +852,28 @@ function FieldLabel({ children }) {
   return <div style={{ fontSize: 12, fontWeight: 600, color: C.muted, marginBottom: 6, marginTop: 12 }}>{children}</div>;
 }
 
-const TextInput = forwardRef(function TextInput(props, ref) {
-  return <input ref={ref} {...props} style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", fontSize: 14, color: C.foreground, background: C.background, boxSizing: "border-box" }} />;
+const TextInput = forwardRef(function TextInput({ style, ...props }, ref) {
+  return <input ref={ref} {...props} style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", fontSize: 14, color: C.foreground, background: C.background, boxSizing: "border-box", ...style }} />;
+});
+
+/* Campo de contraseña con un ojito para mostrar/ocultar lo que se escribió —
+   mismo look que TextInput, nada más agrega el botón encimado a la derecha. */
+const PasswordInput = forwardRef(function PasswordInput(props, ref) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div style={{ position: "relative" }}>
+      <TextInput ref={ref} {...props} type={visible ? "text" : "password"} style={{ paddingRight: 40 }} />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        tabIndex={-1}
+        aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
+        style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", padding: 6, cursor: "pointer", color: C.muted, display: "flex", alignItems: "center" }}
+      >
+        {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    </div>
+  );
 });
 
 function PrimaryButton({ children, onClick, color = C.primary, disabled }) {
@@ -1491,7 +1513,7 @@ function AdminGate({ config, onSuccess, onCancel }) {
         style={{ padding: "20px 0" }}
       >
         <FieldLabel>Contraseña de administrador</FieldLabel>
-        <TextInput ref={inputRef} type="password" enterKeyHint="go" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="••••••••" autoFocus />
+        <PasswordInput ref={inputRef} enterKeyHint="go" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="••••••••" autoFocus />
         {error && <div style={{ color: C.error, fontSize: 12, marginTop: 8 }}>{error}</div>}
         <PrimaryButton disabled={!pass}>Entrar</PrimaryButton>
       </form>
@@ -3967,7 +3989,7 @@ function SucursalSelector({ usuario, onCambiarUsuario, onUnlock, onOpenMiInventa
             }}
           >
             <FieldLabel>Contraseña de la sucursal</FieldLabel>
-            <TextInput ref={inputRef} type="password" enterKeyHint="go" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="••••••••" autoFocus />
+            <PasswordInput ref={inputRef} enterKeyHint="go" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="••••••••" autoFocus />
             {error && <div style={{ color: C.error, fontSize: 12, marginTop: 8 }}>{error}</div>}
             <PrimaryButton disabled={!pass}>Entrar</PrimaryButton>
           </form>
