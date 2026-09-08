@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect, forwardRef } from "react";
 import * as XLSX from "xlsx";
-import { doc, onSnapshot, runTransaction, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, runTransaction, setDoc, collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { getToken, onMessage } from "firebase/messaging";
 import { db, messaging, VAPID_KEY } from "./firebase";
 import {
@@ -3151,6 +3151,24 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
   const [sucRendimiento, setSucRendimiento] = useState(SUCURSALES[0]);
   const archivoRef = useRef(null);
 
+  /* Respaldos que la app guarda ella sola cada noche (ver api/backup.js),
+     para no depender de que alguien se acuerde de darle "Descargar
+     respaldo" a mano. Se leen aparte, de la colección "respaldos". */
+  const [respaldosAuto, setRespaldosAuto] = useState(null); // null = cargando
+  useEffect(() => {
+    let activo = true;
+    getDocs(query(collection(db, "respaldos"), orderBy("fecha", "desc"), limit(30)))
+      .then((qs) => {
+        if (activo) setRespaldosAuto(qs.docs.map((d) => d.data()));
+      })
+      .catch(() => {
+        if (activo) setRespaldosAuto([]);
+      });
+    return () => {
+      activo = false;
+    };
+  }, []);
+
   /* No usamos permisoNotificaciones (el permiso del navegador) para decidir
      si ya quedó activado como admin: ese permiso es del dispositivo, no de
      "para qué sucursal se guardó el token" — un empleado pudo haberlo
@@ -3215,8 +3233,18 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
 
   /* Respaldo: un archivo .json con todo lo que la app guarda. Sirve para
      recuperar si alguien borra algo por error, o para llevarse los datos. */
+  const descargarObjeto = (nombreArchivo, contenido) => {
+    const blob = new Blob([JSON.stringify(contenido, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombreArchivo;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const descargarRespaldo = () => {
-    const contenido = {
+    descargarObjeto(`Respaldo_Photograf_${fmt(hoy)}.json`, {
       app: "photograf-inventario",
       version: 1,
       generado: new Date().toISOString(),
@@ -3225,14 +3253,7 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
       config,
       transferenciasPendientes: transferencias,
       transferenciasBasesPendientes: transferenciasBases,
-    };
-    const blob = new Blob([JSON.stringify(contenido, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Respaldo_Photograf_${fmt(hoy)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    });
     mostrarToast("Respaldo descargado ✓");
   };
 
@@ -3379,6 +3400,36 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
         <button onClick={() => archivoRef.current.click()} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "none", color: C.foreground, border: `1.5px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
           <Upload size={16} /> Restaurar desde un respaldo
         </button>
+
+        <div style={{ height: 32 }} />
+
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.foreground, marginBottom: 4 }}>Respaldos automáticos</div>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 12 }}>
+          Cada madrugada la app guarda sola una copia completa, sin que nadie tenga que acordarse de nada. Se conservan los últimos 30 días — de aquí puedes bajar cualquiera o regresar el inventario a como estaba justo ese día.
+        </div>
+        {respaldosAuto === null && <div style={{ fontSize: 13, color: C.muted }}>Cargando...</div>}
+        {respaldosAuto && respaldosAuto.length === 0 && (
+          <div style={{ fontSize: 13, color: C.muted, marginBottom: 8 }}>Todavía no hay ninguno guardado — el primero se hace solo esta madrugada.</div>
+        )}
+        {respaldosAuto && respaldosAuto.map((r) => (
+          <div key={r.fecha} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 10, marginBottom: 8 }}>
+            <div style={{ fontSize: 13, color: C.foreground, fontWeight: 600 }}>{r.fecha}</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                onClick={() => descargarObjeto(`Respaldo_Photograf_${r.fecha}.json`, { app: "photograf-inventario", version: 1, generado: r.fecha, ...r.datos })}
+                style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 10px", color: C.foreground, cursor: "pointer", fontSize: 12 }}
+              >
+                Descargar
+              </button>
+              <button
+                onClick={() => setPorRestaurar({ ...r.datos, generado: r.fecha })}
+                style={{ background: "none", border: `1px solid ${C.error}`, borderRadius: 8, padding: "6px 10px", color: C.error, cursor: "pointer", fontSize: 12 }}
+              >
+                Restaurar
+              </button>
+            </div>
+          </div>
+        ))}
 
         <div style={{ height: 32 }} />
 
