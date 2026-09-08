@@ -5636,17 +5636,6 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
               ? "Al guardar se abre para ponerle la foto de la panorámica y/o el diploma — así aparece en esas pestañas."
               : "Para lo que no lleva panorámica ni diploma (por ejemplo, paquetes escolares)."}
           </div>
-          {esQueretaro && ["Universidad", "UNICEQ"].includes(nuevaBase.catalogo) && (
-            <>
-              <FieldLabel>Proveedor</FieldLabel>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <FilterPill label="Universidad" active={nuevaBase.catalogo === "Universidad"} onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "Universidad" })} color={C.secondary} />
-                <FilterPill label="UNICEQ" active={nuevaBase.catalogo === "UNICEQ"} onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "UNICEQ" })} color={C.accent1} />
-              </div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>Solo para saber de qué proveedor viene — no afecta el conteo. UNICEQ solo aplica en Querétaro.</div>
-            </>
-          )}
-
           <FieldLabel>Cuántas tenemos</FieldLabel>
           <TextInput type="number" value={nuevaBase.tenemos} onChange={(e) => setNuevaBase({ ...nuevaBase, tenemos: e.target.value })} placeholder="0" />
           <FieldLabel>Costo unitario (opcional)</FieldLabel>
