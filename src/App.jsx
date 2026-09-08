@@ -7923,6 +7923,19 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
   const [fecha, setFecha] = useState("");
   const [equipoIds, setEquipoIds] = useState([]);
   const [indumentariaCant, setIndumentariaCant] = useState({}); // { [itemId]: "3" }
+  const [tipoIndumentariaAbierto, setTipoIndumentariaAbierto] = useState(null);
+
+  /* La indumentaria agrupada por tipo (togas, birretes, bandas, borlas...)
+     para mostrarla como apartados que se abren/cierran, en vez de una sola
+     lista larga — hay muchas tallas/detalles distintos por tipo. */
+  const gruposIndumentaria = useMemo(() => {
+    const porTipo = {};
+    (data.indumentaria || []).forEach((item) => {
+      if (!porTipo[item.tipo]) porTipo[item.tipo] = [];
+      porTipo[item.tipo].push(item);
+    });
+    return Object.entries(porTipo);
+  }, [data.indumentaria]);
 
   /* Eventos que ya están agendados en el Google Calendar real de esta
      sucursal (de solo lectura — ver api/agenda.js). Sirven para no tener
@@ -7962,6 +7975,7 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
     setFecha(evG.fecha);
     setEquipoIds([]);
     setIndumentariaCant({});
+    setTipoIndumentariaAbierto(null);
     setModalNuevo(true);
   };
 
@@ -8013,6 +8027,7 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
     setFecha("");
     setEquipoIds([]);
     setIndumentariaCant({});
+    setTipoIndumentariaAbierto(null);
   };
 
   return (
@@ -8104,29 +8119,55 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
             })}
           </div>
           <FieldLabel>¿Cuánta indumentaria se necesita? (togas, birretes, bandas, borlas... opcional)</FieldLabel>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto", marginBottom: 4 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 280, overflowY: "auto", marginBottom: 4 }}>
             {(data.indumentaria || []).length === 0 && (
               <div style={{ fontSize: 11.5, color: C.muted }}>Todavía no hay indumentaria capturada en Inventario.</div>
             )}
-            {(data.indumentaria || []).map((item) => {
-              const disponible = disponibleIndumentaria(item);
-              const cant = indumentariaCant[item.id] || "0";
+            {gruposIndumentaria.map(([tipo, items]) => {
+              const estaAbierto = tipoIndumentariaAbierto === tipo;
+              const seleccionadosEnGrupo = items.reduce((a, item) => a + (parseInt(indumentariaCant[item.id], 10) || 0), 0);
               return (
-                <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: C.surface, border: `1px solid ${C.border}` }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, color: C.foreground }}>{item.tipo}{item.detalle ? ` (${item.detalle})` : ""}</div>
-                    <div style={{ fontSize: 10.5, color: disponible <= 0 ? C.error : C.muted }}>{disponible} disponible{disponible === 1 ? "" : "s"}</div>
-                  </div>
-                  <input
-                    type="number"
-                    min={0}
-                    max={disponible}
-                    value={cant === "0" ? "" : cant}
-                    placeholder="0"
-                    disabled={disponible <= 0}
-                    onChange={(e) => cambiarCantIndumentaria(item.id, e.target.value, disponible)}
-                    style={{ width: 56, padding: "6px 8px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.background, color: C.foreground, fontSize: 13, textAlign: "center" }}
-                  />
+                <div key={tipo} style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => setTipoIndumentariaAbierto(estaAbierto ? null : tipo)}
+                    style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: C.surface, border: "none", padding: "10px 10px", cursor: "pointer" }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: C.foreground }}>{tipo}</span>
+                      <span style={{ fontSize: 11, color: C.muted }}>({items.length})</span>
+                      {seleccionadosEnGrupo > 0 && (
+                        <span style={{ fontSize: 10.5, fontWeight: 700, color: "#fff", background: C.secondary, borderRadius: 10, padding: "1px 7px" }}>{seleccionadosEnGrupo}</span>
+                      )}
+                    </div>
+                    <ChevronRight size={16} color={C.muted} style={{ transform: estaAbierto ? "rotate(90deg)" : "none", transition: "transform 0.15s" }} />
+                  </button>
+                  {estaAbierto && (
+                    <div style={{ padding: 8, background: C.background, display: "flex", flexDirection: "column", gap: 6 }}>
+                      {items.map((item) => {
+                        const disponible = disponibleIndumentaria(item);
+                        const cant = indumentariaCant[item.id] || "0";
+                        return (
+                          <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: C.surface, border: `1px solid ${C.border}` }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, color: C.foreground }}>{item.detalle || item.tipo}</div>
+                              <div style={{ fontSize: 10.5, color: disponible <= 0 ? C.error : C.muted }}>{disponible} disponible{disponible === 1 ? "" : "s"}</div>
+                            </div>
+                            <input
+                              type="number"
+                              min={0}
+                              max={disponible}
+                              value={cant === "0" ? "" : cant}
+                              placeholder="0"
+                              disabled={disponible <= 0}
+                              onChange={(e) => cambiarCantIndumentaria(item.id, e.target.value, disponible)}
+                              style={{ width: 56, padding: "6px 8px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.background, color: C.foreground, fontSize: 13, textAlign: "center" }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}
