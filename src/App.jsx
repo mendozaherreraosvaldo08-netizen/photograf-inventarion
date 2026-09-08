@@ -5568,92 +5568,31 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
 
       {modalAlta && (
         <Modal title="Nueva base" onClose={() => setModalAlta(false)}>
-          <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
-            <FilterPill label="Elegir del catálogo" active={origenNombreBase === "catalogo"} onClick={() => setOrigenNombreBase("catalogo")} />
-            <FilterPill label="Escribir a mano" active={origenNombreBase === "manual"} onClick={() => { setOrigenNombreBase("manual"); setNuevaBase({ nombre: "", tenemos: nuevaBase.tenemos, costo: nuevaBase.costo, catalogo: "General" }); }} />
+          <FieldLabel>Nombre del paquete</FieldLabel>
+          <TextInput value={nuevaBase.nombre} onChange={(e) => setNuevaBase({ ...nuevaBase, nombre: e.target.value })} placeholder="Ej. Base Sur" />
+          <FieldLabel>Tipo</FieldLabel>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <FilterPill label="General" active={nuevaBase.catalogo === "General"} onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "General" })} />
+            <FilterPill
+              label="Panorámica y diploma"
+              active={["Universidad", "UNICEQ"].includes(nuevaBase.catalogo)}
+              onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "Universidad" })}
+              color={C.secondary}
+            />
           </div>
-
-          {origenNombreBase === "catalogo" ? (
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
+            {["Universidad", "UNICEQ"].includes(nuevaBase.catalogo)
+              ? "Al guardar se abre para ponerle la foto de la panorámica y/o el diploma — así aparece en esas pestañas."
+              : "Para lo que no lleva panorámica ni diploma (por ejemplo, paquetes escolares)."}
+          </div>
+          {esQueretaro && ["Universidad", "UNICEQ"].includes(nuevaBase.catalogo) && (
             <>
-              <div style={{ fontSize: 12.5, color: C.muted, margin: "6px 0 10px" }}>
-                Elige el paquete exacto: se llenan solos el precio, las medidas y qué incluye. Tú solo capturas cuántos tienes.
-              </div>
-              <div style={{ display: "flex", gap: 8, marginBottom: 10, overflowX: "auto" }}>
-                <FilterPill label="General" active={catalogoTabAlta === "General"} onClick={() => setCatalogoTabAlta("General")} />
-                <FilterPill label="Universidad" active={catalogoTabAlta === "Universidad"} onClick={() => setCatalogoTabAlta("Universidad")} color={C.secondary} />
-                {esQueretaro && <FilterPill label="UNICEQ" active={catalogoTabAlta === "UNICEQ"} onClick={() => setCatalogoTabAlta("UNICEQ")} color={C.accent1} />}
-              </div>
-              <TextInput value={buscaCatalogoBase} onChange={(e) => setBuscaCatalogoBase(e.target.value)} placeholder="Buscar paquete por nombre..." />
-              <div style={{ maxHeight: 320, overflowY: "auto", marginTop: 10, marginBottom: 4, border: `1px solid ${C.border}`, borderRadius: 10 }}>
-                {CATALOGO_2026.filter((p) => p.catalogo === catalogoTabAlta)
-                  .filter((p) => p.nombre.toLowerCase().includes(buscaCatalogoBase.toLowerCase()))
-                  .map((p) => (
-                    <button
-                      key={p.nombre}
-                      onClick={() =>
-                        setNuevaBase({
-                          nombre: p.nombre,
-                          tenemos: nuevaBase.tenemos,
-                          costo: nuevaBase.costo,
-                          catalogo: p.catalogo,
-                          linea: p.linea || "",
-                          precio: p.precio,
-                          medidas: p.medidas || "",
-                          incluye: p.incluye || "",
-                        })
-                      }
-                      style={{
-                        display: "block",
-                        width: "100%",
-                        textAlign: "left",
-                        background: nuevaBase.nombre === p.nombre ? `${C.secondary}18` : "none",
-                        border: "none",
-                        borderBottom: `1px solid ${C.border}`,
-                        padding: "10px 12px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <div style={{ fontSize: 13.5, fontWeight: 600, color: C.foreground }}>{p.nombre}</div>
-                      <div style={{ fontSize: 11.5, color: C.muted }}>{p.linea ? `${p.linea} · ` : ""}{fmtMoneda(p.precio)}{p.medidas ? ` · ${p.medidas}` : ""}</div>
-                    </button>
-                  ))}
-                {CATALOGO_2026.filter((p) => p.catalogo === catalogoTabAlta).filter((p) => p.nombre.toLowerCase().includes(buscaCatalogoBase.toLowerCase())).length === 0 && (
-                  <div style={{ padding: 14, fontSize: 13, color: C.muted, textAlign: "center" }}>Nada coincide con esa búsqueda.</div>
-                )}
-              </div>
-              {nuevaBase.nombre && origenNombreBase === "catalogo" && (
-                <div style={{ fontSize: 12.5, color: C.secondary, fontWeight: 600, marginBottom: 6 }}>Elegiste: {nuevaBase.nombre}</div>
-              )}
-            </>
-          ) : (
-            <>
-              <FieldLabel>Nombre del paquete</FieldLabel>
-              <TextInput value={nuevaBase.nombre} onChange={(e) => setNuevaBase({ ...nuevaBase, nombre: e.target.value })} placeholder="Ej. Base Sur" />
-              <FieldLabel>Tipo</FieldLabel>
+              <FieldLabel>Proveedor</FieldLabel>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <FilterPill label="General" active={nuevaBase.catalogo === "General"} onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "General" })} />
-                <FilterPill
-                  label="Panorámica y diploma"
-                  active={["Universidad", "UNICEQ"].includes(nuevaBase.catalogo)}
-                  onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "Universidad" })}
-                  color={C.secondary}
-                />
+                <FilterPill label="Universidad" active={nuevaBase.catalogo === "Universidad"} onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "Universidad" })} color={C.secondary} />
+                <FilterPill label="UNICEQ" active={nuevaBase.catalogo === "UNICEQ"} onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "UNICEQ" })} color={C.accent1} />
               </div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
-                {["Universidad", "UNICEQ"].includes(nuevaBase.catalogo)
-                  ? "Al guardar se abre para ponerle la foto de la panorámica y/o el diploma — así aparece en esas pestañas."
-                  : "Para lo que no lleva panorámica ni diploma (por ejemplo, paquetes escolares)."}
-              </div>
-              {esQueretaro && ["Universidad", "UNICEQ"].includes(nuevaBase.catalogo) && (
-                <>
-                  <FieldLabel>Proveedor</FieldLabel>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <FilterPill label="Universidad" active={nuevaBase.catalogo === "Universidad"} onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "Universidad" })} color={C.secondary} />
-                    <FilterPill label="UNICEQ" active={nuevaBase.catalogo === "UNICEQ"} onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "UNICEQ" })} color={C.accent1} />
-                  </div>
-                  <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>Solo para saber de qué proveedor viene — no afecta el conteo. UNICEQ solo aplica en Querétaro.</div>
-                </>
-              )}
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>Solo para saber de qué proveedor viene — no afecta el conteo. UNICEQ solo aplica en Querétaro.</div>
             </>
           )}
 
