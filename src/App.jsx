@@ -468,6 +468,8 @@ const TIPOS_INDUMENTARIA = [
   "Birrete Hexagonal",
   "Estola con Fleco",
   "Estola sin Fleco (con pico)",
+  "Banda",
+  "Borla",
   "Capa",
   "Capa de Enfermería",
   "Lámpara",
@@ -1438,9 +1440,16 @@ function calcularAlertas(data, config) {
     // les vaya la fecha por no traer la app abierta en ese momento.
     if (ev.fecha >= fmt(hoy) && ev.fecha <= enDias(2)) {
       const nombresEquipo = ev.equipoIds.map((id) => data.equipo.find((e) => e.id === id)?.nombre).filter(Boolean);
+      const nombresIndumentaria = (ev.indumentaria || [])
+        .map(({ id, cantidad }) => {
+          const item = (data.indumentaria || []).find((i) => i.id === id);
+          return item ? `${item.tipo}${item.detalle ? ` (${item.detalle})` : ""} ×${cantidad}` : null;
+        })
+        .filter(Boolean);
+      const llevar = [...nombresEquipo, ...nombresIndumentaria];
       alertas.push({
         tipo: "Sesión próxima",
-        texto: `${ev.nombre} (${ev.fecha})${nombresEquipo.length ? ` — llevar: ${nombresEquipo.join(", ")}` : " — todavía sin equipo asignado"}`,
+        texto: `${ev.nombre} (${ev.fecha})${llevar.length ? ` — llevar: ${llevar.join(", ")}` : " — todavía sin equipo asignado"}`,
         color: C.warning,
       });
     }
@@ -7899,11 +7908,21 @@ function conflictoDeEquipo(data, equipoId, fecha, excluirEventoId) {
   return null;
 }
 
+/* Cuánto queda disponible de una pieza de indumentaria (toga, birrete,
+   banda, borla...) restando lo que sigue prestado — mismo cálculo que usa
+   IndumentariaScreen, para que "armar el evento" no ofrezca más de lo que
+   hay en existencia. */
+function disponibleIndumentaria(item) {
+  const prestadas = (item.prestamos || []).filter((p) => p.estado === "Prestado").reduce((a, p) => a + p.cantidad, 0);
+  return item.cantidadTotal - prestadas;
+}
+
 function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast, sucursalActiva, calendarId, onBack }) {
   const [modalNuevo, setModalNuevo] = useState(false);
   const [nombre, setNombre] = useState("");
   const [fecha, setFecha] = useState("");
   const [equipoIds, setEquipoIds] = useState([]);
+  const [indumentariaCant, setIndumentariaCant] = useState({}); // { [itemId]: "3" }
 
   /* Eventos que ya están agendados en el Google Calendar real de esta
      sucursal (de solo lectura — ver api/agenda.js). Sirven para no tener
@@ -7942,6 +7961,7 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
     setNombre(evG.titulo);
     setFecha(evG.fecha);
     setEquipoIds([]);
+    setIndumentariaCant({});
     setModalNuevo(true);
   };
 
@@ -7950,9 +7970,16 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
   const eventosPropios = (data.eventos || []).map((ev) => {
     const conflictos = ev.equipoIds.map((id) => conflictoDeEquipo(data, id, ev.fecha, ev.id)).filter(Boolean);
     const nombresEquipo = ev.equipoIds.map((id) => data.equipo.find((e) => e.id === id)?.nombre).filter(Boolean);
+    const nombresIndumentaria = (ev.indumentaria || [])
+      .map(({ id, cantidad }) => {
+        const item = data.indumentaria.find((i) => i.id === id);
+        return item ? `${item.tipo}${item.detalle ? ` (${item.detalle})` : ""} ×${cantidad}` : null;
+      })
+      .filter(Boolean);
+    const detalles = [...nombresEquipo, ...nombresIndumentaria];
     return {
       fecha: ev.fecha,
-      texto: `${ev.nombre}${nombresEquipo.length ? " — " + nombresEquipo.join(", ") : ""}`,
+      texto: `${ev.nombre}${detalles.length ? " — " + detalles.join(", ") : ""}`,
       tipo: conflictos.length > 0 ? "Atrasado" : "Reservada",
       conflictos,
     };
@@ -7965,16 +7992,27 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
     setEquipoIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
   };
 
+  const cambiarCantIndumentaria = (id, valor, maxDisponible) => {
+    let cant = parseInt(valor, 10);
+    if (isNaN(cant) || cant < 0) cant = 0;
+    if (cant > maxDisponible) cant = maxDisponible;
+    setIndumentariaCant((c) => ({ ...c, [id]: String(cant) }));
+  };
+
   const guardarEvento = () => {
     if (!nombre || !fecha) return;
     const nuevoId = Math.max(0, ...(data.eventos || []).map((e) => e.id)) + 1;
-    setData((d) => ({ ...d, eventos: [...(d.eventos || []), { id: nuevoId, nombre, fecha, equipoIds, notas: "" }] }));
+    const indumentariaSeleccion = Object.entries(indumentariaCant)
+      .map(([id, cant]) => ({ id: parseInt(id, 10), cantidad: parseInt(cant, 10) || 0 }))
+      .filter((x) => x.cantidad > 0);
+    setData((d) => ({ ...d, eventos: [...(d.eventos || []), { id: nuevoId, nombre, fecha, equipoIds, indumentaria: indumentariaSeleccion, notas: "" }] }));
     bitacora(`Evento creado: ${nombre} (${fecha})`, usuarioActual);
     mostrarToast("Evento agregado ✓");
     setModalNuevo(false);
     setNombre("");
     setFecha("");
     setEquipoIds([]);
+    setIndumentariaCant({});
   };
 
   return (
@@ -8062,6 +8100,34 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
                     {conflicto && <div style={{ fontSize: 10.5, color: C.error }}>{conflicto}</div>}
                   </div>
                 </label>
+              );
+            })}
+          </div>
+          <FieldLabel>¿Cuánta indumentaria se necesita? (togas, birretes, bandas, borlas... opcional)</FieldLabel>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto", marginBottom: 4 }}>
+            {(data.indumentaria || []).length === 0 && (
+              <div style={{ fontSize: 11.5, color: C.muted }}>Todavía no hay indumentaria capturada en Inventario.</div>
+            )}
+            {(data.indumentaria || []).map((item) => {
+              const disponible = disponibleIndumentaria(item);
+              const cant = indumentariaCant[item.id] || "0";
+              return (
+                <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: C.surface, border: `1px solid ${C.border}` }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: C.foreground }}>{item.tipo}{item.detalle ? ` (${item.detalle})` : ""}</div>
+                    <div style={{ fontSize: 10.5, color: disponible <= 0 ? C.error : C.muted }}>{disponible} disponible{disponible === 1 ? "" : "s"}</div>
+                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    max={disponible}
+                    value={cant === "0" ? "" : cant}
+                    placeholder="0"
+                    disabled={disponible <= 0}
+                    onChange={(e) => cambiarCantIndumentaria(item.id, e.target.value, disponible)}
+                    style={{ width: 56, padding: "6px 8px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.background, color: C.foreground, fontSize: 13, textAlign: "center" }}
+                  />
+                </div>
               );
             })}
           </div>
@@ -8542,6 +8608,13 @@ export default function PhotografInventario() {
   const [toast, setToast] = useState(null);
   const [datosListos, setDatosListos] = useState(false);
   const [errorGuardado, setErrorGuardado] = useState(false);
+  /* Si la PRIMERA conexión a Firestore falla (mal internet justo al abrir
+     la app, muy común recién reinstalada sin nada en caché todavía), antes
+     se enseñaban los datos de ejemplo en memoria como si fueran el
+     inventario real — parecía que "se había borrado todo" cuando en
+     realidad el inventario seguía intacto en la nube. Ahora, en ese caso
+     específico, se muestra una pantalla de error clara en vez del inventario. */
+  const [errorCargaInicial, setErrorCargaInicial] = useState(false);
   const [abrirEquipoId, setAbrirEquipoId] = useState(null);
   const [appActiva, setAppActiva] = useState(null); // null (hub) | "inventario" | "asistencia"
   const [config, setConfig] = useState(CONFIG_INICIAL);
@@ -8622,8 +8695,16 @@ export default function PhotografInventario() {
         setDatosListos(true);
       },
       () => {
-        // Sin internet o sin permisos todavía — seguimos con los datos de
-        // ejemplo en memoria mientras tanto, sin trabar la app.
+        if (!lecturaOkRef.current) {
+          // Nunca llegamos a leer el documento real la primera vez — no
+          // hay que enseñar los datos de ejemplo como si fueran el
+          // inventario real. Se queda en la pantalla de error hasta que
+          // reintenten con mejor conexión.
+          setErrorCargaInicial(true);
+          return;
+        }
+        // Ya habíamos cargado bien antes; esto es un tropiezo posterior de
+        // conexión — seguimos mostrando lo que ya teníamos en pantalla.
         setDatosListos(true);
         setErrorGuardado(true);
       }
@@ -9102,6 +9183,25 @@ export default function PhotografInventario() {
         : `${t.nombre} llegó a ${NOMBRES_SUCURSAL[t.destino]}: se enviaron ${t.cantidad}, llegaron ${cantidadRecibida}. ${notaDiferencia || ""}`
     );
   };
+
+  if (errorCargaInicial) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.background, fontFamily: '-apple-system, "Segoe UI", Roboto, sans-serif', padding: 24, textAlign: "center" }}>
+        <GlobalStyles />
+        <img src={LOGO_PHOTOGRAF} alt="Photograf" style={{ width: 48, height: 48 }} />
+        <div style={{ marginTop: 16, fontSize: 14.5, fontWeight: 700, color: C.foreground }}>No se pudo conectar</div>
+        <div style={{ marginTop: 6, fontSize: 12.5, color: C.muted, maxWidth: 280 }}>
+          Revisa tu conexión a internet e inténtalo de nuevo. Tu inventario sigue guardado tal cual estaba, esto no lo borra.
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          style={{ marginTop: 18, background: C.secondary, color: "#fff", border: "none", borderRadius: 20, padding: "10px 26px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+        >
+          Reintentar
+        </button>
+      </div>
+    );
+  }
 
   if (!datosListos) {
     return (
