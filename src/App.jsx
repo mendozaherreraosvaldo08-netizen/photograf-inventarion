@@ -1984,7 +1984,6 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
   const [editando, setEditando] = useState(null); // { tipo, item }
   const [form, setForm] = useState({});
   const [porEliminar, setPorEliminar] = useState(null);
-  const [confirmandoCatalogo, setConfirmandoCatalogo] = useState(false);
   const [borrandoBases, setBorrandoBases] = useState(false);
   const [textoBorrarBases, setTextoBorrarBases] = useState("");
 
@@ -2295,40 +2294,6 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
 
   const filtra = (arr) => arr.filter((x) => (x.nombre || x.modelo || `${x.grupo || ""} ${x.tipo || ""} ${x.detalle || ""}`).toLowerCase().includes(busca.toLowerCase()));
 
-  /* Carga los paquetes del catálogo 2026 en esta sucursal. Los que ya
-     existen (por nombre) conservan sus existencias y sus paquetes de
-     clientes: solo se les refresca precio, medidas y descripción. UNICEQ
-     nunca se carga en Salinas. */
-  const delCatalogo = CATALOGO_2026.filter((p) => suc === "queretaro" || p.catalogo !== "UNICEQ");
-  const nombresActuales = d.bases.map((b) => b.nombre.trim().toLowerCase());
-  const nuevas = delCatalogo.filter((p) => !nombresActuales.includes(p.nombre.toLowerCase()));
-
-  const cargarCatalogo = () => {
-    setAllData((prev) => {
-      const bases = [...prev[suc].bases];
-      let siguienteId = Math.max(0, ...bases.map((b) => b.id)) + 1;
-      delCatalogo.forEach((p) => {
-        const datos = { catalogo: p.catalogo, linea: p.linea || "", precio: p.precio, medidas: p.medidas || "", incluye: p.incluye || "", imagen: p.imagen || null, imagenDiploma: p.imagenDiploma || null };
-        const i = bases.findIndex((b) => b.nombre.trim().toLowerCase() === p.nombre.toLowerCase());
-        if (i >= 0) {
-          bases[i] = { ...bases[i], ...datos };
-        } else {
-          // Si ya existe un pano hermano (mismo diseño en Universidad/UNICEQ)
-          // con existencia cargada, el paquete nuevo se une a esa misma
-          // existencia compartida en vez de empezar en 0.
-          const hermana = ["Universidad", "UNICEQ"].includes(p.catalogo)
-            ? bases.find((b) => ["Universidad", "UNICEQ"].includes(b.catalogo) && !(b.variantes && b.variantes.length > 0) && panoDe(b.nombre) === panoDe(p.nombre))
-            : null;
-          bases.push({ id: siguienteId++, nombre: p.nombre, ...datos, tenemos: hermana ? hermana.tenemos : 0, costo: 0, pedidoProveedor: 0, reservas: [], movimientos: [], variantes: [] });
-        }
-      });
-      return { ...prev, [suc]: { ...prev[suc], bases } };
-    });
-    registrar(suc, `Catálogo 2026 cargado: ${nuevas.length} paquete(s) nuevo(s), ${delCatalogo.length - nuevas.length} actualizado(s)`);
-    mostrarToast(nuevas.length ? `${nuevas.length} paquete(s) agregado(s) ✓` : "Catálogo actualizado ✓");
-    setConfirmandoCatalogo(false);
-  };
-
   /* Borra por completo las bases de la sucursal que se está viendo:
      existencias, variantes, reservas y movimientos. No toca la otra
      sucursal. Exige escribir "BORRAR" para evitar un toque accidental,
@@ -2423,14 +2388,6 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
             onEdit={() => abrir("material", m)}
           />
         ))}
-        {tab === "bases" && (
-          <button
-            onClick={() => setConfirmandoCatalogo(true)}
-            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: nuevas.length ? C.primary : "none", color: nuevas.length ? "#fff" : C.foreground, border: nuevas.length ? "none" : `1.5px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", marginBottom: 14 }}
-          >
-            <Download size={16} /> {nuevas.length ? `Cargar catálogo 2026 (${nuevas.length} nuevos)` : "Actualizar precios del catálogo 2026"}
-          </button>
-        )}
         {tab === "bases" && d.bases.length > 0 && (
           <button
             onClick={() => setBorrandoBases(true)}
@@ -2696,14 +2653,6 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
 
           {editando.tipo === "base" && (
             <>
-              <FieldLabel>Catálogo</FieldLabel>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <FilterPill label="General" active={form.catalogo === "General"} onClick={() => setForm({ ...form, catalogo: "General" })} />
-                <FilterPill label="Universidad" active={form.catalogo === "Universidad"} onClick={() => setForm({ ...form, catalogo: "Universidad" })} color={C.secondary} />
-                <FilterPill label="UNICEQ" active={form.catalogo === "UNICEQ"} onClick={() => setForm({ ...form, catalogo: "UNICEQ" })} color={C.accent1} />
-                <FilterPill label="Panorámica (aparte)" active={form.catalogo === "Panoramica"} onClick={() => setForm({ ...form, catalogo: "Panoramica" })} color={C.primary} />
-                <FilterPill label="Diploma (aparte)" active={form.catalogo === "Diploma"} onClick={() => setForm({ ...form, catalogo: "Diploma" })} color={C.accent1} />
-              </div>
               {(editando.item?.variantes || []).length > 0 ? (
                 <>
                   <FieldLabel>Cuántas tenemos (se calcula solo, por color)</FieldLabel>
@@ -2759,23 +2708,6 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
           )}
             </>
           )}
-        </Modal>
-      )}
-
-      {confirmandoCatalogo && (
-        <Modal title="Cargar catálogo 2026" onClose={() => setConfirmandoCatalogo(false)}>
-          <div style={{ fontSize: 14, color: C.foreground }}>
-            Se van a agregar {nuevas.length} paquete(s) que faltan en {NOMBRES_SUCURSAL[suc].replace("Photograf ", "")}, y se refrescan precio y medidas de los {delCatalogo.length - nuevas.length} que ya existen.
-          </div>
-          <div style={{ fontSize: 13, color: C.muted, marginTop: 10 }}>
-            Las existencias y los paquetes de clientes que ya tengas no se tocan. Los paquetes UNICEQ solo se cargan en Querétaro.
-          </div>
-          {nuevas.length > 0 && (
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10, maxHeight: 140, overflowY: "auto" }}>
-              {nuevas.map((p) => `${p.nombre} (${fmtMoneda(p.precio)})`).join(" · ")}
-            </div>
-          )}
-          <PrimaryButton onClick={cargarCatalogo}>{nuevas.length ? "Cargar paquetes" : "Actualizar precios"}</PrimaryButton>
         </Modal>
       )}
 
@@ -4668,6 +4600,8 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
   const [imagenAmpliada, setImagenAmpliada] = useState(null);
   const [registrandoSalida, setRegistrandoSalida] = useState(null); // base
   const [salidaForm, setSalidaForm] = useState({ tipo: "entrega", cantidad: "1", nota: "", color: "" });
+  const [registrandoEntrada, setRegistrandoEntrada] = useState(null); // base
+  const [entradaForm, setEntradaForm] = useState({ cantidad: "1", nota: "", color: "" });
   const [verMovimientosDe, setVerMovimientosDe] = useState(null); // base
   const [gestionandoVariantesDe, setGestionandoVariantesDe] = useState(null); // base
   const [nuevaVariante, setNuevaVariante] = useState({ color: "", cantidad: "" });
@@ -4795,8 +4729,6 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", flex: 1 }}>
             <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{b.nombre}</div>
-            {esQueretaro && b.catalogo === "UNICEQ" && <span style={{ fontSize: 10, fontWeight: 700, color: textoContraste(C.accent1), background: C.accent1, borderRadius: 6, padding: "2px 6px" }}>{b.linea || "UNICEQ"}</span>}
-            {b.catalogo === "Universidad" && <span style={{ fontSize: 10, fontWeight: 700, color: textoContraste(C.secondary), background: C.secondary, borderRadius: 6, padding: "2px 6px" }}>{b.linea || "Universidad"}</span>}
             {b.catalogo === "Panoramica" && <span style={{ fontSize: 10, fontWeight: 700, color: textoContraste(C.primary), background: C.primary, borderRadius: 6, padding: "2px 6px" }}>Panorámica</span>}
             {b.catalogo === "Diploma" && <span style={{ fontSize: 10, fontWeight: 700, color: textoContraste(C.accent1), background: C.accent1, borderRadius: 6, padding: "2px 6px" }}>Diploma</span>}
             {!!b.precio && <span style={{ fontSize: 13, fontWeight: 700, color: C.success }}>{fmtMoneda(b.precio)}</span>}
@@ -4841,6 +4773,14 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
           >
             <ArrowUpRight size={13} /> Salida
           </button>
+          <button
+            onClick={() => { setRegistrandoEntrada(b); setEntradaForm({ cantidad: "1", nota: "", color: b.variantes?.[0]?.color || "" }); }}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
+          >
+            <Inbox size={13} /> Entrada
+          </button>
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
           <button
             onClick={() => setVerMovimientosDe(b)}
             style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
@@ -5143,6 +5083,51 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
     setSalidaForm({ tipo: "entrega", cantidad: "1", nota: "", color: "" });
   };
 
+  /* Entrada: cuando llegan más piezas de una base/panorámica/diploma que
+     ya tenías registrada, aquí nada más se escribe cuántas llegaron y se
+     suman solas al "Tenemos" — sin tener que sacar la cuenta a mano con
+     el lápiz de editar. */
+  const confirmarEntradaBase = () => {
+    const base = registrandoEntrada;
+    const cant = parseInt(entradaForm.cantidad, 10) || 0;
+    const tieneVariantes = base && base.variantes && base.variantes.length > 0;
+    const varianteElegida = tieneVariantes ? base.variantes.find((v) => v.color === entradaForm.color) : null;
+    if (!base || cant < 1) return;
+    if (tieneVariantes && !varianteElegida) return;
+
+    const actualizarBase = (b) => {
+      if (b.id !== base.id) return b;
+      if (tieneVariantes) {
+        return {
+          ...b,
+          variantes: b.variantes.map((v) => (v.id === varianteElegida.id ? { ...v, tenemos: v.tenemos + cant } : v)),
+          movimientos: [
+            ...(b.movimientos || []),
+            movimientoBase("entrada", cant, usuarioActual, `${entradaForm.nota || "Llegada de piezas nuevas"} — color ${varianteElegida.color}`, { color: varianteElegida.color }),
+          ],
+        };
+      }
+      return {
+        ...b,
+        tenemos: b.tenemos + cant,
+        movimientos: [...(b.movimientos || []), movimientoBase("entrada", cant, usuarioActual, entradaForm.nota || "Llegada de piezas nuevas")],
+      };
+    };
+
+    setData((d) => {
+      const basesConEntrada = d.bases.map(actualizarBase);
+      if (tieneVariantes) return { ...d, bases: basesConEntrada };
+      const nuevoTenemos = base.tenemos + cant;
+      const bases = conPanoSincronizado(basesConEntrada, base, nuevoTenemos, usuarioActual, `Sincronizado: entrada de "${base.nombre}" en ${panoDe(base.nombre)}`);
+      return { ...d, bases };
+    });
+
+    bitacora(`Entrada de ${base.nombre}${tieneVariantes ? ` (${varianteElegida.color})` : ""}: +${cant}${entradaForm.nota ? ` — ${entradaForm.nota}` : ""}`, usuarioActual);
+    mostrarToast("Entrada registrada ✓");
+    setRegistrandoEntrada(null);
+    setEntradaForm({ cantidad: "1", nota: "", color: "" });
+  };
+
   const confirmarAltaBase = () => {
     if (!nuevaBase.nombre || nuevaBase.tenemos === "") return;
     const nuevoId = Math.max(0, ...data.bases.map((b) => b.id)) + 1;
@@ -5233,6 +5218,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
           usuarioActual={usuarioActual}
           mostrarToast={mostrarToast}
           campo="gruposAlmacen"
+          conMovimientos
           onEliminarGrupo={() => {
             const grupo = gruposAlmacen.find((g) => `custom:${g.id}` === tab);
             setData((d) => ({ ...d, gruposAlmacen: (d.gruposAlmacen || []).filter((g) => `custom:${g.id}` !== tab) }));
@@ -5268,8 +5254,8 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
         <div style={{ padding: "16px 16px 0" }}>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>
             {tab === "panoramicas"
-              ? "Todas las bases (panos) que tenemos en esta sucursal — no es por catálogo, es la existencia real, sumando Universidad y UNICEQ del mismo diseño. Toca una para ver el desglose."
-              : "Todos los diplomas que tenemos en esta sucursal (convencional, individual y agradecimiento son la misma pieza) — la existencia real, sumando Universidad y UNICEQ del mismo diseño. Toca uno para ver el desglose."}
+              ? "Todas las panorámicas que tenemos en esta sucursal — es la existencia real, sumando lo que se vende con distintos nombres del mismo diseño. Toca una para ver el desglose."
+              : "Todos los diplomas que tenemos en esta sucursal (convencional, individual y agradecimiento son la misma pieza) — la existencia real, sumando lo que se vende con distintos nombres del mismo diseño. Toca uno para ver el desglose."}
           </div>
           {(tab === "panoramicas" ? gruposPanos : gruposPanos.filter((g) => g.imagenDiploma)).map((g) => (
             <div
@@ -5282,11 +5268,6 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{g.pano}</div>
-                <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                  {[...g.catalogos].map((c) => (
-                    <span key={c} style={{ fontSize: 10, fontWeight: 700, color: textoContraste(c === "UNICEQ" ? C.accent1 : C.secondary), background: c === "UNICEQ" ? C.accent1 : C.secondary, borderRadius: 6, padding: "2px 6px" }}>{c}</span>
-                  ))}
-                </div>
               </div>
               <div style={{ textAlign: "center", flexShrink: 0 }}>
                 <div style={{ fontSize: 22, fontWeight: 700, color: C.primary }}>{g.tenemos}</div>
@@ -5294,7 +5275,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
               </div>
             </div>
           ))}
-          {tab === "panoramicas" && gruposPanos.length === 0 && <EmptyState text="Todavía no hay panos de Universidad o UNICEQ cargados en esta sucursal." />}
+          {tab === "panoramicas" && gruposPanos.length === 0 && <EmptyState text="Todavía no hay panorámicas cargadas en esta sucursal." />}
           {tab === "diplomas" && gruposPanos.filter((g) => g.imagenDiploma).length === 0 && <EmptyState text="Todavía no hay diplomas con foto cargada en esta sucursal." />}
           {tab === "diplomas" && gruposPanos.some((g) => !g.imagenDiploma) && (
             <div style={{ fontSize: 11.5, color: C.muted, marginBottom: 4 }}>
@@ -5350,7 +5331,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
           <div style={{ padding: "8px 16px 0" }}>
             {basesFiltradas.map((b) => renderTarjetaBase(b))}
             {basesFiltradas.length === 0 && (
-              <EmptyState text={"Todavía no hay bases registradas en esta sucursal. Agrega una con el botón + de aquí abajo, o pídele al administrador que use \"Cargar catálogo 2026\" en Editar inventario → Bases."} />
+              <EmptyState text={"Todavía no hay bases registradas en esta sucursal. Agrega una con el botón + de aquí abajo."} />
             )}
           </div>
           <FAB
@@ -5479,17 +5460,12 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
       {panoAmpliado && (
         <Modal title={panoAmpliado.pano} onClose={() => setPanoAmpliado(null)}>
           <div style={{ fontSize: 13, color: C.muted, marginBottom: 6 }}>
-            Es el mismo diseño de pano, vendido por separado en cada catálogo con su propio nombre y precio. La existencia es una sola: se descuenta igual sin importar en cuál registres la salida (a menos que alguna se maneje por variantes de color, esa se cuenta aparte).
+            Es el mismo diseño de pano, vendido por separado con distintos nombres y precios. La existencia es una sola: se descuenta igual sin importar en cuál registres la salida (a menos que alguna se maneje por variantes de color, esa se cuenta aparte).
           </div>
           {panoAmpliado.entradas.map((b) => (
             <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderTop: `1px solid ${C.border}` }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.foreground }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: textoContraste(b.catalogo === "UNICEQ" ? C.accent1 : C.secondary), background: b.catalogo === "UNICEQ" ? C.accent1 : C.secondary, borderRadius: 6, padding: "2px 6px", marginRight: 6 }}>
-                    {b.catalogo}{b.linea ? ` · ${b.linea}` : ""}
-                  </span>
-                </div>
-                <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{b.nombre}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.foreground }}>{b.nombre}</div>
               </div>
               <div style={{ textAlign: "right", flexShrink: 0 }}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: C.primary }}>{tenemosBase(b)}</div>
@@ -5536,6 +5512,39 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
             color={salidaForm.tipo === "prestamo" ? C.secondary : C.primary}
           >
             {salidaForm.tipo === "prestamo" ? "Enviar como préstamo" : "Registrar salida"}
+          </PrimaryButton>
+        </Modal>
+      )}
+
+      {registrandoEntrada && (
+        <Modal title={`Entrada: ${registrandoEntrada.nombre}`} onClose={() => setRegistrandoEntrada(null)}>
+          {registrandoEntrada.variantes && registrandoEntrada.variantes.length > 0 ? (
+            <>
+              <div style={{ fontSize: 12.5, color: C.muted }}>Este modelo se maneja por color. Elige a cuál color le llegaron piezas.</div>
+              <FieldLabel>Color</FieldLabel>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {registrandoEntrada.variantes.map((v) => (
+                  <FilterPill key={v.id} label={`${v.color} (${v.tenemos})`} active={entradaForm.color === v.color} onClick={() => setEntradaForm({ ...entradaForm, color: v.color })} />
+                ))}
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: 12.5, color: C.muted }}>Hay {registrandoEntrada.tenemos} en existencia. Pon cuántas piezas nuevas llegaron y se suman solas.</div>
+          )}
+          <FieldLabel>Cuántas llegaron</FieldLabel>
+          <TextInput type="number" value={entradaForm.cantidad} onChange={(e) => setEntradaForm({ ...entradaForm, cantidad: e.target.value })} />
+          <FieldLabel>Nota (opcional)</FieldLabel>
+          <TextInput value={entradaForm.nota} onChange={(e) => setEntradaForm({ ...entradaForm, nota: e.target.value })} placeholder="Ej. llegó pedido del proveedor" />
+          <PrimaryButton
+            onClick={confirmarEntradaBase}
+            disabled={
+              !entradaForm.cantidad ||
+              parseInt(entradaForm.cantidad, 10) < 1 ||
+              (registrandoEntrada.variantes && registrandoEntrada.variantes.length > 0 && !entradaForm.color)
+            }
+            color={C.success}
+          >
+            Registrar entrada
           </PrimaryButton>
         </Modal>
       )}
@@ -5782,7 +5791,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
    no encaje en ninguna de las categorías fijas. Se puede renombrar o
    borrar en cualquier momento desde el lápiz del encabezado.
    ========================================================================= */
-function GrupoPersonalizadoScreen({ grupo, setData, bitacora, usuarioActual, mostrarToast, onEliminarGrupo, campo = "gruposPersonalizados" }) {
+function GrupoPersonalizadoScreen({ grupo, setData, bitacora, usuarioActual, mostrarToast, onEliminarGrupo, campo = "gruposPersonalizados", conMovimientos = false }) {
   const [busca, setBusca] = useState("");
   const [editId, setEditId] = useState(null);
   const [nuevoValor, setNuevoValor] = useState("");
@@ -5792,6 +5801,13 @@ function GrupoPersonalizadoScreen({ grupo, setData, bitacora, usuarioActual, mos
   const [renombrando, setRenombrando] = useState(false);
   const [nuevoNombre, setNuevoNombre] = useState(grupo?.nombre || "");
   const [confirmandoBorrarGrupo, setConfirmandoBorrarGrupo] = useState(false);
+  // Salida/Entrada/Movimientos — igual que en Bases, pero sin lo de
+  // reservar para un cliente ni aviso de vencido, que aquí no aplica.
+  const [registrandoSalida, setRegistrandoSalida] = useState(null); // item
+  const [salidaCantidad, setSalidaCantidad] = useState("1");
+  const [registrandoEntrada, setRegistrandoEntrada] = useState(null); // item
+  const [entradaCantidad, setEntradaCantidad] = useState("1");
+  const [verMovimientosDe, setVerMovimientosDe] = useState(null); // item
 
   if (!grupo) return null;
 
@@ -5807,7 +5823,14 @@ function GrupoPersonalizadoScreen({ grupo, setData, bitacora, usuarioActual, mos
   const confirmarAlta = () => {
     if (!nuevoItem.nombre.trim() || nuevoItem.cantidad === "") return;
     const nuevoId = Math.max(0, ...(grupo.items || []).map((it) => it.id)) + 1;
-    actualizarGrupo((g) => ({ ...g, items: [...(g.items || []), { id: nuevoId, nombre: nuevoItem.nombre.trim(), cantidad: parseInt(nuevoItem.cantidad, 10) || 0, costo: parseFloat(nuevoItem.costo) || 0, notas: "" }] }));
+    const cant = parseInt(nuevoItem.cantidad, 10) || 0;
+    actualizarGrupo((g) => ({
+      ...g,
+      items: [
+        ...(g.items || []),
+        { id: nuevoId, nombre: nuevoItem.nombre.trim(), cantidad: cant, costo: parseFloat(nuevoItem.costo) || 0, notas: "", movimientos: cant > 0 ? [movimientoBase("entrada", cant, usuarioActual, "Alta inicial")] : [] },
+      ],
+    }));
     bitacora(`${grupo.nombre}: nuevo artículo agregado — ${nuevoItem.nombre}`, usuarioActual);
     mostrarToast("Agregado ✓");
     setModalAlta(false);
@@ -5817,11 +5840,47 @@ function GrupoPersonalizadoScreen({ grupo, setData, bitacora, usuarioActual, mos
   const guardarCantidad = (item) => {
     const nuevo = parseInt(nuevoValor, 10);
     if (isNaN(nuevo)) return;
-    actualizarGrupo((g) => ({ ...g, items: g.items.map((it) => (it.id === item.id ? { ...it, cantidad: nuevo } : it)) }));
+    const diferencia = nuevo - item.cantidad;
+    actualizarGrupo((g) => ({
+      ...g,
+      items: g.items.map((it) =>
+        it.id === item.id
+          ? { ...it, cantidad: nuevo, movimientos: diferencia !== 0 ? [...(it.movimientos || []), movimientoBase("ajuste", diferencia, usuarioActual, "Ajuste manual de existencias")] : it.movimientos }
+          : it
+      ),
+    }));
     bitacora(`${grupo.nombre}: ${item.nombre} editado de ${item.cantidad} a ${nuevo}`, usuarioActual);
     mostrarToast("Cantidad actualizada ✓");
     setEditId(null);
     setNuevoValor("");
+  };
+
+  const confirmarSalidaItem = () => {
+    const item = registrandoSalida;
+    const cant = parseInt(salidaCantidad, 10) || 0;
+    if (!item || cant < 1 || cant > item.cantidad) return;
+    actualizarGrupo((g) => ({
+      ...g,
+      items: g.items.map((it) => (it.id === item.id ? { ...it, cantidad: it.cantidad - cant, movimientos: [...(it.movimientos || []), movimientoBase("salida-entrega", -cant, usuarioActual, "Salida")] } : it)),
+    }));
+    bitacora(`${grupo.nombre}: salida de ${item.nombre} — -${cant}`, usuarioActual);
+    mostrarToast("Salida registrada ✓");
+    setRegistrandoSalida(null);
+    setSalidaCantidad("1");
+  };
+
+  const confirmarEntradaItem = () => {
+    const item = registrandoEntrada;
+    const cant = parseInt(entradaCantidad, 10) || 0;
+    if (!item || cant < 1) return;
+    actualizarGrupo((g) => ({
+      ...g,
+      items: g.items.map((it) => (it.id === item.id ? { ...it, cantidad: it.cantidad + cant, movimientos: [...(it.movimientos || []), movimientoBase("entrada", cant, usuarioActual, "Llegada de piezas nuevas")] } : it)),
+    }));
+    bitacora(`${grupo.nombre}: entrada de ${item.nombre} — +${cant}`, usuarioActual);
+    mostrarToast("Entrada registrada ✓");
+    setRegistrandoEntrada(null);
+    setEntradaCantidad("1");
   };
 
   const eliminarItem = () => {
@@ -5851,16 +5910,55 @@ function GrupoPersonalizadoScreen({ grupo, setData, bitacora, usuarioActual, mos
         }
       />
       <SearchBar placeholder="Buscar..." value={busca} onChange={(e) => setBusca(e.target.value)} />
-      <div className="pf-list-grid" style={{ padding: 16 }}>
-        {items.map((it) => (
-          <InventoryCard
-            key={it.id}
-            nombre={it.nombre}
-            categoria={it.costo ? fmtMoneda(it.costo) : ""}
-            right={<div style={{ fontSize: 22, fontWeight: 700, color: C.primary }}>{it.cantidad}</div>}
-            onEdit={() => { setEditId(it.id); setNuevoValor(String(it.cantidad)); }}
-          />
-        ))}
+      <div className={conMovimientos ? undefined : "pf-list-grid"} style={{ padding: 16 }}>
+        {items.map((it) =>
+          conMovimientos ? (
+            <div key={it.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{it.nombre}</div>
+                  {!!it.costo && <div style={{ fontSize: 12, color: C.muted }}>{fmtMoneda(it.costo)} c/u</div>}
+                </div>
+                <button onClick={() => { setEditId(it.id); setNuevoValor(String(it.cantidad)); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer" }}>
+                  <Pencil size={16} />
+                </button>
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "baseline" }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: C.primary }}>{it.cantidad}</div>
+                <div style={{ fontSize: 11, color: C.muted }}>en existencia</div>
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button
+                  onClick={() => { setRegistrandoSalida(it); setSalidaCantidad("1"); }}
+                  disabled={it.cantidad < 1}
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: it.cantidad < 1 ? C.muted : C.foreground, cursor: it.cantidad < 1 ? "not-allowed" : "pointer", opacity: it.cantidad < 1 ? 0.5 : 1 }}
+                >
+                  <ArrowUpRight size={13} /> Salida
+                </button>
+                <button
+                  onClick={() => { setRegistrandoEntrada(it); setEntradaCantidad("1"); }}
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
+                >
+                  <Inbox size={13} /> Entrada
+                </button>
+                <button
+                  onClick={() => setVerMovimientosDe(it)}
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
+                >
+                  <History size={13} /> Movimientos
+                </button>
+              </div>
+            </div>
+          ) : (
+            <InventoryCard
+              key={it.id}
+              nombre={it.nombre}
+              categoria={it.costo ? fmtMoneda(it.costo) : ""}
+              right={<div style={{ fontSize: 22, fontWeight: 700, color: C.primary }}>{it.cantidad}</div>}
+              onEdit={() => { setEditId(it.id); setNuevoValor(String(it.cantidad)); }}
+            />
+          )
+        )}
         {items.length === 0 && <EmptyState text="Todavía no hay nada en esta pestaña." />}
       </div>
       <FAB color={grupo.color || C.secondary} onClick={() => setModalAlta(true)} />
@@ -5899,6 +5997,48 @@ function GrupoPersonalizadoScreen({ grupo, setData, bitacora, usuarioActual, mos
         </Modal>
       )}
 
+      {registrandoSalida && (
+        <Modal title={`Salida: ${registrandoSalida.nombre}`} onClose={() => setRegistrandoSalida(null)}>
+          <div style={{ fontSize: 12.5, color: C.muted }}>Hay {registrandoSalida.cantidad} en existencia.</div>
+          <FieldLabel>Cantidad</FieldLabel>
+          <TextInput type="number" value={salidaCantidad} onChange={(e) => setSalidaCantidad(e.target.value)} />
+          <PrimaryButton onClick={confirmarSalidaItem} disabled={!salidaCantidad || parseInt(salidaCantidad, 10) < 1 || parseInt(salidaCantidad, 10) > registrandoSalida.cantidad}>
+            Registrar salida
+          </PrimaryButton>
+        </Modal>
+      )}
+
+      {registrandoEntrada && (
+        <Modal title={`Entrada: ${registrandoEntrada.nombre}`} onClose={() => setRegistrandoEntrada(null)}>
+          <div style={{ fontSize: 12.5, color: C.muted }}>Hay {registrandoEntrada.cantidad} en existencia. Pon cuántas piezas nuevas llegaron y se suman solas.</div>
+          <FieldLabel>Cuántas llegaron</FieldLabel>
+          <TextInput type="number" value={entradaCantidad} onChange={(e) => setEntradaCantidad(e.target.value)} />
+          <PrimaryButton onClick={confirmarEntradaItem} disabled={!entradaCantidad || parseInt(entradaCantidad, 10) < 1} color={C.success}>
+            Registrar entrada
+          </PrimaryButton>
+        </Modal>
+      )}
+
+      {verMovimientosDe && (
+        <Modal title={`Movimientos: ${verMovimientosDe.nombre}`} onClose={() => setVerMovimientosDe(null)}>
+          <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 10 }}>
+            Existencia actual: <strong style={{ color: C.foreground }}>{verMovimientosDe.cantidad}</strong>
+          </div>
+          {(!verMovimientosDe.movimientos || verMovimientosDe.movimientos.length === 0) && (
+            <div style={{ fontSize: 13, color: C.muted }}>Todavía no hay movimientos registrados para este artículo.</div>
+          )}
+          {[...(verMovimientosDe.movimientos || [])].reverse().map((mv) => (
+            <div key={mv.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
+              <div>
+                <div style={{ fontSize: 12, color: C.foreground }}>{mv.nota}</div>
+                <div style={{ fontSize: 11, color: C.muted }}>{mv.fecha}{mv.quien ? ` · ${mv.quien}` : ""}</div>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: mv.cantidad >= 0 ? C.success : C.error }}>{mv.cantidad >= 0 ? `+${mv.cantidad}` : mv.cantidad}</span>
+            </div>
+          ))}
+        </Modal>
+      )}
+
       {renombrando && (
         <Modal title="Renombrar pestaña" onClose={() => setRenombrando(false)}>
           <FieldLabel>Nombre de la pestaña</FieldLabel>
@@ -5930,8 +6070,8 @@ function MaterialesScreen({ data, setData, bitacora, usuarioActual, mostrarToast
   // La pestaña "Materiales" (lista genérica por cantidad) se quitó a
   // petición del negocio: lo que traía se organiza mejor en pestañas
   // propias (como "Papelería"), creadas con el botón "+ Nueva pestaña" de
-  // aquí abajo. Catálogos queda como pestaña de arranque.
-  const [tab, setTab] = useState("catalogos");
+  // aquí abajo.
+  const [tab, setTab] = useState("indumentaria");
   const [agregandoGrupo, setAgregandoGrupo] = useState(false);
   const [nombreGrupoNuevo, setNombreGrupoNuevo] = useState("");
   const [colorGrupoNuevo, setColorGrupoNuevo] = useState(C.secondary);
@@ -5959,7 +6099,6 @@ function MaterialesScreen({ data, setData, bitacora, usuarioActual, mostrarToast
       <div style={{ padding: "16px 16px 0" }}>
         <div className="pf-heading" style={{ fontSize: 20, fontWeight: 700, color: C.foreground, marginBottom: 12 }}>Materiales y producción</div>
         <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-          <FilterPill label="Catálogos" active={tab === "catalogos"} onClick={() => setTab("catalogos")} color={C.primary} />
           <FilterPill label="Indumentaria" active={tab === "indumentaria"} onClick={() => setTab("indumentaria")} color={C.accent1} />
           <FilterPill label="Emblemáticos" active={tab === "emblematicos"} onClick={() => setTab("emblematicos")} color={C.warning} />
           <FilterPill label="Placas por hoja" active={tab === "placas"} onClick={() => setTab("placas")} color={C.primary} />
@@ -5977,7 +6116,6 @@ function MaterialesScreen({ data, setData, bitacora, usuarioActual, mostrarToast
         </div>
       </div>
 
-      {tab === "catalogos" && <CatalogosScreen sucursal={sucursal} />}
       {tab === "indumentaria" && <IndumentariaScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} sucursal={sucursal} />}
       {tab === "emblematicos" && <EmblematicosScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} sucursal={sucursal} />}
       {tab === "placas" && <PlacasScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} config={config} sucursal={sucursal} />}
@@ -8473,75 +8611,11 @@ function TransferenciasScreen({ transferencias, transferenciasBases, sucursalAct
   );
 }
 
-/* =========================================================================
-   PANTALLA: Catálogos — solo para ver nombres y precios de lo que se vende
-   (General, Universidad y UNICEQ), sin tener que escribírselos ni
-   buscarlos: ya vienen cargados del catálogo 2026. No es inventario ni
-   existencia — eso es Panorámicas y Diplomas, dentro de Almacén. Cada
-   catálogo se despliega aparte. */
-function CatalogosScreen({ sucursal, onBack }) {
-  const [abierto, setAbierto] = useState("General");
-  const [busca, setBusca] = useState("");
-
-  const esQueretaro = sucursal === "queretaro";
-  const catalogos = [
-    { key: "General", label: "General (Escolar)", color: C.primary },
-    { key: "Universidad", label: "Universidad", color: C.secondary },
-    ...(esQueretaro ? [{ key: "UNICEQ", label: "UNICEQ", color: C.accent1 }] : []),
-  ];
-
-  const filtro = busca.trim().toLowerCase();
-
-  return (
-    <div style={{ paddingBottom: 40, minHeight: "100vh" }}>
-      <SectionHeader title="Catálogos" subtitle="Nombres y precios, para cotizar" onBack={onBack} />
-      <div style={{ padding: 16 }}>
-        <TextInput value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nombre..." />
-        <div style={{ height: 14 }} />
-        {catalogos.map((cat) => {
-          const productos = CATALOGO_2026.filter((p) => p.catalogo === cat.key && (!filtro || p.nombre.toLowerCase().includes(filtro)));
-          const estaAbierto = abierto === cat.key;
-          if (filtro && productos.length === 0) return null;
-          return (
-            <div key={cat.key} style={{ marginBottom: 14, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
-              <button
-                onClick={() => setAbierto(estaAbierto ? null : cat.key)}
-                style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: C.surface, border: "none", padding: 14, cursor: "pointer" }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 4, background: cat.color, display: "inline-block" }} />
-                  <span style={{ fontSize: 14.5, fontWeight: 700, color: C.foreground }}>{cat.label}</span>
-                  <span style={{ fontSize: 12, color: C.muted }}>({productos.length})</span>
-                </div>
-                <ChevronRight size={18} color={C.muted} style={{ transform: estaAbierto ? "rotate(90deg)" : "none", transition: "transform 0.15s" }} />
-              </button>
-              {estaAbierto && (
-                <div style={{ padding: 12, background: C.background }}>
-                  {productos.map((p, i) => (
-                    <div key={`${p.nombre}-${i}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 4px", borderTop: i > 0 ? `1px solid ${C.border}` : "none" }}>
-                      <div>
-                        <div style={{ fontSize: 13.5, fontWeight: 600, color: C.foreground }}>{p.nombre}</div>
-                        {(p.linea || p.medidas) && <div style={{ fontSize: 11.5, color: C.muted, marginTop: 2 }}>{[p.linea, p.medidas].filter(Boolean).join(" · ")}</div>}
-                      </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: C.success, flexShrink: 0, marginLeft: 10 }}>{fmtMoneda(p.precio)}</div>
-                    </div>
-                  ))}
-                  {productos.length === 0 && <EmptyState text="No hay paquetes con ese nombre en este catálogo." />}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isDark, onToggleDark, onDeshacer, puedeDeshacer, usuarioActual, onCambiarUsuario, onAdminMode, transferenciasPendientes, transferenciasBasesPendientes, sucursalActiva, onConfirmarTransferencia, onConfirmarTransferenciaBase, permisoNotificaciones, onActivarNotificaciones, onVolverHub }) {
   const [sub, setSub] = useState(null);
 
   if (sub === "notificaciones") return <NotificacionesScreen alertas={alertas} onBack={() => setSub(null)} />;
-  if (sub === "catalogos") return <CatalogosScreen sucursal={sucursalActiva} onBack={() => setSub(null)} />;
   if (sub === "reportes") return <ReportesScreen data={data} config={config} onBack={() => setSub(null)} />;
   if (sub === "calendario") return <CalendarioScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} sucursalActiva={sucursalActiva} calendarId={config?.calendarios?.[sucursalActiva]} onBack={() => setSub(null)} />;
   if (sub === "cierre") return <CierreScreen data={data} onBack={() => setSub(null)} />;
@@ -8583,9 +8657,8 @@ function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isD
       ],
     },
     {
-      titulo: "Producción y catálogos",
+      titulo: "Producción",
       opciones: [
-        { key: "catalogos", label: "Catálogos", icon: ImagePlus, color: C.primary },
         { key: "indumentaria", label: "Indumentaria", icon: Shirt, badge: indumentariaAtrasada, color: C.accent1 },
         { key: "emblematicos", label: "Emblemáticos", icon: Award, badge: firmasFaltantes, color: C.warning },
         { key: "placas", label: "Placas por hoja", icon: Scissors, color: C.primary },
