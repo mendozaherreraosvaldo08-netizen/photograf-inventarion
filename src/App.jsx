@@ -218,6 +218,13 @@ function normalizarSucursal(d) {
       historial: [],
       notas: "",
       costo: 0,
+      // Cuántas piezas idénticas representa esta fila (ej. 3 tripiés
+      // iguales dados de alta juntos). Es solo informativo: el estado
+      // (Disponible/En uso/etc.) y el préstamo siguen siendo de la fila
+      // completa, no por pieza — a propósito, para no complicar el
+      // flujo de préstamos. No participa en ninguna alerta de stock
+      // bajo (esas son solo para Materiales, Piezas y Placas).
+      cantidad: 1,
       quienLoTiene: null,
       quienAutorizo: null,
       fechaPrestamo: null,
@@ -1454,6 +1461,34 @@ function calcularAlertas(data, config) {
       });
     }
   });
+
+  // Igual que "Equipo comprometido", pero por cantidad: si entre todos los
+  // eventos de un mismo día piden más togas/birretes/bandas de un mismo
+  // tipo y talla de los que en realidad hay en existencia, avisa aquí —
+  // antes de que se descubra el faltante hasta el día del evento.
+  const necesidadPorFechaEIndumentaria = {};
+  (data.eventos || []).forEach((ev) => {
+    (ev.indumentaria || []).forEach(({ id, cantidad }) => {
+      if (!necesidadPorFechaEIndumentaria[ev.fecha]) necesidadPorFechaEIndumentaria[ev.fecha] = {};
+      necesidadPorFechaEIndumentaria[ev.fecha][id] = (necesidadPorFechaEIndumentaria[ev.fecha][id] || 0) + cantidad;
+    });
+  });
+  Object.entries(necesidadPorFechaEIndumentaria).forEach(([fecha, porItem]) => {
+    Object.entries(porItem).forEach(([itemId, necesita]) => {
+      const item = (data.indumentaria || []).find((i) => i.id === Number(itemId));
+      if (!item) return;
+      const disponible = disponibleIndumentaria(item);
+      if (necesita > disponible) {
+        const eventosEseDia = (data.eventos || []).filter((ev) => ev.fecha === fecha && (ev.indumentaria || []).some((x) => x.id === item.id));
+        alertas.push({
+          tipo: "Indumentaria comprometida",
+          texto: `${item.tipo}${item.detalle ? ` (${item.detalle})` : ""} el ${fecha}: se necesitan ${necesita} entre ${eventosEseDia.map((e) => `"${e.nombre}"`).join(", ")}, solo hay ${disponible}`,
+          color: C.error,
+        });
+      }
+    });
+  });
+
   return alertas;
 }
 
@@ -1961,7 +1996,7 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
   const TITULO_NUEVO = { equipo: "Nuevo equipo", material: "Nuevo material", base: "Nueva base", indumentaria: "Nueva indumentaria", emblematico: "Nuevo emblemático", mobiliario: "Nuevo mobiliario", pieza: "Nueva pieza" };
   const TITULO_EDITAR = { equipo: "Editar equipo", material: "Editar material", base: "Editar base", indumentaria: "Editar indumentaria", emblematico: "Editar emblemático", mobiliario: "Editar mobiliario", pieza: "Editar pieza" };
   const VALORES_NUEVO = {
-    equipo: { nombre: "", categoria: "", costo: "", notas: "", estado: "Disponible", mantenimientoIntervaloDias: 0 },
+    equipo: { nombre: "", categoria: "", cantidad: "1", costo: "", notas: "", estado: "Disponible", mantenimientoIntervaloDias: 0 },
     material: { nombre: "", categoria: "", cantidad: "", costo: "", notas: "", minimo: "" },
     base: { nombre: "", catalogo: "General", tenemos: "", costo: "", pedidoProveedor: "", precio: "", medidas: "", incluye: "", imagen: null },
     indumentaria: { tipo: "", detalle: "", cantidadTotal: "", costo: "" },
@@ -1998,7 +2033,7 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
       if (esNuevo) {
         setAllData((prev) => {
           const arr = prev[suc].equipo;
-          const nuevoItem = { id: Math.max(0, ...arr.map((e) => e.id)) + 1, nombre, categoria: (form.categoria || "").trim() || "General", estado: form.estado || "Disponible", foto: null, fotos: [], costo: parseFloat(form.costo) || 0, quienLoTiene: null, quienAutorizo: null, fechaPrestamo: null, fechaDevolucion: null, notas: form.notas || "", mantenimientoIntervaloDias: intervaloElegido, mantenimientoUltima: intervaloElegido > 0 ? fmt(hoy) : null, historial: [{ texto: "Alta de equipo desde el panel de administrador", fecha: fmt(hoy) }] };
+          const nuevoItem = { id: Math.max(0, ...arr.map((e) => e.id)) + 1, nombre, categoria: (form.categoria || "").trim() || "General", cantidad: parseInt(form.cantidad, 10) || 1, estado: form.estado || "Disponible", foto: null, fotos: [], costo: parseFloat(form.costo) || 0, quienLoTiene: null, quienAutorizo: null, fechaPrestamo: null, fechaDevolucion: null, notas: form.notas || "", mantenimientoIntervaloDias: intervaloElegido, mantenimientoUltima: intervaloElegido > 0 ? fmt(hoy) : null, historial: [{ texto: "Alta de equipo desde el panel de administrador", fecha: fmt(hoy) }] };
           return { ...prev, [suc]: { ...prev[suc], equipo: [...arr, nuevoItem] } };
         });
         registrar(suc, `Equipo agregado por el administrador: ${nombre}`);
@@ -2006,6 +2041,7 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
         const cambios = {
           nombre,
           categoria: (form.categoria || "").trim() || item.categoria,
+          cantidad: parseInt(form.cantidad, 10) || 1,
           costo: parseFloat(form.costo) || 0,
           notas: form.notas || "",
           estado: form.estado || item.estado,
@@ -2622,6 +2658,11 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
                 {ESTADOS_EQUIPO.map((es) => (
                   <FilterPill key={es} label={es} active={form.estado === es} onClick={() => setForm({ ...form, estado: es })} color={estadoColorDe(es)} />
                 ))}
+              </div>
+              <FieldLabel>Cantidad (cuántas piezas idénticas son)</FieldLabel>
+              <TextInput type="number" min={1} value={form.cantidad ?? "1"} onChange={(e) => setForm({ ...form, cantidad: e.target.value })} placeholder="1" />
+              <div style={{ fontSize: 11, color: C.muted, marginTop: -4, marginBottom: 8 }}>
+                Solo informativo, para cuando das de alta varias piezas iguales juntas — no cambia cómo se prestan (siguen contando como una sola fila) ni genera avisos de stock bajo.
               </div>
               <FieldLabel>Aviso de mantenimiento</FieldLabel>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -3504,6 +3545,7 @@ function exportarInventarioExcel(allData, config) {
         Folio: codigoArticulo("EQ", s, e.id),
         Nombre: e.nombre,
         Categoría: e.categoria,
+        Cantidad: e.cantidad || 1,
         Estado: e.estado,
         Costo: Number(e.costo) || 0,
         "Quién lo tiene": e.quienLoTiene || "",
@@ -3512,7 +3554,7 @@ function exportarInventarioExcel(allData, config) {
         Notas: e.notas || "",
       }))
     ),
-    [22, 18, 30, 16, 14, 12, 18, 14, 14, 40]
+    [22, 18, 30, 16, 10, 14, 12, 18, 14, 14, 40]
   );
 
   agregar(
@@ -4318,7 +4360,7 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
   const confirmarAlta = () => {
     if (!form.nombre || !form.categoria) return;
     const nuevoId = Math.max(0, ...data.equipo.map((e) => e.id)) + 1;
-    setData((d) => ({ ...d, equipo: [...d.equipo, { id: nuevoId, nombre: form.nombre, categoria: form.categoria, estado: "Disponible", foto: form.foto || null, fotos: [], costo: parseFloat(form.costo) || 0, quienLoTiene: null, quienAutorizo: null, fechaPrestamo: null, fechaDevolucion: null, notas: "", historial: [{ texto: `Alta de equipo por ${usuarioActual}`, fecha: fmt(hoy) }] }] }));
+    setData((d) => ({ ...d, equipo: [...d.equipo, { id: nuevoId, nombre: form.nombre, categoria: form.categoria, cantidad: parseInt(form.cantidad, 10) || 1, estado: "Disponible", foto: form.foto || null, fotos: [], costo: parseFloat(form.costo) || 0, quienLoTiene: null, quienAutorizo: null, fechaPrestamo: null, fechaDevolucion: null, notas: "", historial: [{ texto: `Alta de equipo por ${usuarioActual}`, fecha: fmt(hoy) }] }] }));
     bitacora(`Nuevo equipo agregado: ${form.nombre}`, usuarioActual);
     mostrarToast("Equipo agregado ✓");
     setModal(null);
@@ -4329,7 +4371,7 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
     const folio = codigoArticulo("EQ", sucursalActiva, selected.id);
     return (
       <div style={{ paddingBottom: 40 }}>
-        <SectionHeader title={selected.nombre} subtitle={`${selected.categoria} · ${folio}`} onBack={() => setSelectedId(null)} right={
+        <SectionHeader title={selected.nombre} subtitle={`${selected.categoria} · Cantidad: ${selected.cantidad || 1} · ${folio}`} onBack={() => setSelectedId(null)} right={
           <button onClick={() => setModal("qr")} style={{ background: "none", border: "none", color: C.primary, cursor: "pointer" }} aria-label="Ver código QR">
             <QrCodeIcon size={22} />
           </button>
@@ -4563,7 +4605,7 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
         })}
         {items.length === 0 && <EmptyState icon={Camera} text="No se encontró equipo con ese filtro." />}
       </div>
-      <FAB color={C.primary} onClick={() => { setForm({ nombre: "", categoria: categoriaFiltro === "Todas" ? "" : categoriaFiltro, foto: null }); setModal("alta"); }} />
+      <FAB color={C.primary} onClick={() => { setForm({ nombre: "", categoria: categoriaFiltro === "Todas" ? "" : categoriaFiltro, cantidad: "1", foto: null }); setModal("alta"); }} />
 
       {modal === "alta" && (
         <Modal title="Nuevo equipo" onClose={() => setModal(null)}>
@@ -4578,6 +4620,8 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
             </div>
           )}
           <TextInput value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })} placeholder="Ej. Cámaras, Lentes, Soportes..." />
+          <FieldLabel>Cantidad (si tienes varias piezas idénticas)</FieldLabel>
+          <TextInput type="number" min={1} value={form.cantidad ?? "1"} onChange={(e) => setForm({ ...form, cantidad: e.target.value })} placeholder="1" />
           <FieldLabel>Costo aproximado (opcional)</FieldLabel>
           <TextInput type="number" value={form.costo || ""} onChange={(e) => setForm({ ...form, costo: e.target.value })} placeholder="$0" />
           <PhotoInput value={form.foto} onChange={(v) => setForm({ ...form, foto: v })} />
@@ -4598,7 +4642,7 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
               if (!nombre) return;
               setCategoriaFiltro(nombre);
               setAgregandoCategoria(false);
-              setForm({ nombre: "", categoria: nombre, foto: null });
+              setForm({ nombre: "", categoria: nombre, cantidad: "1", foto: null });
               setModal("alta");
             }}
             disabled={!categoriaNueva.trim()}
@@ -7896,6 +7940,21 @@ function disponibleIndumentaria(item) {
   return item.cantidadTotal - prestadas;
 }
 
+/* Igual que disponibleIndumentaria, pero también resta lo que ya se
+   apartó para OTRO evento ese mismo día — mismo problema que ya se
+   resolvía con el equipo (conflictoDeEquipo/equipoDisponiblePara): sin
+   esto, "armar el evento" podía ofrecer más togas/birretes de los que en
+   realidad quedan libres si ya hay otro evento ese día usándolas. */
+function disponibleIndumentariaPara(data, item, fecha, excluirEventoId) {
+  const base = disponibleIndumentaria(item);
+  if (!fecha) return { disponible: base, otrosEventos: [] };
+  const otros = (data.eventos || []).filter(
+    (ev) => ev.id !== excluirEventoId && ev.fecha === fecha && (ev.indumentaria || []).some((x) => x.id === item.id && x.cantidad > 0)
+  );
+  const yaApartado = otros.reduce((a, ev) => a + (ev.indumentaria.find((x) => x.id === item.id)?.cantidad || 0), 0);
+  return { disponible: Math.max(0, base - yaApartado), otrosEventos: otros.map((ev) => ev.nombre) };
+}
+
 function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast, sucursalActiva, calendarId, onBack }) {
   const [modalNuevo, setModalNuevo] = useState(false);
   const [nombre, setNombre] = useState("");
@@ -8124,13 +8183,16 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
                   {estaAbierto && (
                     <div style={{ padding: 8, background: C.background, display: "flex", flexDirection: "column", gap: 6 }}>
                       {items.map((item) => {
-                        const disponible = disponibleIndumentaria(item);
+                        const { disponible, otrosEventos } = disponibleIndumentariaPara(data, item, fecha, null);
                         const cant = indumentariaCant[item.id] || "0";
                         return (
                           <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: C.surface, border: `1px solid ${C.border}` }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 13, color: C.foreground }}>{item.detalle || item.tipo}</div>
                               <div style={{ fontSize: 10.5, color: disponible <= 0 ? C.error : C.muted }}>{disponible} disponible{disponible === 1 ? "" : "s"}</div>
+                              {otrosEventos.length > 0 && (
+                                <div style={{ fontSize: 10.5, color: C.error }}>Ya apartado ese día para: {otrosEventos.join(", ")}</div>
+                              )}
                             </div>
                             <input
                               type="number"
