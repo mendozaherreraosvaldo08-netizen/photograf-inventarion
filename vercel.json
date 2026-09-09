@@ -1,0 +1,6 @@
+{
+  "crons": [
+    { "path": "/api/backup", "schedule": "0 9 * * *" },
+    { "path": "/api/recordatorios", "schedule": "0 14 * * *" }
+  ]
+}
