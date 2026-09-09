@@ -2701,6 +2701,8 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
                 <FilterPill label="General" active={form.catalogo === "General"} onClick={() => setForm({ ...form, catalogo: "General" })} />
                 <FilterPill label="Universidad" active={form.catalogo === "Universidad"} onClick={() => setForm({ ...form, catalogo: "Universidad" })} color={C.secondary} />
                 <FilterPill label="UNICEQ" active={form.catalogo === "UNICEQ"} onClick={() => setForm({ ...form, catalogo: "UNICEQ" })} color={C.accent1} />
+                <FilterPill label="Panorámica (aparte)" active={form.catalogo === "Panoramica"} onClick={() => setForm({ ...form, catalogo: "Panoramica" })} color={C.primary} />
+                <FilterPill label="Diploma (aparte)" active={form.catalogo === "Diploma"} onClick={() => setForm({ ...form, catalogo: "Diploma" })} color={C.accent1} />
               </div>
               {(editando.item?.variantes || []).length > 0 ? (
                 <>
@@ -4752,6 +4754,169 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
 
   const sobreReservado = basesFiltradas.filter((b) => choquesDePano(data.bases, b).length > 0);
 
+  // Panorámica y Diploma dados de alta como artículos totalmente aparte
+  // (no como el modelo viejo de Universidad/UNICEQ con imagen+imagenDiploma
+  // en un solo renglón) — cada uno con su propio "tenemos" y sus propias
+  // reservas, con exactamente el mismo trato que cualquier base (Salida,
+  // Movimientos, Asignar paquete, aviso de vencido).
+  const panoramicasIndependientes = basesVisibles.filter((b) => b.catalogo === "Panoramica");
+  const diplomasIndependientes = basesVisibles.filter((b) => b.catalogo === "Diploma");
+
+  // Tarjeta completa de una base — mismo look & funciones sin importar
+  // desde qué pestaña se muestre (Bases, Panorámicas o Diplomas), para que
+  // Panorámica y Diploma tengan exactamente el mismo trato que Bases.
+  const renderTarjetaBase = (b) => {
+    const reservadas = b.reservas.filter((r) => r.estado === "Reservada").length;
+    const sobre = reservadas > b.tenemos;
+    return (
+      <div key={b.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
+        <div style={{ display: "flex", gap: 12 }}>
+          {b.imagen && (
+            <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+              <img
+                src={b.imagen}
+                alt={b.nombre}
+                loading="lazy"
+                onClick={() => setImagenAmpliada(b.imagen)}
+                style={{ width: b.imagenDiploma ? 54 : 64, height: 64, objectFit: "cover", borderRadius: 8, border: `1px solid ${C.border}`, cursor: "pointer" }}
+              />
+              {b.imagenDiploma && (
+                <img
+                  src={b.imagenDiploma}
+                  alt={`${b.nombre} diploma`}
+                  loading="lazy"
+                  onClick={() => setImagenAmpliada(b.imagenDiploma)}
+                  style={{ width: 54, height: 64, objectFit: "cover", borderRadius: 8, border: `1px solid ${C.border}`, cursor: "pointer" }}
+                />
+              )}
+            </div>
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{b.nombre}</div>
+            {esQueretaro && b.catalogo === "UNICEQ" && <span style={{ fontSize: 10, fontWeight: 700, color: textoContraste(C.accent1), background: C.accent1, borderRadius: 6, padding: "2px 6px" }}>{b.linea || "UNICEQ"}</span>}
+            {b.catalogo === "Universidad" && <span style={{ fontSize: 10, fontWeight: 700, color: textoContraste(C.secondary), background: C.secondary, borderRadius: 6, padding: "2px 6px" }}>{b.linea || "Universidad"}</span>}
+            {b.catalogo === "Panoramica" && <span style={{ fontSize: 10, fontWeight: 700, color: textoContraste(C.primary), background: C.primary, borderRadius: 6, padding: "2px 6px" }}>Panorámica</span>}
+            {b.catalogo === "Diploma" && <span style={{ fontSize: 10, fontWeight: 700, color: textoContraste(C.accent1), background: C.accent1, borderRadius: 6, padding: "2px 6px" }}>Diploma</span>}
+            {!!b.precio && <span style={{ fontSize: 13, fontWeight: 700, color: C.success }}>{fmtMoneda(b.precio)}</span>}
+          </div>
+          {(!b.variantes || b.variantes.length === 0) && (
+            <button onClick={() => { setEditBase(b.id); setNuevoValor(String(b.tenemos)); setQuien(usuarioActual); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer" }}>
+              <Pencil size={16} />
+            </button>
+          )}
+        </div>
+        <div style={{ fontSize: 10.5, color: C.muted, fontFamily: "monospace", marginBottom: 8 }}>{codigoArticulo("BASE", sucursal, b.id)}</div>
+        {(b.medidas || b.incluye) && (
+          <details style={{ marginBottom: 10 }}>
+            <summary style={{ fontSize: 11.5, color: C.primary, cursor: "pointer", fontWeight: 600 }}>
+              {b.medidas || "Ver qué incluye"}
+            </summary>
+            {b.incluye && <div style={{ fontSize: 12, color: C.muted, marginTop: 6, lineHeight: 1.45 }}>{b.incluye}</div>}
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 6, fontStyle: "italic" }}>{INCLUYE_SIEMPRE[b.catalogo] || ""}</div>
+          </details>
+        )}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ flex: 1, textAlign: "center" }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: C.primary }}>{tenemosBase(b)}</div>
+            <div style={{ fontSize: 11, color: C.muted }}>Tenemos</div>
+          </div>
+          <div style={{ flex: 1, textAlign: "center" }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: sobre ? C.error : C.primary }}>{reservadas}</div>
+            <div style={{ fontSize: 11, color: C.muted }}>Se van a ocupar</div>
+          </div>
+          <div style={{ flex: 1, textAlign: "center" }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: C.primary }}>{b.pedidoProveedor}</div>
+            <div style={{ fontSize: 11, color: C.muted }}>Pedido</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <button
+            onClick={() => { setRegistrandoSalida(b); setSalidaForm({ tipo: "entrega", cantidad: "1", nota: "", color: b.variantes?.[0]?.color || "" }); }}
+            disabled={tenemosBase(b) < 1}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: tenemosBase(b) < 1 ? C.muted : C.foreground, cursor: tenemosBase(b) < 1 ? "not-allowed" : "pointer", opacity: tenemosBase(b) < 1 ? 0.5 : 1 }}
+          >
+            <ArrowUpRight size={13} /> Salida
+          </button>
+          <button
+            onClick={() => setVerMovimientosDe(b)}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
+          >
+            <History size={13} /> Movimientos
+          </button>
+          <button
+            onClick={() => setEditandoFotoDe(b)}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
+          >
+            <CameraIcon size={13} /> {b.imagen ? "Cambiar foto" : "Foto"}
+          </button>
+        </div>
+        {b.catalogo === "UNICEQ" && (
+          <button
+            onClick={() => setGestionandoVariantesDe(b)}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px dashed ${C.accent1}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.accent1, cursor: "pointer", marginTop: 8 }}
+          >
+            <Palette size={13} />
+            {(b.variantes || []).length > 0 ? `Variantes de color (${b.variantes.length})` : "Agregar variantes de color"}
+          </button>
+        )}
+        <div style={{ marginTop: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase" }}>Paquetes de clientes</div>
+            <button
+              onClick={() => { setAgregandoPaqueteA(b.id); setNuevoPaquete({ cliente: "", correo: "", telefono: "", fecha: fmt(hoy) }); }}
+              style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: C.primary, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+            >
+              <Plus size={14} /> Asignar paquete
+            </button>
+          </div>
+          {b.reservas.filter((r) => r.estado !== "Desarmada").map((r) => {
+            const tol = estadoTolerancia(r);
+            return (
+              <div key={r.id} style={{ padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontSize: 13, color: C.foreground, fontWeight: 600 }}>{r.evento}</div>
+                    <div style={{ fontSize: 11, color: C.muted }}>{r.fecha}{r.correo ? ` · ${r.correo}` : ""}{r.telefono ? ` · ${r.telefono}` : ""}</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Badge estado={tol?.nivel === "vencido" ? "Vencido" : r.estado} />
+                    {r.estado === "Reservada" && (
+                      <button onClick={() => marcarEntregada(b.id, r.id, r.evento)} style={{ fontSize: 11, background: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 8px", cursor: "pointer", color: C.foreground }}>
+                        Marcar entregada
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {tol && tol.nivel !== "normal" && (
+                  <div style={{ marginTop: 6, display: "flex", justifyContent: "space-between", alignItems: "center", background: tol.nivel === "vencido" ? `${C.error}18` : `${C.warning}18`, borderRadius: 8, padding: "6px 10px" }}>
+                    <div style={{ fontSize: 11, color: tol.nivel === "vencido" ? C.error : C.warning, display: "flex", alignItems: "center", gap: 6 }}>
+                      <AlertTriangle size={12} />
+                      {tol.nivel === "vencido"
+                        ? `Vencido hace ${tol.dias - TOLERANCIA_DIAS} día(s) — pasó la tolerancia de 3 meses`
+                        : `Quedan ${TOLERANCIA_DIAS - tol.dias} día(s) antes de que se desarme`}
+                    </div>
+                    {tol.nivel === "vencido" && (
+                      <button onClick={() => setPorDesarmar({ baseId: b.id, reservaId: r.id, evento: r.evento })} style={{ fontSize: 11, background: C.error, color: textoContraste(C.error), border: "none", borderRadius: 6, padding: "4px 8px", cursor: "pointer" }}>
+                        Desarmar
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {b.reservas.filter((r) => r.estado !== "Desarmada").length === 0 && (
+            <div style={{ fontSize: 12, color: C.muted, padding: "8px 0" }}>Sin paquetes asignados todavía.</div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const marcarEntregada = (baseId, reservaId, evento) => {
     setData((d) => ({ ...d, bases: d.bases.map((b) => (b.id === baseId ? { ...b, reservas: b.reservas.map((r) => (r.id === reservaId ? { ...r, estado: "Entregada" } : r)) } : b)) }));
     bitacora(`Reserva entregada: ${evento}`, usuarioActual);
@@ -5006,15 +5171,12 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
     bitacora(`Nueva base agregada: ${nuevaBase.nombre} (${catalogoFinal})`, usuarioActual);
     mostrarToast("Base agregada ✓");
     setModalAlta(false);
-    setNuevaBase({ nombre: "", tenemos: "", catalogo: "General" });
-    setOrigenNombreBase("catalogo");
+    setNuevaBase({ nombre: "", tenemos: "", catalogo: "Panoramica" });
+    setOrigenNombreBase("manual");
     setBuscaCatalogoBase("");
-    // "Panorámicas" y "Diplomas" solo muestran panos que YA tienen foto
-    // cargada — una base nueva de tipo panorámica/diploma no aparecería ahí
-    // hasta tener esa foto, sin importar desde qué pestaña se haya creado.
-    // En vez de dejarla perdida de vista, se abre aquí mismo el editor de
-    // foto de la base nueva: en cuanto se le pone la foto, aparece sola.
-    if (["Universidad", "UNICEQ"].includes(catalogoFinal)) {
+    // Se abre aquí mismo el editor de foto de la base nueva: en cuanto se
+    // le pone la foto, ya se ve completa en su tarjeta.
+    if (["Universidad", "UNICEQ", "Panoramica", "Diploma"].includes(catalogoFinal)) {
       setEditandoFotoDe({ id: nuevoId, nombre: nuevaBase.nombre, catalogo: catalogoFinal, imagen: null, imagenDiploma: null });
     }
   };
@@ -5139,16 +5301,35 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
               Un pano solo aparece aquí cuando ya tiene foto de diploma. Para agregársela: en Bases, abre ese pano y toca "Cambiar foto".
             </div>
           )}
+
+          {/* Panorámica y Diploma dados de alta como artículo aparte (no
+              como pano de Universidad/UNICEQ) — mismo trato completo que
+              Bases: Tenemos, reservar, entregar, aviso de vencido. */}
+          <div style={{ height: 1, background: C.border, margin: "18px 0 14px" }} />
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>
+            {tab === "panoramicas" ? "Panorámicas registradas por separado" : "Diplomas registrados por separado"}
+          </div>
+          {(tab === "panoramicas" ? panoramicasIndependientes : diplomasIndependientes).map((b) => renderTarjetaBase(b))}
+          {(tab === "panoramicas" ? panoramicasIndependientes : diplomasIndependientes).length === 0 && (
+            <EmptyState
+              text={
+                tab === "panoramicas"
+                  ? "Todavía no has agregado ninguna panorámica por separado. Agrégala con el botón + de aquí abajo."
+                  : "Todavía no has agregado ningún diploma por separado. Agrégalo con el botón + de aquí abajo."
+              }
+            />
+          )}
         </div>
       )}
       {(tab === "panoramicas" || tab === "diplomas") && (
         <FAB
           color={C.secondary}
           onClick={() => {
-            setNuevaBase({ nombre: "", tenemos: "", catalogo: "Universidad" });
-            setOrigenNombreBase("catalogo");
+            const catalogo = tab === "panoramicas" ? "Panoramica" : "Diploma";
+            setNuevaBase({ nombre: "", tenemos: "", catalogo });
+            setOrigenNombreBase("manual");
             setBuscaCatalogoBase("");
-            setCatalogoTabAlta("Universidad");
+            setCatalogoTabAlta(catalogo);
             setModalAlta(true);
           }}
         />
@@ -5167,155 +5348,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
             </div>
           )}
           <div style={{ padding: "8px 16px 0" }}>
-            {basesFiltradas.map((b) => {
-              const reservadas = b.reservas.filter((r) => r.estado === "Reservada").length;
-              const sobre = reservadas > b.tenemos;
-              return (
-                <div key={b.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
-                  <div style={{ display: "flex", gap: 12 }}>
-                    {b.imagen && (
-                      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                        <img
-                          src={b.imagen}
-                          alt={b.nombre}
-                          loading="lazy"
-                          onClick={() => setImagenAmpliada(b.imagen)}
-                          style={{ width: b.imagenDiploma ? 54 : 64, height: 64, objectFit: "cover", borderRadius: 8, border: `1px solid ${C.border}`, cursor: "pointer" }}
-                        />
-                        {b.imagenDiploma && (
-                          <img
-                            src={b.imagenDiploma}
-                            alt={`${b.nombre} diploma`}
-                            loading="lazy"
-                            onClick={() => setImagenAmpliada(b.imagenDiploma)}
-                            style={{ width: 54, height: 64, objectFit: "cover", borderRadius: 8, border: `1px solid ${C.border}`, cursor: "pointer" }}
-                          />
-                        )}
-                      </div>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", flex: 1 }}>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{b.nombre}</div>
-                      {esQueretaro && b.catalogo === "UNICEQ" && <span style={{ fontSize: 10, fontWeight: 700, color: textoContraste(C.accent1), background: C.accent1, borderRadius: 6, padding: "2px 6px" }}>{b.linea || "UNICEQ"}</span>}
-                      {b.catalogo === "Universidad" && <span style={{ fontSize: 10, fontWeight: 700, color: textoContraste(C.secondary), background: C.secondary, borderRadius: 6, padding: "2px 6px" }}>{b.linea || "Universidad"}</span>}
-                      {!!b.precio && <span style={{ fontSize: 13, fontWeight: 700, color: C.success }}>{fmtMoneda(b.precio)}</span>}
-                    </div>
-                    {(!b.variantes || b.variantes.length === 0) && (
-                      <button onClick={() => { setEditBase(b.id); setNuevoValor(String(b.tenemos)); setQuien(usuarioActual); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer" }}>
-                        <Pencil size={16} />
-                      </button>
-                    )}
-                  </div>
-                  <div style={{ fontSize: 10.5, color: C.muted, fontFamily: "monospace", marginBottom: 8 }}>{codigoArticulo("BASE", sucursal, b.id)}</div>
-                  {(b.medidas || b.incluye) && (
-                    <details style={{ marginBottom: 10 }}>
-                      <summary style={{ fontSize: 11.5, color: C.primary, cursor: "pointer", fontWeight: 600 }}>
-                        {b.medidas || "Ver qué incluye"}
-                      </summary>
-                      {b.incluye && <div style={{ fontSize: 12, color: C.muted, marginTop: 6, lineHeight: 1.45 }}>{b.incluye}</div>}
-                      <div style={{ fontSize: 11, color: C.muted, marginTop: 6, fontStyle: "italic" }}>{INCLUYE_SIEMPRE[b.catalogo] || ""}</div>
-                    </details>
-                  )}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <div style={{ flex: 1, textAlign: "center" }}>
-                      <div style={{ fontSize: 22, fontWeight: 700, color: C.primary }}>{tenemosBase(b)}</div>
-                      <div style={{ fontSize: 11, color: C.muted }}>Tenemos</div>
-                    </div>
-                    <div style={{ flex: 1, textAlign: "center" }}>
-                      <div style={{ fontSize: 22, fontWeight: 700, color: sobre ? C.error : C.primary }}>{reservadas}</div>
-                      <div style={{ fontSize: 11, color: C.muted }}>Se van a ocupar</div>
-                    </div>
-                    <div style={{ flex: 1, textAlign: "center" }}>
-                      <div style={{ fontSize: 22, fontWeight: 700, color: C.primary }}>{b.pedidoProveedor}</div>
-                      <div style={{ fontSize: 11, color: C.muted }}>Pedido</div>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                    <button
-                      onClick={() => { setRegistrandoSalida(b); setSalidaForm({ tipo: "entrega", cantidad: "1", nota: "", color: b.variantes?.[0]?.color || "" }); }}
-                      disabled={tenemosBase(b) < 1}
-                      style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: tenemosBase(b) < 1 ? C.muted : C.foreground, cursor: tenemosBase(b) < 1 ? "not-allowed" : "pointer", opacity: tenemosBase(b) < 1 ? 0.5 : 1 }}
-                    >
-                      <ArrowUpRight size={13} /> Salida
-                    </button>
-                    <button
-                      onClick={() => setVerMovimientosDe(b)}
-                      style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
-                    >
-                      <History size={13} /> Movimientos
-                    </button>
-                    <button
-                      onClick={() => setEditandoFotoDe(b)}
-                      style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
-                    >
-                      <CameraIcon size={13} /> {b.imagen ? "Cambiar foto" : "Foto"}
-                    </button>
-                  </div>
-                  {b.catalogo === "UNICEQ" && (
-                    <button
-                      onClick={() => setGestionandoVariantesDe(b)}
-                      style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px dashed ${C.accent1}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.accent1, cursor: "pointer", marginTop: 8 }}
-                    >
-                      <Palette size={13} />
-                      {(b.variantes || []).length > 0 ? `Variantes de color (${b.variantes.length})` : "Agregar variantes de color"}
-                    </button>
-                  )}
-                  <div style={{ marginTop: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase" }}>Paquetes de clientes</div>
-                      <button
-                        onClick={() => { setAgregandoPaqueteA(b.id); setNuevoPaquete({ cliente: "", correo: "", telefono: "", fecha: fmt(hoy) }); }}
-                        style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: C.primary, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-                      >
-                        <Plus size={14} /> Asignar paquete
-                      </button>
-                    </div>
-                    {b.reservas.filter((r) => r.estado !== "Desarmada").map((r) => {
-                      const tol = estadoTolerancia(r);
-                      return (
-                        <div key={r.id} style={{ padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                            <div>
-                              <div style={{ fontSize: 13, color: C.foreground, fontWeight: 600 }}>{r.evento}</div>
-                              <div style={{ fontSize: 11, color: C.muted }}>{r.fecha}{r.correo ? ` · ${r.correo}` : ""}{r.telefono ? ` · ${r.telefono}` : ""}</div>
-                            </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <Badge estado={tol?.nivel === "vencido" ? "Vencido" : r.estado} />
-                              {r.estado === "Reservada" && (
-                                <button onClick={() => marcarEntregada(b.id, r.id, r.evento)} style={{ fontSize: 11, background: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 8px", cursor: "pointer", color: C.foreground }}>
-                                  Marcar entregada
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                          {tol && tol.nivel !== "normal" && (
-                            <div style={{ marginTop: 6, display: "flex", justifyContent: "space-between", alignItems: "center", background: tol.nivel === "vencido" ? `${C.error}18` : `${C.warning}18`, borderRadius: 8, padding: "6px 10px" }}>
-                              <div style={{ fontSize: 11, color: tol.nivel === "vencido" ? C.error : C.warning, display: "flex", alignItems: "center", gap: 6 }}>
-                                <AlertTriangle size={12} />
-                                {tol.nivel === "vencido"
-                                  ? `Vencido hace ${tol.dias - TOLERANCIA_DIAS} día(s) — pasó la tolerancia de 3 meses`
-                                  : `Quedan ${TOLERANCIA_DIAS - tol.dias} día(s) antes de que se desarme`}
-                              </div>
-                              {tol.nivel === "vencido" && (
-                                <button onClick={() => setPorDesarmar({ baseId: b.id, reservaId: r.id, evento: r.evento })} style={{ fontSize: 11, background: C.error, color: textoContraste(C.error), border: "none", borderRadius: 6, padding: "4px 8px", cursor: "pointer" }}>
-                                  Desarmar
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {b.reservas.filter((r) => r.estado !== "Desarmada").length === 0 && (
-                      <div style={{ fontSize: 12, color: C.muted, padding: "8px 0" }}>Sin paquetes asignados todavía.</div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            {basesFiltradas.map((b) => renderTarjetaBase(b))}
             {basesFiltradas.length === 0 && (
               <EmptyState text={"Todavía no hay bases registradas en esta sucursal. Agrega una con el botón + de aquí abajo, o pídele al administrador que use \"Cargar catálogo 2026\" en Editar inventario → Bases."} />
             )}
@@ -5323,10 +5356,10 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
           <FAB
             color={C.secondary}
             onClick={() => {
-              setNuevaBase({ nombre: "", tenemos: "", catalogo: "General" });
-              setOrigenNombreBase("catalogo");
+              setNuevaBase({ nombre: "", tenemos: "", catalogo: "Panoramica" });
+              setOrigenNombreBase("manual");
               setBuscaCatalogoBase("");
-              setCatalogoTabAlta("General");
+              setCatalogoTabAlta("Panoramica");
               setModalAlta(true);
             }}
           />
@@ -5344,7 +5377,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
               setData((d) => ({ ...d, bases: d.bases.map((b) => (b.id === editandoFotoDe.id ? { ...b, imagen: v } : b)) }));
               setEditandoFotoDe((prev) => (prev ? { ...prev, imagen: v } : prev));
             }}
-            label="Foto Panorámica"
+            label={editandoFotoDe.catalogo === "Diploma" ? "Foto del diploma" : "Foto Panorámica"}
           />
           {editandoFotoDe.imagen && (
             <button
@@ -5355,7 +5388,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
               }}
               style={{ width: "100%", background: "none", border: "none", color: C.error, fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 10, marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
             >
-              <Trash2 size={14} /> Quitar foto panorámica
+              <Trash2 size={14} /> {editandoFotoDe.catalogo === "Diploma" ? "Quitar foto del diploma" : "Quitar foto panorámica"}
             </button>
           )}
 
@@ -5664,21 +5697,14 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
       {modalAlta && (
         <Modal title="Nueva base" onClose={() => setModalAlta(false)}>
           <FieldLabel>Nombre del paquete</FieldLabel>
-          <TextInput value={nuevaBase.nombre} onChange={(e) => setNuevaBase({ ...nuevaBase, nombre: e.target.value })} placeholder="Ej. Base Sur" />
+          <TextInput value={nuevaBase.nombre} onChange={(e) => setNuevaBase({ ...nuevaBase, nombre: e.target.value })} placeholder="Ej. Panorámica Sur" />
           <FieldLabel>Tipo</FieldLabel>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <FilterPill label="General" active={nuevaBase.catalogo === "General"} onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "General" })} />
-            <FilterPill
-              label="Panorámica y diploma"
-              active={["Universidad", "UNICEQ"].includes(nuevaBase.catalogo)}
-              onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "Universidad" })}
-              color={C.secondary}
-            />
+            <FilterPill label="Panorámica" active={nuevaBase.catalogo === "Panoramica"} onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "Panoramica" })} color={C.secondary} />
+            <FilterPill label="Diploma" active={nuevaBase.catalogo === "Diploma"} onClick={() => setNuevaBase({ ...nuevaBase, catalogo: "Diploma" })} color={C.accent1} />
           </div>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
-            {["Universidad", "UNICEQ"].includes(nuevaBase.catalogo)
-              ? "Al guardar se abre para ponerle la foto de la panorámica y/o el diploma — así aparece en esas pestañas."
-              : "Para lo que no lleva panorámica ni diploma (por ejemplo, paquetes escolares)."}
+            Panorámica y Diploma quedan como artículos totalmente aparte, cada uno con su propio "cuántas tenemos" y sus propias reservas — al guardar se abre para ponerle su foto.
           </div>
           <FieldLabel>Cuántas tenemos</FieldLabel>
           <TextInput type="number" value={nuevaBase.tenemos} onChange={(e) => setNuevaBase({ ...nuevaBase, tenemos: e.target.value })} placeholder="0" />
