@@ -81,17 +81,27 @@ export default async function handler(req, res) {
       const eventosManana = (d.eventos || []).filter((ev) => ev.fecha === fechaObjetivo);
       for (const ev of eventosManana) {
         const nombresEquipo = (ev.equipoIds || []).map((id) => d.equipo?.find((e) => e.id === id)?.nombre).filter(Boolean);
+        const nombresEquipoCantidad = (ev.equipoCantidades || [])
+          .map(({ id, cantidad }) => {
+            const item = (d.equipo || []).find((e) => e.id === id);
+            return item ? `${item.nombre} ×${cantidad}` : null;
+          })
+          .filter(Boolean);
         const nombresIndumentaria = (ev.indumentaria || [])
           .map(({ id, cantidad }) => {
             const item = (d.indumentaria || []).find((i) => i.id === id);
             return item ? `${item.tipo}${item.detalle ? ` (${item.detalle})` : ""} ×${cantidad}` : null;
           })
           .filter(Boolean);
-        const llevar = [...nombresEquipo, ...nombresIndumentaria];
+        const llevar = [...nombresEquipo, ...nombresEquipoCantidad, ...nombresIndumentaria];
         mensajes.push({
           sucursal: suc,
           titulo: `Mañana: ${ev.nombre}`,
           cuerpo: llevar.length ? `Llevar: ${llevar.join(", ")}` : "Todavía no se le asignó equipo ni indumentaria.",
+          // Con esto, si el cron llegara a correr dos veces el mismo día
+          // (un reintento de Vercel, por ejemplo), la segunda notificación
+          // reemplaza a la primera en vez de amontonarse otra igual.
+          tag: `pf-recordatorio-${suc}-${ev.id}-${fechaObjetivo}`,
         });
       }
     }
@@ -125,7 +135,7 @@ export default async function handler(req, res) {
           },
           webpush: {
             fcmOptions: { link: "/" },
-            notification: { icon: iconoNotificacion, badge: badgeNotificacion },
+            notification: { icon: iconoNotificacion, badge: badgeNotificacion, tag: msg.tag },
           },
         });
         enviados += resultado.successCount;
