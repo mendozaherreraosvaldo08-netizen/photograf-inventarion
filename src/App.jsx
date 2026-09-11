@@ -813,23 +813,40 @@ function GlobalStyles() {
       .pf-pop { animation: pf-pop-in 260ms cubic-bezier(.34,1.56,.64,1); }
 
       /* Responsivo: en celular, .pf-shell se queda en 480px como siempre.
-         En pantallas grandes (compu/laptop), se ensancha un poco y se le
-         pone un fondo decorativo alrededor, en vez de quedar una columna
-         angosta perdida en medio de la pantalla. */
-      .pf-shell { max-width: 480px; margin: 0 auto; }
-      @media (min-width: 860px) {
+         En pantallas más grandes (tablet, laptop, monitor de compu) se va
+         ensanchando por etapas en vez de quedarse en un solo tamaño fijo,
+         para que se sienta como una app completa y no como una tarjeta
+         angosta perdida en medio de una pantalla grande. Mientras más
+         ancha la pantalla, más ancho el contenido — hasta un límite
+         razonable para que el texto no se estire demasiado. */
+      html, body { overflow-x: hidden; }
+      .pf-shell { max-width: 480px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+      @media (min-width: 700px) {
         html, body {
           background: linear-gradient(135deg, #EEF2FF 0%, #F5F0FF 50%, #FFF5F0 100%);
           background-attachment: fixed;
         }
         .pf-shell {
-          max-width: 560px;
+          max-width: 640px;
           box-shadow: 0 0 50px rgba(16,24,40,0.10);
         }
         .pf-list-grid {
           display: grid !important;
           grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important;
           gap: 10px !important;
+        }
+      }
+      @media (min-width: 1024px) {
+        .pf-shell {
+          max-width: 860px;
+        }
+        .pf-list-grid {
+          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+        }
+      }
+      @media (min-width: 1440px) {
+        .pf-shell {
+          max-width: 1080px;
         }
       }
       @media print {
@@ -1447,13 +1464,19 @@ function calcularAlertas(data, config) {
     // les vaya la fecha por no traer la app abierta en ese momento.
     if (ev.fecha >= fmt(hoy) && ev.fecha <= enDias(2)) {
       const nombresEquipo = ev.equipoIds.map((id) => data.equipo.find((e) => e.id === id)?.nombre).filter(Boolean);
+      const nombresEquipoCantidad = (ev.equipoCantidades || [])
+        .map(({ id, cantidad }) => {
+          const item = data.equipo.find((e) => e.id === id);
+          return item ? `${item.nombre} ×${cantidad}` : null;
+        })
+        .filter(Boolean);
       const nombresIndumentaria = (ev.indumentaria || [])
         .map(({ id, cantidad }) => {
           const item = (data.indumentaria || []).find((i) => i.id === id);
           return item ? `${item.tipo}${item.detalle ? ` (${item.detalle})` : ""} ×${cantidad}` : null;
         })
         .filter(Boolean);
-      const llevar = [...nombresEquipo, ...nombresIndumentaria];
+      const llevar = [...nombresEquipo, ...nombresEquipoCantidad, ...nombresIndumentaria];
       alertas.push({
         tipo: "Sesión próxima",
         texto: `${ev.nombre} (${ev.fecha})${llevar.length ? ` — llevar: ${llevar.join(", ")}` : " — todavía sin equipo asignado"}`,
@@ -1483,6 +1506,34 @@ function calcularAlertas(data, config) {
         alertas.push({
           tipo: "Indumentaria comprometida",
           texto: `${item.tipo}${item.detalle ? ` (${item.detalle})` : ""} el ${fecha}: se necesitan ${necesita} entre ${eventosEseDia.map((e) => `"${e.nombre}"`).join(", ")}, solo hay ${disponible}`,
+          color: C.error,
+        });
+      }
+    });
+  });
+
+  // Igual que "Indumentaria comprometida", pero para equipo que existe en
+  // más de una unidad (tripiés, luces, micrófonos...): si entre todos los
+  // eventos de un mismo día piden más piezas de un mismo equipo de las que
+  // en realidad hay, avisa aquí. El equipo de una sola unidad (Cantidad 1)
+  // sigue usando solo "Equipo comprometido" de arriba, sin duplicar aviso.
+  const necesidadPorFechaEEquipo = {};
+  (data.eventos || []).forEach((ev) => {
+    (ev.equipoCantidades || []).forEach(({ id, cantidad }) => {
+      if (!necesidadPorFechaEEquipo[ev.fecha]) necesidadPorFechaEEquipo[ev.fecha] = {};
+      necesidadPorFechaEEquipo[ev.fecha][id] = (necesidadPorFechaEEquipo[ev.fecha][id] || 0) + cantidad;
+    });
+  });
+  Object.entries(necesidadPorFechaEEquipo).forEach(([fecha, porItem]) => {
+    Object.entries(porItem).forEach(([itemId, necesita]) => {
+      const item = data.equipo.find((e) => e.id === Number(itemId));
+      if (!item) return;
+      const total = item.cantidad || 1;
+      if (necesita > total) {
+        const eventosEseDia = (data.eventos || []).filter((ev) => ev.fecha === fecha && (ev.equipoCantidades || []).some((x) => x.id === item.id));
+        alertas.push({
+          tipo: "Equipo comprometido",
+          texto: `${item.nombre} el ${fecha}: se necesitan ${necesita} entre ${eventosEseDia.map((e) => `"${e.nombre}"`).join(", ")}, solo hay ${total}`,
           color: C.error,
         });
       }
@@ -8119,11 +8170,30 @@ function disponibleIndumentariaPara(data, item, fecha, excluirEventoId) {
   return { disponible: Math.max(0, base - yaApartado), otrosEventos: otros.map((ev) => ev.nombre) };
 }
 
+/* Mismo cálculo que disponibleIndumentariaPara, pero para piezas de
+   equipo que existen en más de una unidad (tripiés, luces, micrófonos...):
+   antes solo se podía marcar la pieza completa como "usada" en un evento
+   (checkbox), sin importar cuántas unidades había. Ahora, para las que
+   tienen Cantidad > 1, se resta lo que ya se apartó para OTRO evento ese
+   mismo día, igual que ya se hace con indumentaria. Las de Cantidad = 1
+   siguen usando el checkbox de siempre (conflictoDeEquipo) sin tocar nada. */
+function disponibleEquipoPara(data, item, fecha, excluirEventoId) {
+  const total = item.cantidad || 1;
+  if (!fecha) return { disponible: total, otrosEventos: [] };
+  const otros = (data.eventos || []).filter(
+    (ev) => ev.id !== excluirEventoId && ev.fecha === fecha && (ev.equipoCantidades || []).some((x) => x.id === item.id && x.cantidad > 0)
+  );
+  const yaApartado = otros.reduce((a, ev) => a + ((ev.equipoCantidades || []).find((x) => x.id === item.id)?.cantidad || 0), 0);
+  return { disponible: Math.max(0, total - yaApartado), otrosEventos: otros.map((ev) => ev.nombre) };
+}
+
 function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast, sucursalActiva, calendarId, onBack }) {
   const [modalNuevo, setModalNuevo] = useState(false);
   const [nombre, setNombre] = useState("");
   const [fecha, setFecha] = useState("");
   const [equipoIds, setEquipoIds] = useState([]);
+  const [equipoCant, setEquipoCant] = useState({}); // { [equipoId]: "2" } — solo para equipo con Cantidad > 1
+  const [categoriaEquipoAbierta, setCategoriaEquipoAbierta] = useState(null);
   const [indumentariaCant, setIndumentariaCant] = useState({}); // { [itemId]: "3" }
   const [tipoIndumentariaAbierto, setTipoIndumentariaAbierto] = useState(null);
 
@@ -8138,6 +8208,23 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
     });
     return Object.entries(porTipo);
   }, [data.indumentaria]);
+
+  /* El equipo que existe en más de una unidad (tripiés, luces...) se
+     desglosa por categoría igual que la indumentaria, para elegir cuántas
+     de cada uno se van a usar. El de una sola unidad (Cantidad 1) sigue
+     siendo el checklist de siempre, sin agrupar. */
+  const equipoUnidad = data.equipo.filter((e) => e.estado !== "Baja" && (e.cantidad || 1) <= 1);
+  const equipoMultiple = data.equipo.filter((e) => e.estado !== "Baja" && (e.cantidad || 1) > 1);
+  const gruposEquipoMultiple = useMemo(() => {
+    const porCategoria = {};
+    equipoMultiple.forEach((item) => {
+      const cat = item.categoria || "Sin categoría";
+      if (!porCategoria[cat]) porCategoria[cat] = [];
+      porCategoria[cat].push(item);
+    });
+    return Object.entries(porCategoria);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.equipo]);
 
   /* Eventos que ya están agendados en el Google Calendar real de esta
      sucursal (de solo lectura — ver api/agenda.js). Sirven para no tener
@@ -8176,6 +8263,8 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
     setNombre(evG.titulo);
     setFecha(evG.fecha);
     setEquipoIds([]);
+    setEquipoCant({});
+    setCategoriaEquipoAbierta(null);
     setIndumentariaCant({});
     setTipoIndumentariaAbierto(null);
     setModalNuevo(true);
@@ -8186,13 +8275,19 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
   const eventosPropios = (data.eventos || []).map((ev) => {
     const conflictos = ev.equipoIds.map((id) => conflictoDeEquipo(data, id, ev.fecha, ev.id)).filter(Boolean);
     const nombresEquipo = ev.equipoIds.map((id) => data.equipo.find((e) => e.id === id)?.nombre).filter(Boolean);
+    const nombresEquipoCantidad = (ev.equipoCantidades || [])
+      .map(({ id, cantidad }) => {
+        const item = data.equipo.find((e) => e.id === id);
+        return item ? `${item.nombre} ×${cantidad}` : null;
+      })
+      .filter(Boolean);
     const nombresIndumentaria = (ev.indumentaria || [])
       .map(({ id, cantidad }) => {
         const item = data.indumentaria.find((i) => i.id === id);
         return item ? `${item.tipo}${item.detalle ? ` (${item.detalle})` : ""} ×${cantidad}` : null;
       })
       .filter(Boolean);
-    const detalles = [...nombresEquipo, ...nombresIndumentaria];
+    const detalles = [...nombresEquipo, ...nombresEquipoCantidad, ...nombresIndumentaria];
     return {
       fecha: ev.fecha,
       texto: `${ev.nombre}${detalles.length ? " — " + detalles.join(", ") : ""}`,
@@ -8215,19 +8310,31 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
     setIndumentariaCant((c) => ({ ...c, [id]: String(cant) }));
   };
 
+  const cambiarCantEquipo = (id, valor, maxDisponible) => {
+    let cant = parseInt(valor, 10);
+    if (isNaN(cant) || cant < 0) cant = 0;
+    if (cant > maxDisponible) cant = maxDisponible;
+    setEquipoCant((c) => ({ ...c, [id]: String(cant) }));
+  };
+
   const guardarEvento = () => {
     if (!nombre || !fecha) return;
     const nuevoId = Math.max(0, ...(data.eventos || []).map((e) => e.id)) + 1;
     const indumentariaSeleccion = Object.entries(indumentariaCant)
       .map(([id, cant]) => ({ id: parseInt(id, 10), cantidad: parseInt(cant, 10) || 0 }))
       .filter((x) => x.cantidad > 0);
-    setData((d) => ({ ...d, eventos: [...(d.eventos || []), { id: nuevoId, nombre, fecha, equipoIds, indumentaria: indumentariaSeleccion, notas: "" }] }));
+    const equipoCantidadSeleccion = Object.entries(equipoCant)
+      .map(([id, cant]) => ({ id: parseInt(id, 10), cantidad: parseInt(cant, 10) || 0 }))
+      .filter((x) => x.cantidad > 0);
+    setData((d) => ({ ...d, eventos: [...(d.eventos || []), { id: nuevoId, nombre, fecha, equipoIds, equipoCantidades: equipoCantidadSeleccion, indumentaria: indumentariaSeleccion, notas: "" }] }));
     bitacora(`Evento creado: ${nombre} (${fecha})`, usuarioActual);
     mostrarToast("Evento agregado ✓");
     setModalNuevo(false);
     setNombre("");
     setFecha("");
     setEquipoIds([]);
+    setEquipoCant({});
+    setCategoriaEquipoAbierta(null);
     setIndumentariaCant({});
     setTipoIndumentariaAbierto(null);
   };
@@ -8307,7 +8414,7 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
           <TextInput type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
           <FieldLabel>¿Qué equipo se necesita? (opcional)</FieldLabel>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto", marginBottom: 4 }}>
-            {data.equipo.filter((e) => e.estado !== "Baja").map((e) => {
+            {equipoUnidad.map((e) => {
               const conflicto = fecha ? equipoDisponiblePara(e.id) : null;
               return (
                 <label key={e.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: conflicto ? `${C.error}15` : C.surface, border: `1px solid ${conflicto ? C.error : C.border}`, cursor: "pointer" }}>
@@ -8320,6 +8427,64 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
               );
             })}
           </div>
+          {gruposEquipoMultiple.length > 0 && (
+            <>
+              <FieldLabel>¿Cuánto equipo de esos que tienen varias piezas se necesita? (tripiés, luces... opcional)</FieldLabel>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 280, overflowY: "auto", marginBottom: 4 }}>
+                {gruposEquipoMultiple.map(([categoria, items]) => {
+                  const estaAbierto = categoriaEquipoAbierta === categoria;
+                  const seleccionadosEnGrupo = items.reduce((a, item) => a + (parseInt(equipoCant[item.id], 10) || 0), 0);
+                  return (
+                    <div key={categoria} style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", flexShrink: 0 }}>
+                      <button
+                        type="button"
+                        onClick={() => setCategoriaEquipoAbierta(estaAbierto ? null : categoria)}
+                        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: C.surface, border: "none", padding: "10px 10px", cursor: "pointer" }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: C.foreground }}>{categoria}</span>
+                          <span style={{ fontSize: 11, color: C.muted }}>({items.length})</span>
+                          {seleccionadosEnGrupo > 0 && (
+                            <span style={{ fontSize: 10.5, fontWeight: 700, color: "#fff", background: C.secondary, borderRadius: 10, padding: "1px 7px" }}>{seleccionadosEnGrupo}</span>
+                          )}
+                        </div>
+                        <ChevronRight size={16} color={C.muted} style={{ transform: estaAbierto ? "rotate(90deg)" : "none", transition: "transform 0.15s" }} />
+                      </button>
+                      {estaAbierto && (
+                        <div style={{ padding: 8, background: C.background, display: "flex", flexDirection: "column", gap: 6 }}>
+                          {items.map((item) => {
+                            const { disponible, otrosEventos } = disponibleEquipoPara(data, item, fecha, null);
+                            const cant = equipoCant[item.id] || "0";
+                            return (
+                              <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: C.surface, border: `1px solid ${C.border}` }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: 13, color: C.foreground }}>{item.nombre}</div>
+                                  <div style={{ fontSize: 10.5, color: disponible <= 0 ? C.error : C.muted }}>{disponible} disponible{disponible === 1 ? "" : "s"} de {item.cantidad || 1}</div>
+                                  {otrosEventos.length > 0 && (
+                                    <div style={{ fontSize: 10.5, color: C.error }}>Ya apartado ese día para: {otrosEventos.join(", ")}</div>
+                                  )}
+                                </div>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={disponible}
+                                  value={cant === "0" ? "" : cant}
+                                  placeholder="0"
+                                  disabled={disponible <= 0}
+                                  onChange={(e) => cambiarCantEquipo(item.id, e.target.value, disponible)}
+                                  style={{ width: 56, padding: "6px 8px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.background, color: C.foreground, fontSize: 13, textAlign: "center" }}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
           <FieldLabel>¿Cuánta indumentaria se necesita? (togas, birretes, bandas, borlas... opcional)</FieldLabel>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 280, overflowY: "auto", marginBottom: 4 }}>
             {(data.indumentaria || []).length === 0 && (
@@ -9027,6 +9192,24 @@ export default function PhotografInventario() {
     return () => unsub && unsub();
   }, []);
 
+  /* "Ya avisadas" tenía que sobrevivir a que se recargue la página — antes
+     vivía solo en memoria (useRef) y se borraba en cuanto se refrescaba la
+     app, así que CUALQUIER alerta que siguiera activa (un stock bajo que
+     nadie ha resuelto, por ejemplo) se volvía a mandar como si fuera nueva
+     cada vez que alguien abría la app — de ahí que se fueran acumulando
+     varias notificaciones iguales en la bandeja del celular sin borrarse
+     solas. Ahora se guarda en localStorage, por sucursal, y se recupera
+     aquí antes de revisar las alertas. */
+  useEffect(() => {
+    if (!sucursalActiva) return;
+    try {
+      const guardadas = JSON.parse(localStorage.getItem(`pf-notificadas-${sucursalActiva}`) || "[]");
+      notificadasRef.current = new Set(guardadas);
+    } catch (e) {
+      notificadasRef.current = new Set();
+    }
+  }, [sucursalActiva]);
+
   /* Alertas (stock bajo, choques de reservas, paquetes vencidos, equipo
      atrasado, etc.): antes solo se enseñaban como Notification local, que
      sólo suena si la pestaña sigue abierta en ese celular en ese momento
@@ -9038,27 +9221,51 @@ export default function PhotografInventario() {
     if (!sucursalActiva) return;
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     const actuales = calcularAlertas(allData[sucursalActiva], config);
+    const clavesActuales = new Set(actuales.map((a) => `${sucursalActiva}:${a.tipo}:${a.texto}`));
+    let cambio = false;
+    // Si una alerta ya no sigue activa (se resolvió), se olvida de la lista
+    // de "ya avisadas" — así, si la misma condición vuelve a pasar más
+    // adelante, sí se vuelve a avisar en vez de quedar callada para siempre.
+    [...notificadasRef.current].forEach((clave) => {
+      if (clave.startsWith(`${sucursalActiva}:`) && !clavesActuales.has(clave)) {
+        notificadasRef.current.delete(clave);
+        cambio = true;
+      }
+    });
     actuales.forEach((a) => {
       const clave = `${sucursalActiva}:${a.tipo}:${a.texto}`;
       if (!notificadasRef.current.has(clave)) {
         notificadasRef.current.add(clave);
+        cambio = true;
         try {
           // "badge" con fondo transparente (icon-192) para que la barra de
           // estado de Android dibuje la silueta del logo en vez de un
           // cuadro sólido blanco (ver sw.js para la explicación completa).
+          // "tag": para que si esta misma alerta se vuelve a mandar (por
+          // ejemplo, al reabrir la app antes de que se resuelva), reemplace
+          // la notificación anterior en vez de amontonarse otra igual.
           new Notification(`Photograf — ${a.tipo}`, {
             body: a.texto,
             icon: "/icons/icon-maskable-192.png",
             badge: "/icons/icon-192.png",
+            tag: clave.slice(0, 180),
           });
         } catch (e) {
           // Algunos navegadores en móvil no dejan crear Notification directo
           // sin un service worker; si falla, el aviso se sigue viendo en la
           // pantalla de Notificaciones dentro de la app.
         }
-        enviarNotificacionPush([sucursalActiva, "admin"], `Photograf — ${a.tipo}`, a.texto);
+        enviarNotificacionPush([sucursalActiva, "admin"], `Photograf — ${a.tipo}`, a.texto, clave);
       }
     });
+    if (cambio) {
+      try {
+        localStorage.setItem(`pf-notificadas-${sucursalActiva}`, JSON.stringify([...notificadasRef.current]));
+      } catch (e) {
+        // Sin localStorage (modo privado, etc.) simplemente no persiste
+        // entre recargas — el resto sigue funcionando igual que antes.
+      }
+    }
   }, [allData, sucursalActiva]);
 
   const resolverCodigoEscaneado = (codigo, { navegar = true } = {}) => {
@@ -9174,11 +9381,11 @@ export default function PhotografInventario() {
      Es "dispara y olvida": si falla (sin internet, o si todavía no se
      configuró la llave de Firebase en Vercel — ver README), no interrumpe
      el flujo, la transferencia ya quedó registrada igual. */
-  const enviarNotificacionPush = (sucursales, titulo, cuerpo) => {
+  const enviarNotificacionPush = (sucursales, titulo, cuerpo, tag) => {
     fetch("/api/notify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sucursales, titulo, cuerpo }),
+      body: JSON.stringify({ sucursales, titulo, cuerpo, tag }),
     }).catch(() => {});
   };
 
