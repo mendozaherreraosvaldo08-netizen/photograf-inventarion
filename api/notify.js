@@ -57,7 +57,7 @@ export default async function handler(req, res) {
       body = {};
     }
   }
-  const { sucursales, titulo, cuerpo } = body || {};
+  const { sucursales, titulo, cuerpo, tag } = body || {};
 
   if (!Array.isArray(sucursales) || sucursales.length === 0 || !titulo || !cuerpo) {
     res.status(400).json({ ok: false, error: "Faltan datos (sucursales, titulo, cuerpo)" });
@@ -99,6 +99,12 @@ export default async function handler(req, res) {
     const iconoNotificacion = `${origen}/icons/icon-maskable-192.png`;
     const badgeNotificacion = `${origen}/icons/icon-192.png`;
 
+    // "tag": si quien llama manda una (ver src/App.jsx), dos avisos con la
+    // misma tag se reemplazan uno al otro en la bandeja del celular en vez
+    // de amontonarse — así una alerta que sigue activa y se vuelve a
+    // mandar no deja varias notificaciones idénticas sin poder borrarlas.
+    const tagLimpia = tag ? String(tag).slice(0, 180) : undefined;
+
     let enviados = 0;
     const tokensInvalidos = [];
     for (const lote of lotes) {
@@ -110,7 +116,7 @@ export default async function handler(req, res) {
         },
         webpush: {
           fcmOptions: { link: "/" },
-          notification: { icon: iconoNotificacion, badge: badgeNotificacion },
+          notification: { icon: iconoNotificacion, badge: badgeNotificacion, ...(tagLimpia ? { tag: tagLimpia } : {}) },
         },
       });
       enviados += resultado.successCount;
