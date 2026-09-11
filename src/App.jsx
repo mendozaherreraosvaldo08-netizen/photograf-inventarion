@@ -173,7 +173,16 @@ function textoContraste(hexColor) {
 
 const LOGO_PHOTOGRAF = "data:image/png;base64,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";
 
-const NOMBRES_SUCURSAL = { queretaro: "Photograf Querétaro", salinas: "Photograf Salinas" };
+/* Nombres de sucursal: hay un valor de fábrica (por si nunca se
+   personaliza), pero el administrador puede cambiarlos desde Panel de
+   Administrador → Ajustes. Se guardan en config.nombresSucursal y, cuando
+   cambian, se reflejan aquí mismo con Object.assign (mismo truco que ya se
+   usa para el tema claro/oscuro con la "C" de colores) — así no hace falta
+   pasarle "config" a cada una de las decenas de pantallas que ya usan
+   NOMBRES_SUCURSAL directamente. Las llaves (queretaro/salinas) NO
+   cambian, solo lo que se les muestra a las personas. */
+const NOMBRES_SUCURSAL_FABRICA = { queretaro: "Photograf Querétaro", salinas: "Photograf Salinas" };
+const NOMBRES_SUCURSAL = { ...NOMBRES_SUCURSAL_FABRICA };
 const OTRA_SUCURSAL = { queretaro: "salinas", salinas: "queretaro" };
 const EMPLEADOS_INICIALES = ["Carlos López", "Ana Torres", "Luis Fernández", "Sofía Ramírez"];
 const SUCURSALES = ["queretaro", "salinas"];
@@ -192,6 +201,9 @@ const CONFIG_INICIAL = {
   // solo trae los próximos eventos para poder armarles su lista de equipo
   // y avisar antes de cada uno. Ver api/agenda.js.
   calendarios: { queretaro: "", salinas: "" },
+  // Nombres personalizados de sucursal (ver NOMBRES_SUCURSAL más arriba) —
+  // vacío usa el de fábrica ("Photograf Querétaro"/"Photograf Salinas").
+  nombresSucursal: {},
 };
 
 /* Mínimo de existencias de un material: si tiene su propio umbral usa ese,
@@ -234,7 +246,7 @@ function normalizarSucursal(d) {
       ...e,
     })),
     materiales: (base.materiales || []).map((m) => ({ notas: "", costo: 0, foto: null, ...m })),
-    bases: (base.bases || []).map((b) => ({ catalogo: "General", linea: "", precio: 0, medidas: "", incluye: "", imagen: null, imagenDiploma: null, costo: 0, pedidoProveedor: 0, reservas: [], movimientos: [], variantes: [], ...b })),
+    bases: (base.bases || []).map((b) => ({ catalogo: "General", linea: "", precio: 0, medidas: "", incluye: "", imagen: null, imagenDiploma: null, costo: 0, pedidoProveedor: 0, reservas: [], movimientos: [], variantes: [], descontinuada: false, minimo: null, ...b })),
     pedidos: (base.pedidos || []).map((p) => ({ urgencia: "Normal", estado: "Pendiente", ...p })),
     // Togas, birretes, estolas, capas, lámparas: se prestan por sesión a una
     // persona (alumno/cliente) y se esperan de vuelta el mismo día — por
@@ -365,6 +377,7 @@ function normalizarConfig(config) {
     passwords: { ...CONFIG_INICIAL.passwords, ...(config?.passwords || {}) },
     accesos: config?.accesos || [],
     calendarios: { ...CONFIG_INICIAL.calendarios, ...(config?.calendarios || {}) },
+    nombresSucursal: { ...(config?.nombresSucursal || {}) },
   };
 }
 
@@ -1431,6 +1444,16 @@ function calcularAlertas(data, config) {
   (data.piezas || []).filter((p) => p.cantidad <= minimoDe(p, config)).forEach((p) => alertas.push({ tipo: "Stock bajo", texto: `${p.tipo}${p.detalle ? ` (${p.detalle})` : ""}: quedan ${p.cantidad} (mínimo ${minimoDe(p, config)})`, color: C.warning }));
   (data.hojasGrandes || []).filter((h) => h.cantidad <= minimoDe(h, config)).forEach((h) => alertas.push({ tipo: "Stock bajo", texto: `Hoja ${h.tamaño}: quedan ${h.cantidad} (mínimo ${minimoDe(h, config)})`, color: C.warning }));
   (data.placasChicas || []).filter((p) => p.cantidad <= minimoDe(p, config)).forEach((p) => alertas.push({ tipo: "Stock bajo", texto: `Placa ${p.tipo}: quedan ${p.cantidad} (mínimo ${minimoDe(p, config)})`, color: C.warning }));
+  // Panorámicas y diplomas: mismo aviso de stock bajo que ya tienen
+  // materiales/piezas/placas, pero solo para estos dos catálogos (las bases
+  // de Universidad/UNICEQ no se manejan por existencia mínima, se piden
+  // por evento). Las que se marcaron como "descontinuada" quedan fuera a
+  // propósito: son piezas que ya no se reponen pero se conservan por si se
+  // vuelven a usar para otra cosa — avisar que están bajas de esas no
+  // sirve de nada porque nunca se van a volver a pedir.
+  data.bases
+    .filter((b) => (b.catalogo === "Panoramica" || b.catalogo === "Diploma") && !b.descontinuada && tenemosBase(b) <= minimoDe(b, config))
+    .forEach((b) => alertas.push({ tipo: "Stock bajo", texto: `${b.nombre}: quedan ${tenemosBase(b)} (mínimo ${minimoDe(b, config)})`, color: C.warning }));
   data.bases.forEach((b) => b.reservas.filter((r) => r.estado === "Reservada" && r.fecha <= enDias(3)).forEach((r) => alertas.push({ tipo: "Evento próximo", texto: `${b.nombre} — ${r.evento} (${r.fecha}) sigue como Reservada`, color: C.warning })));
   data.bases.forEach((b) => choquesDePano(data.bases, b).forEach((c) => alertas.push({ tipo: "Choque de reservas", texto: `${b.nombre}: el ${c.fecha} piden ${c.cant}, solo hay ${tenemosBase(b)}`, color: C.error })));
   data.bases.forEach((b) => b.reservas.forEach((r) => {
@@ -2295,11 +2318,13 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
       }
     } else {
       // base
+      const sinMinimoBase = form.minimo === "" || form.minimo === undefined || form.minimo === null;
       if (esNuevo) {
         setAllData((prev) => {
           const arr = prev[suc].bases;
           const cant = parseInt(form.tenemos, 10) || 0;
-          const nuevoItem = { id: Math.max(0, ...arr.map((b) => b.id)) + 1, nombre, catalogo: form.catalogo || "General", tenemos: cant, costo: parseFloat(form.costo) || 0, pedidoProveedor: parseInt(form.pedidoProveedor, 10) || 0, reservas: [], movimientos: cant > 0 ? [movimientoBase("entrada", cant, "Administrador", "Alta desde el panel de administrador")] : [], linea: "", precio: parseFloat(form.precio) || 0, medidas: form.medidas || "", incluye: form.incluye || "", imagen: form.imagen || null, variantes: [] };
+          const nuevoItem = { id: Math.max(0, ...arr.map((b) => b.id)) + 1, nombre, catalogo: form.catalogo || "General", tenemos: cant, costo: parseFloat(form.costo) || 0, pedidoProveedor: parseInt(form.pedidoProveedor, 10) || 0, reservas: [], movimientos: cant > 0 ? [movimientoBase("entrada", cant, "Administrador", "Alta desde el panel de administrador")] : [], linea: "", precio: parseFloat(form.precio) || 0, medidas: form.medidas || "", incluye: form.incluye || "", imagen: form.imagen || null, variantes: [], descontinuada: !!form.descontinuada };
+          if (!sinMinimoBase) nuevoItem.minimo = parseInt(form.minimo, 10) || 0;
           return { ...prev, [suc]: { ...prev[suc], bases: [...arr, nuevoItem] } };
         });
         registrar(suc, `Base agregada por el administrador: ${nombre}`);
@@ -2314,9 +2339,16 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
           medidas: form.medidas || "",
           incluye: form.incluye || "",
           imagen: form.imagen ?? item.imagen ?? null,
+          descontinuada: !!form.descontinuada,
         };
         setAllData((prev) => {
-          const basesConEdicion = prev[suc].bases.map((b) => (b.id === item.id ? { ...b, ...cambios } : b));
+          const basesConEdicion = prev[suc].bases.map((b) => {
+            if (b.id !== item.id) return b;
+            const actualizado = { ...b, ...cambios };
+            if (sinMinimoBase) delete actualizado.minimo;
+            else actualizado.minimo = parseInt(form.minimo, 10) || 0;
+            return actualizado;
+          });
           const bases = conPanoSincronizado(basesConEdicion, { ...item, ...cambios }, cambios.tenemos, "Administrador", `Sincronizado: se editó "${nombre}" en ${panoDe(nombre)} desde el panel de administrador`);
           return { ...prev, [suc]: { ...prev[suc], bases } };
         });
@@ -2726,6 +2758,19 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
                   <TextInput type="number" value={form.tenemos ?? ""} onChange={(e) => setForm({ ...form, tenemos: e.target.value })} />
                 </>
               )}
+              {(form.catalogo === "Panoramica" || form.catalogo === "Diploma") && (
+                <>
+                  <FieldLabel>Avisar cuando queden menos de (deja vacío para usar el general: {config.umbralStock})</FieldLabel>
+                  <TextInput type="number" value={form.minimo ?? ""} onChange={(e) => setForm({ ...form, minimo: e.target.value })} placeholder={String(config.umbralStock)} disabled={!!form.descontinuada} />
+                </>
+              )}
+              <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 2px", cursor: "pointer" }}>
+                <input type="checkbox" checked={!!form.descontinuada} onChange={(e) => setForm({ ...form, descontinuada: e.target.checked })} style={{ width: 16, height: 16 }} />
+                <div>
+                  <div style={{ fontSize: 13, color: C.foreground, fontWeight: 600 }}>Descontinuada</div>
+                  <div style={{ fontSize: 11, color: C.muted }}>Se conserva en el inventario, pero no avisa "stock bajo" — para piezas que ya no se reponen pero a veces se reutilizan.</div>
+                </div>
+              </label>
               <FieldLabel>Pedidas al proveedor</FieldLabel>
               <TextInput type="number" value={form.pedidoProveedor ?? ""} onChange={(e) => setForm({ ...form, pedidoProveedor: e.target.value })} />
               <FieldLabel>Precio de venta al cliente</FieldLabel>
@@ -3173,6 +3218,7 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
   const [pw, setPw] = useState({ ...config.passwords });
   const [umbral, setUmbral] = useState(String(config.umbralStock));
   const [calendarios, setCalendarios] = useState({ queretaro: "", salinas: "", ...(config.calendarios || {}) });
+  const [nombresSuc, setNombresSuc] = useState({ ...NOMBRES_SUCURSAL_FABRICA, ...(config.nombresSucursal || {}) });
   const [porRestaurar, setPorRestaurar] = useState(null);
   const [sucRendimiento, setSucRendimiento] = useState(SUCURSALES[0]);
   const archivoRef = useRef(null);
@@ -3255,6 +3301,14 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
   const guardarCalendarios = () => {
     setConfig((c) => ({ ...c, calendarios: { queretaro: (calendarios.queretaro || "").trim(), salinas: (calendarios.salinas || "").trim() } }));
     mostrarToast("Calendarios guardados ✓");
+  };
+
+  const guardarNombresSucursal = () => {
+    const queretaro = (nombresSuc.queretaro || "").trim() || NOMBRES_SUCURSAL_FABRICA.queretaro;
+    const salinas = (nombresSuc.salinas || "").trim() || NOMBRES_SUCURSAL_FABRICA.salinas;
+    setNombresSuc({ queretaro, salinas });
+    setConfig((c) => ({ ...c, nombresSucursal: { queretaro, salinas } }));
+    mostrarToast("Nombres guardados ✓");
   };
 
   /* Respaldo: un archivo .json con todo lo que la app guarda. Sirve para
@@ -3343,6 +3397,18 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
             <div style={{ height: 32 }} />
           </>
         )}
+
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.foreground, marginBottom: 4 }}>Nombres de las sucursales</div>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>
+          Cómo se ven en toda la app (el selector de sucursal, transferencias, reportes, etc.). Son las mismas dos sucursales de siempre — esto solo cambia su nombre, no crea sucursales nuevas.
+        </div>
+        <FieldLabel>Nombre actual: {NOMBRES_SUCURSAL.queretaro}</FieldLabel>
+        <TextInput value={nombresSuc.queretaro} onChange={(e) => setNombresSuc({ ...nombresSuc, queretaro: e.target.value })} placeholder={NOMBRES_SUCURSAL_FABRICA.queretaro} />
+        <FieldLabel>Nombre actual: {NOMBRES_SUCURSAL.salinas}</FieldLabel>
+        <TextInput value={nombresSuc.salinas} onChange={(e) => setNombresSuc({ ...nombresSuc, salinas: e.target.value })} placeholder={NOMBRES_SUCURSAL_FABRICA.salinas} />
+        <PrimaryButton onClick={guardarNombresSucursal} color={C.secondary}>Guardar nombres</PrimaryButton>
+
+        <div style={{ height: 32 }} />
 
         <div style={{ fontSize: 15, fontWeight: 700, color: C.foreground, marginBottom: 4 }}>Contraseñas</div>
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>
@@ -8189,6 +8255,10 @@ function disponibleEquipoPara(data, item, fecha, excluirEventoId) {
 
 function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast, sucursalActiva, calendarId, onBack }) {
   const [modalNuevo, setModalNuevo] = useState(false);
+  // Si no es null, el modal de arriba está EDITANDO ese evento (en vez de
+  // crear uno nuevo) — mismo formulario, mismos estados de abajo, nada más
+  // cambia qué hace "Guardar" al final.
+  const [editandoEventoId, setEditandoEventoId] = useState(null);
   const [nombre, setNombre] = useState("");
   const [fecha, setFecha] = useState("");
   const [equipoIds, setEquipoIds] = useState([]);
@@ -8209,15 +8279,16 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
     return Object.entries(porTipo);
   }, [data.indumentaria]);
 
-  /* El equipo que existe en más de una unidad (tripiés, luces...) se
-     desglosa por categoría igual que la indumentaria, para elegir cuántas
-     de cada uno se van a usar. El de una sola unidad (Cantidad 1) sigue
-     siendo el checklist de siempre, sin agrupar. */
-  const equipoUnidad = data.equipo.filter((e) => e.estado !== "Baja" && (e.cantidad || 1) <= 1);
-  const equipoMultiple = data.equipo.filter((e) => e.estado !== "Baja" && (e.cantidad || 1) > 1);
-  const gruposEquipoMultiple = useMemo(() => {
+  /* Todo el equipo se desglosa por categoría, igual que la indumentaria —
+     antes el de una sola pieza (Cantidad 1) se quedaba fuera, en un
+     checklist plano separado, mientras que el de varias piezas (tripiés,
+     luces...) sí se agrupaba; eso hacía que una misma categoría (p.ej.
+     "Tripiés") apareciera partida en dos lugares distintos. Ahora es un
+     solo grupo por categoría con ambos tipos de renglón adentro: checkbox
+     para las piezas únicas, campo de cantidad para las que tienen varias. */
+  const gruposEquipo = useMemo(() => {
     const porCategoria = {};
-    equipoMultiple.forEach((item) => {
+    data.equipo.filter((e) => e.estado !== "Baja").forEach((item) => {
       const cat = item.categoria || "Sin categoría";
       if (!porCategoria[cat]) porCategoria[cat] = [];
       porCategoria[cat].push(item);
@@ -8260,8 +8331,50 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
   const yaImportado = (evG) => (data.eventos || []).some((ev) => ev.nombre === evG.titulo && ev.fecha === evG.fecha);
 
   const usarEventoGoogle = (evG) => {
+    setEditandoEventoId(null);
     setNombre(evG.titulo);
     setFecha(evG.fecha);
+    setEquipoIds([]);
+    setEquipoCant({});
+    setCategoriaEquipoAbierta(null);
+    setIndumentariaCant({});
+    setTipoIndumentariaAbierto(null);
+    setModalNuevo(true);
+  };
+
+  /* Abre el mismo formulario de "Nuevo evento", pero precargado con lo
+     que ya tiene ese evento — para poder agregar o quitar equipo e
+     indumentaria después de haberlo guardado, sin tener que borrarlo y
+     capturarlo de nuevo. */
+  const abrirEdicionEvento = (ev) => {
+    setEditandoEventoId(ev.id);
+    setNombre(ev.nombre);
+    setFecha(ev.fecha);
+    setEquipoIds(ev.equipoIds || []);
+    const equipoCantInicial = {};
+    (ev.equipoCantidades || []).forEach(({ id, cantidad }) => { equipoCantInicial[id] = String(cantidad); });
+    setEquipoCant(equipoCantInicial);
+    setCategoriaEquipoAbierta(null);
+    const indumentariaCantInicial = {};
+    (ev.indumentaria || []).forEach(({ id, cantidad }) => { indumentariaCantInicial[id] = String(cantidad); });
+    setIndumentariaCant(indumentariaCantInicial);
+    setTipoIndumentariaAbierto(null);
+    setModalNuevo(true);
+  };
+
+  const cerrarModalEvento = () => {
+    setModalNuevo(false);
+    setEditandoEventoId(null);
+  };
+
+  /* Abre el formulario limpio para capturar un evento desde cero — separado
+     de abrirEdicionEvento para que, si alguien cancela una edición y luego
+     da clic en "+", no se le queden pegados los datos del evento que
+     estaba editando. */
+  const abrirNuevoEvento = () => {
+    setEditandoEventoId(null);
+    setNombre("");
+    setFecha("");
     setEquipoIds([]);
     setEquipoCant({});
     setCategoriaEquipoAbierta(null);
@@ -8293,11 +8406,12 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
       texto: `${ev.nombre}${detalles.length ? " — " + detalles.join(", ") : ""}`,
       tipo: conflictos.length > 0 ? "Atrasado" : "Reservada",
       conflictos,
+      eventoId: ev.id,
     };
   });
   const todos = [...reservasBases, ...devoluciones, ...eventosPropios].sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
 
-  const equipoDisponiblePara = (id) => conflictoDeEquipo(data, id, fecha, null);
+  const equipoDisponiblePara = (id) => conflictoDeEquipo(data, id, fecha, editandoEventoId);
 
   const toggleEquipo = (id) => {
     setEquipoIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
@@ -8319,17 +8433,29 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
 
   const guardarEvento = () => {
     if (!nombre || !fecha) return;
-    const nuevoId = Math.max(0, ...(data.eventos || []).map((e) => e.id)) + 1;
     const indumentariaSeleccion = Object.entries(indumentariaCant)
       .map(([id, cant]) => ({ id: parseInt(id, 10), cantidad: parseInt(cant, 10) || 0 }))
       .filter((x) => x.cantidad > 0);
     const equipoCantidadSeleccion = Object.entries(equipoCant)
       .map(([id, cant]) => ({ id: parseInt(id, 10), cantidad: parseInt(cant, 10) || 0 }))
       .filter((x) => x.cantidad > 0);
-    setData((d) => ({ ...d, eventos: [...(d.eventos || []), { id: nuevoId, nombre, fecha, equipoIds, equipoCantidades: equipoCantidadSeleccion, indumentaria: indumentariaSeleccion, notas: "" }] }));
-    bitacora(`Evento creado: ${nombre} (${fecha})`, usuarioActual);
-    mostrarToast("Evento agregado ✓");
+    if (editandoEventoId) {
+      setData((d) => ({
+        ...d,
+        eventos: (d.eventos || []).map((ev) =>
+          ev.id === editandoEventoId ? { ...ev, nombre, fecha, equipoIds, equipoCantidades: equipoCantidadSeleccion, indumentaria: indumentariaSeleccion } : ev
+        ),
+      }));
+      bitacora(`Evento editado: ${nombre} (${fecha})`, usuarioActual);
+      mostrarToast("Cambios guardados ✓");
+    } else {
+      const nuevoId = Math.max(0, ...(data.eventos || []).map((e) => e.id)) + 1;
+      setData((d) => ({ ...d, eventos: [...(d.eventos || []), { id: nuevoId, nombre, fecha, equipoIds, equipoCantidades: equipoCantidadSeleccion, indumentaria: indumentariaSeleccion, notas: "" }] }));
+      bitacora(`Evento creado: ${nombre} (${fecha})`, usuarioActual);
+      mostrarToast("Evento agregado ✓");
+    }
     setModalNuevo(false);
+    setEditandoEventoId(null);
     setNombre("");
     setFecha("");
     setEquipoIds([]);
@@ -8387,9 +8513,28 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
           <div key={i} style={{ display: "flex", gap: 12, marginBottom: 12 }}>
             <div style={{ width: 64, flexShrink: 0, fontSize: 12, color: C.muted, paddingTop: 12 }}>{e.fecha}</div>
             <div style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 13, color: C.foreground }}>{e.texto}</span>
-                <Badge estado={e.tipo} />
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  <Badge estado={e.tipo} />
+                  {/* Solo los eventos armados aquí en Calendario (no las
+                      reservas de Bases ni las devoluciones de equipo) se
+                      pueden editar — para agregar o quitar equipo e
+                      indumentaria sin tener que borrar y volver a capturar
+                      el evento completo. */}
+                  {e.eventoId != null && (
+                    <button
+                      onClick={() => {
+                        const ev = data.eventos.find((x) => x.id === e.eventoId);
+                        if (ev) abrirEdicionEvento(ev);
+                      }}
+                      aria-label="Editar evento"
+                      style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", padding: 4 }}
+                    >
+                      <Pencil size={15} />
+                    </button>
+                  )}
+                </div>
               </div>
               {e.conflictos && e.conflictos.length > 0 && (
                 <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
@@ -8404,87 +8549,91 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
           </div>
         ))}
       </div>
-      <FAB color={C.secondary} onClick={() => setModalNuevo(true)} />
+      <FAB color={C.secondary} onClick={abrirNuevoEvento} />
 
       {modalNuevo && (
-        <Modal title="Nuevo evento" onClose={() => setModalNuevo(false)}>
+        <Modal title={editandoEventoId ? "Editar evento" : "Nuevo evento"} onClose={cerrarModalEvento}>
           <FieldLabel>Nombre del evento</FieldLabel>
           <TextInput value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Sesión XV Fernández" />
           <FieldLabel>Fecha</FieldLabel>
           <TextInput type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
           <FieldLabel>¿Qué equipo se necesita? (opcional)</FieldLabel>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto", marginBottom: 4 }}>
-            {equipoUnidad.map((e) => {
-              const conflicto = fecha ? equipoDisponiblePara(e.id) : null;
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 320, overflowY: "auto", marginBottom: 4 }}>
+            {gruposEquipo.length === 0 && (
+              <div style={{ fontSize: 11.5, color: C.muted }}>Todavía no hay equipo capturado en Inventario.</div>
+            )}
+            {gruposEquipo.map(([categoria, items]) => {
+              const estaAbierto = categoriaEquipoAbierta === categoria;
+              const seleccionadosEnGrupo =
+                items.filter((item) => (item.cantidad || 1) <= 1 && equipoIds.includes(item.id)).length +
+                items.filter((item) => (item.cantidad || 1) > 1).reduce((a, item) => a + (parseInt(equipoCant[item.id], 10) || 0), 0);
               return (
-                <label key={e.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: conflicto ? `${C.error}15` : C.surface, border: `1px solid ${conflicto ? C.error : C.border}`, cursor: "pointer" }}>
-                  <input type="checkbox" checked={equipoIds.includes(e.id)} onChange={() => toggleEquipo(e.id)} style={{ width: 16, height: 16 }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, color: C.foreground }}>{e.nombre}</div>
-                    {conflicto && <div style={{ fontSize: 10.5, color: C.error }}>{conflicto}</div>}
-                  </div>
-                </label>
+                <div key={categoria} style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => setCategoriaEquipoAbierta(estaAbierto ? null : categoria)}
+                    style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: C.surface, border: "none", padding: "10px 10px", cursor: "pointer" }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: C.foreground }}>{categoria}</span>
+                      <span style={{ fontSize: 11, color: C.muted }}>({items.length})</span>
+                      {seleccionadosEnGrupo > 0 && (
+                        <span style={{ fontSize: 10.5, fontWeight: 700, color: "#fff", background: C.secondary, borderRadius: 10, padding: "1px 7px" }}>{seleccionadosEnGrupo}</span>
+                      )}
+                    </div>
+                    <ChevronRight size={16} color={C.muted} style={{ transform: estaAbierto ? "rotate(90deg)" : "none", transition: "transform 0.15s" }} />
+                  </button>
+                  {estaAbierto && (
+                    <div style={{ padding: 8, background: C.background, display: "flex", flexDirection: "column", gap: 6 }}>
+                      {items.map((item) => {
+                        // Una sola pieza (cantidad 1 o sin especificar): sigue
+                        // siendo el checkbox de siempre, con el mismo aviso de
+                        // choque de conflictoDeEquipo.
+                        if ((item.cantidad || 1) <= 1) {
+                          const conflicto = fecha ? equipoDisponiblePara(item.id) : null;
+                          return (
+                            <label key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: conflicto ? `${C.error}15` : C.surface, border: `1px solid ${conflicto ? C.error : C.border}`, cursor: "pointer" }}>
+                              <input type="checkbox" checked={equipoIds.includes(item.id)} onChange={() => toggleEquipo(item.id)} style={{ width: 16, height: 16 }} />
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 13, color: C.foreground }}>{item.nombre}</div>
+                                {conflicto && <div style={{ fontSize: 10.5, color: C.error }}>{conflicto}</div>}
+                              </div>
+                            </label>
+                          );
+                        }
+                        // Varias piezas (tripiés, luces...): campo de cantidad,
+                        // descontando lo que ya se apartó para otro evento ese
+                        // mismo día.
+                        const { disponible, otrosEventos } = disponibleEquipoPara(data, item, fecha, editandoEventoId);
+                        const cant = equipoCant[item.id] || "0";
+                        return (
+                          <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: C.surface, border: `1px solid ${C.border}` }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, color: C.foreground }}>{item.nombre}</div>
+                              <div style={{ fontSize: 10.5, color: disponible <= 0 ? C.error : C.muted }}>{disponible} disponible{disponible === 1 ? "" : "s"} de {item.cantidad || 1}</div>
+                              {otrosEventos.length > 0 && (
+                                <div style={{ fontSize: 10.5, color: C.error }}>Ya apartado ese día para: {otrosEventos.join(", ")}</div>
+                              )}
+                            </div>
+                            <input
+                              type="number"
+                              min={0}
+                              max={disponible}
+                              value={cant === "0" ? "" : cant}
+                              placeholder="0"
+                              disabled={disponible <= 0}
+                              onChange={(e) => cambiarCantEquipo(item.id, e.target.value, disponible)}
+                              style={{ width: 56, padding: "6px 8px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.background, color: C.foreground, fontSize: 13, textAlign: "center" }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
-          {gruposEquipoMultiple.length > 0 && (
-            <>
-              <FieldLabel>¿Cuánto equipo de esos que tienen varias piezas se necesita? (tripiés, luces... opcional)</FieldLabel>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 280, overflowY: "auto", marginBottom: 4 }}>
-                {gruposEquipoMultiple.map(([categoria, items]) => {
-                  const estaAbierto = categoriaEquipoAbierta === categoria;
-                  const seleccionadosEnGrupo = items.reduce((a, item) => a + (parseInt(equipoCant[item.id], 10) || 0), 0);
-                  return (
-                    <div key={categoria} style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", flexShrink: 0 }}>
-                      <button
-                        type="button"
-                        onClick={() => setCategoriaEquipoAbierta(estaAbierto ? null : categoria)}
-                        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: C.surface, border: "none", padding: "10px 10px", cursor: "pointer" }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: C.foreground }}>{categoria}</span>
-                          <span style={{ fontSize: 11, color: C.muted }}>({items.length})</span>
-                          {seleccionadosEnGrupo > 0 && (
-                            <span style={{ fontSize: 10.5, fontWeight: 700, color: "#fff", background: C.secondary, borderRadius: 10, padding: "1px 7px" }}>{seleccionadosEnGrupo}</span>
-                          )}
-                        </div>
-                        <ChevronRight size={16} color={C.muted} style={{ transform: estaAbierto ? "rotate(90deg)" : "none", transition: "transform 0.15s" }} />
-                      </button>
-                      {estaAbierto && (
-                        <div style={{ padding: 8, background: C.background, display: "flex", flexDirection: "column", gap: 6 }}>
-                          {items.map((item) => {
-                            const { disponible, otrosEventos } = disponibleEquipoPara(data, item, fecha, null);
-                            const cant = equipoCant[item.id] || "0";
-                            return (
-                              <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: C.surface, border: `1px solid ${C.border}` }}>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontSize: 13, color: C.foreground }}>{item.nombre}</div>
-                                  <div style={{ fontSize: 10.5, color: disponible <= 0 ? C.error : C.muted }}>{disponible} disponible{disponible === 1 ? "" : "s"} de {item.cantidad || 1}</div>
-                                  {otrosEventos.length > 0 && (
-                                    <div style={{ fontSize: 10.5, color: C.error }}>Ya apartado ese día para: {otrosEventos.join(", ")}</div>
-                                  )}
-                                </div>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={disponible}
-                                  value={cant === "0" ? "" : cant}
-                                  placeholder="0"
-                                  disabled={disponible <= 0}
-                                  onChange={(e) => cambiarCantEquipo(item.id, e.target.value, disponible)}
-                                  style={{ width: 56, padding: "6px 8px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.background, color: C.foreground, fontSize: 13, textAlign: "center" }}
-                                />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
           <FieldLabel>¿Cuánta indumentaria se necesita? (togas, birretes, bandas, borlas... opcional)</FieldLabel>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 280, overflowY: "auto", marginBottom: 4 }}>
             {(data.indumentaria || []).length === 0 && (
@@ -8512,7 +8661,7 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
                   {estaAbierto && (
                     <div style={{ padding: 8, background: C.background, display: "flex", flexDirection: "column", gap: 6 }}>
                       {items.map((item) => {
-                        const { disponible, otrosEventos } = disponibleIndumentariaPara(data, item, fecha, null);
+                        const { disponible, otrosEventos } = disponibleIndumentariaPara(data, item, fecha, editandoEventoId);
                         const cant = indumentariaCant[item.id] || "0";
                         return (
                           <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: C.surface, border: `1px solid ${C.border}` }}>
@@ -8542,7 +8691,7 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
               );
             })}
           </div>
-          <PrimaryButton onClick={guardarEvento} color={C.secondary} disabled={!nombre || !fecha}>Guardar evento</PrimaryButton>
+          <PrimaryButton onClick={guardarEvento} color={C.secondary} disabled={!nombre || !fecha}>{editandoEventoId ? "Guardar cambios" : "Guardar evento"}</PrimaryButton>
         </Modal>
       )}
     </div>
@@ -8965,6 +9114,14 @@ export default function PhotografInventario() {
   const [appActiva, setAppActiva] = useState(null); // null (hub) | "inventario" | "asistencia"
   const [config, setConfig] = useState(CONFIG_INICIAL);
   const [, forceRender] = useState(0);
+
+  // Nombres de sucursal personalizados por el administrador: se reflejan
+  // en el objeto compartido NOMBRES_SUCURSAL en cada render, para que las
+  // decenas de pantallas que ya lo usan directamente (sin recibir
+  // "config" como prop) se actualicen solas — mismo truco que ya usa el
+  // tema claro/oscuro con "C". Las llaves internas (queretaro/salinas)
+  // nunca cambian, solo lo que se muestra.
+  Object.assign(NOMBRES_SUCURSAL, NOMBRES_SUCURSAL_FABRICA, config.nombresSucursal || {});
 
   /* La app se queda abierta días en la tablet del mostrador. Cada minuto se
      revisa si ya cambió el día para redibujar con la fecha correcta; si no,
