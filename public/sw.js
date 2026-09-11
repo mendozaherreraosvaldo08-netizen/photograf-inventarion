@@ -63,6 +63,12 @@ self.addEventListener("push", (event) => {
   // se soportan también formatos planos { title, body } por si acaso.
   const titulo = payload.notification?.title || payload.title || "Photograf";
   const cuerpo = payload.notification?.body || payload.body || "Tienes una alerta nueva.";
+  // "tag": cuando el servidor manda una (ver api/notify.js), dos avisos de
+  // la MISMA alerta (por ejemplo, la app se reabrió antes de resolverla y
+  // se volvió a mandar) comparten tag — así el sistema operativo reemplaza
+  // la notificación anterior en vez de dejar varias idénticas amontonadas
+  // sin poder borrarlas.
+  const tag = payload.notification?.tag || payload.data?.tag || undefined;
   event.waitUntil(
     self.registration.showNotification(titulo, {
       body: cuerpo,
@@ -77,6 +83,7 @@ self.addEventListener("push", (event) => {
       // cuadro entero de blanco liso. Con esta sí dibuja la silueta del
       // logo.
       badge: "/icons/icon-192.png",
+      ...(tag ? { tag } : {}),
     })
   );
 });
