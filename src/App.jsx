@@ -14,7 +14,6 @@ import {
   LogOut,
   Check,
   AlertTriangle,
-  RotateCcw,
   Clock,
   Lock,
   Pencil,
@@ -953,6 +952,9 @@ function GlobalStyles() {
           grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important;
           gap: 10px !important;
         }
+        .pf-tile-grid {
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
+        }
       }
       @media (min-width: 1024px) {
         .pf-shell {
@@ -961,6 +963,16 @@ function GlobalStyles() {
         .pf-list-grid {
           grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
         }
+      }
+      /* Tarjetas de estadística/acceso rápido (StatCard, QuickActionCard,
+         AreaTile): en celular se quedan en 2 columnas fijas, como siempre.
+         En pantallas más anchas (ver .pf-shell arriba) usan el espacio de
+         sobra agregando columnas en vez de solo estirarse — así no se ven
+         tarjetas gigantes y vacías en una compu. */
+      .pf-tile-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
       }
       @media (min-width: 1440px) {
         .pf-shell {
@@ -1362,7 +1374,7 @@ function InventoryCard({ nombre, categoria, estados = [], right, alertColor, onC
 
 function StatCard({ icon: Icon, value, label, color }) {
   return (
-    <div style={{ width: "48%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, boxShadow: SOMBRA_TARJETA, textAlign: "center" }}>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, boxShadow: SOMBRA_TARJETA, textAlign: "center" }}>
       <Icon size={28} color={color} style={{ marginBottom: 6 }} />
       <div className="pf-pop" style={{ fontSize: 24, fontWeight: 700, color: C.primary }}>{value}</div>
       <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{label}</div>
@@ -1372,11 +1384,46 @@ function StatCard({ icon: Icon, value, label, color }) {
 
 function QuickActionCard({ icon: Icon, label, color, onClick }) {
   return (
-    <button className="pf-press" onClick={onClick} style={{ width: "48%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, boxShadow: SOMBRA_TARJETA, display: "flex", flexDirection: "column", alignItems: "center", gap: 12, cursor: "pointer" }}>
+    <button className="pf-press" onClick={onClick} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, boxShadow: SOMBRA_TARJETA, display: "flex", flexDirection: "column", alignItems: "center", gap: 12, cursor: "pointer" }}>
       <div style={{ width: 56, height: 56, borderRadius: 28, background: color, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Icon size={28} color="#fff" />
       </div>
       <div style={{ fontSize: 13, fontWeight: 600, color: C.foreground }}>{label}</div>
+    </button>
+  );
+}
+
+/* "Salud por área": una tarjeta chiquita por cada área del negocio (Equipo,
+   Almacén, Materiales, Indumentaria) con un solo número — cuántas cosas de
+   esa área necesitan atención ahorita mismo (0 = todo bien, en verde). Es
+   la pieza clave del nuevo "Resumen del Día": antes ese resumen solo veía
+   equipo de cámara, ahora hay una lectura rápida de cada área, y tocar la
+   tarjeta lleva directo a esa pantalla. */
+function AreaTile({ icon: Icon, label, value, onClick }) {
+  const bien = value === 0;
+  const color = bien ? C.success : C.warning;
+  return (
+    <button className="pf-press" onClick={onClick} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px 12px", boxShadow: SOMBRA_TARJETA, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer", textAlign: "center" }}>
+      <Icon size={22} color={color} />
+      <div className="pf-pop" style={{ fontSize: 20, fontWeight: 700, color: C.foreground }}>{value}</div>
+      <div style={{ fontSize: 11.5, color: C.muted, fontWeight: 600 }}>{label}</div>
+      <div style={{ fontSize: 10, color, fontWeight: 600 }}>{bien ? "Sin pendientes" : "Por atender"}</div>
+    </button>
+  );
+}
+
+/* Una fila del bloque "Pendientes de hoy" — un renglón tocable por cada
+   cosa urgente (evento de hoy/mañana, equipo o indumentaria por devolver,
+   paquete vencido, etc.), agrupando en un solo lugar cosas que antes vivían
+   repartidas en varias pantallas. */
+function PendienteItem({ icon: Icon, color, texto, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", borderBottom: `1px solid ${C.border}`, padding: "10px 2px", cursor: onClick ? "pointer" : "default", textAlign: "left" }}
+    >
+      <Icon size={16} color={color} style={{ flexShrink: 0 }} />
+      <span style={{ fontSize: 13, color: C.foreground, fontWeight: 500 }}>{texto}</span>
     </button>
   );
 }
@@ -4487,17 +4534,10 @@ function SucursalSelector({ usuario, onCambiarUsuario, onUnlock, onOpenMiInventa
    PANTALLA: Home
    ========================================================================= */
 
-function HomeScreen({ data, goTo, alertas, sucursalNombre, mostrarToast, usuarioActual }) {
-  const disponible = data.equipo.filter((e) => e.estado === "Disponible").length;
+function HomeScreen({ data, config, goTo, goToMas, alertas, sucursalNombre, mostrarToast, usuarioActual }) {
   const enUso = data.equipo.filter((e) => e.estado === "En uso").length;
   const danado = data.equipo.filter((e) => e.estado === "Dañado").length;
   const reparacion = data.equipo.filter((e) => e.estado === "En reparación").length;
-  const stats = [
-    { key: "disponible", label: "Disponible", value: disponible, icon: Check, color: C.success },
-    { key: "enUso", label: "En uso", value: enUso, icon: Clock, color: C.primary },
-    { key: "danado", label: "Dañado", value: danado, icon: AlertTriangle, color: C.error },
-    { key: "reparacion", label: "En reparación", value: reparacion, icon: RotateCcw, color: C.warning },
-  ];
   const seDevuelveHoy = data.equipo.filter((e) => e.estado === "En uso" && e.fechaDevolucion === fmt(hoy)).length;
   const atrasados = data.equipo.filter((e) => e.estado === "En uso" && e.fechaDevolucion && e.fechaDevolucion < fmt(hoy)).length;
   const movimientos = [...data.bitacora].reverse().slice(0, 5);
@@ -4509,8 +4549,44 @@ function HomeScreen({ data, goTo, alertas, sucursalNombre, mostrarToast, usuario
     ? Math.round((new Date(proximoEvento.fecha) - new Date(fmt(hoy))) / 86400000)
     : null;
 
+  /* ---- "Salud por área": un número por área (0 = sin pendientes) ----
+     Antes el Resumen del Día solo veía el equipo de cámara (Disponible/En
+     uso/Dañado/Reparación). Ahora cada área del negocio tiene su propia
+     lectura rápida, y se puede tocar para ir directo a esa pantalla. */
+  const eventosHoy = (data.eventos || []).filter((ev) => ev.fecha === fmt(hoy));
+  const eventosManana = (data.eventos || []).filter((ev) => ev.fecha === enDias(1));
+  const paquetesVencidos = data.bases.reduce((a, b) => a + b.reservas.filter((r) => estadoTolerancia(r)?.nivel === "vencido").length, 0);
+  const stockBajoBases = data.bases.filter((b) => (b.catalogo === "Panoramica" || b.catalogo === "Diploma") && !b.descontinuada && tenemosBase(b) <= minimoDe(b, config)).length;
+  const stockBajoMateriales = data.materiales.filter((m) => m.cantidad <= minimoDe(m, config)).length;
+  const indumentariaAtrasada = (data.indumentaria || []).reduce(
+    (a, i) => a + (i.prestamos || []).filter((p) => p.estado === "Prestado" && p.fechaEsperada && p.fechaEsperada < fmt(hoy)).length,
+    0
+  );
+  const indumentariaHoy = (data.indumentaria || []).reduce(
+    (a, i) => a + (i.prestamos || []).filter((p) => p.estado === "Prestado" && p.fechaEsperada === fmt(hoy)).length,
+    0
+  );
+
+  const areas = [
+    { key: "equipo", icon: Camera, label: "Equipo", value: danado + reparacion + atrasados, onClick: () => goTo("equipo") },
+    { key: "almacen", icon: Warehouse, label: "Almacén", value: stockBajoBases + paquetesVencidos, onClick: () => goTo("almacen") },
+    { key: "materiales", icon: Package, label: "Materiales", value: stockBajoMateriales, onClick: () => goTo("materiales") },
+    { key: "indumentaria", icon: Shirt, label: "Indumentaria", value: indumentariaAtrasada, onClick: () => goToMas("indumentaria") },
+  ];
+
+  /* ---- "Pendientes de hoy": lo urgente de todas las áreas junto ---- */
+  const pendientesHoy = [];
+  if (seDevuelveHoy > 0) pendientesHoy.push({ icon: Clock, color: C.primary, texto: `${seDevuelveHoy} equipo(s) por devolver hoy`, onClick: () => goTo("equipo") });
+  if (atrasados > 0) pendientesHoy.push({ icon: AlertTriangle, color: C.error, texto: `${atrasados} equipo(s) atrasado(s)`, onClick: () => goTo("equipo") });
+  if (indumentariaHoy > 0) pendientesHoy.push({ icon: Shirt, color: C.primary, texto: `${indumentariaHoy} indumentaria(s) por devolver hoy`, onClick: () => goToMas("indumentaria") });
+  if (indumentariaAtrasada > 0) pendientesHoy.push({ icon: Shirt, color: C.error, texto: `${indumentariaAtrasada} indumentaria(s) sin devolver`, onClick: () => goToMas("indumentaria") });
+  eventosHoy.forEach((ev) => pendientesHoy.push({ icon: CalendarIcon, color: C.secondary, texto: `Evento hoy: ${ev.nombre}`, onClick: () => goToMas("calendario") }));
+  eventosManana.forEach((ev) => pendientesHoy.push({ icon: CalendarIcon, color: C.muted, texto: `Mañana: ${ev.nombre}`, onClick: () => goToMas("calendario") }));
+  if (paquetesVencidos > 0) pendientesHoy.push({ icon: Package, color: C.error, texto: `${paquetesVencidos} paquete(s) vencido(s) por desarmar`, onClick: () => goTo("almacen") });
+  if (alertas.length > 0) pendientesHoy.push({ icon: Bell, color: C.warning, texto: `${alertas.length} alerta(s) activa(s)`, onClick: () => goToMas("notificaciones") });
+
   const compartirResumen = async () => {
-    const texto = `Photograf ${sucursalNombre} — Resumen del ${fmt(hoy)}\nDisponible: ${disponible} · En uso: ${enUso} · Dañado: ${danado} · En reparación: ${reparacion}\nPor devolver hoy: ${seDevuelveHoy} · Atrasados: ${atrasados} · Alertas activas: ${alertas.length}`;
+    const texto = `Photograf ${sucursalNombre} — Resumen del ${fmt(hoy)}\n${areas.map((a) => `${a.label}: ${a.value} por atender`).join(" · ")}\n${pendientesHoy.length ? pendientesHoy.map((p) => p.texto).join(" · ") : "Sin pendientes por ahora."}`;
     if (navigator.share) {
       try {
         await navigator.share({ title: "Resumen del día — Photograf", text: texto });
@@ -4528,19 +4604,25 @@ function HomeScreen({ data, goTo, alertas, sucursalNombre, mostrarToast, usuario
   return (
     <div style={{ paddingBottom: 90 }}>
       <div style={{ padding: "20px 16px 0" }}>
-        <div className="pf-heading" style={{ fontSize: 21, fontWeight: 600, color: C.foreground, marginBottom: 2 }}>
-          {saludoDeHora(usuarioActual)}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 2 }}>
+          <div className="pf-heading" style={{ fontSize: 21, fontWeight: 600, color: C.foreground }}>
+            {saludoDeHora(usuarioActual)}
+          </div>
+          <button onClick={compartirResumen} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 10px", color: C.primary, fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0, marginLeft: 10 }}>
+            <Share2 size={14} /> Compartir
+          </button>
         </div>
-        {(seDevuelveHoy > 0 || atrasados > 0 || alertas.length > 0) && (
-          <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>
-            Hoy: {seDevuelveHoy} equipo(s) por devolver, {atrasados} atrasado(s), {alertas.length} alerta(s) activa(s).
+
+        <div style={{ fontSize: 18, fontWeight: 700, color: C.foreground, margin: "18px 0 10px" }}>Pendientes de hoy</div>
+        {pendientesHoy.length === 0 && <EmptyState icon={Check} text="Todo en orden — sin pendientes ni alertas por ahora." />}
+        {pendientesHoy.length > 0 && (
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "2px 12px", marginBottom: 20, boxShadow: SOMBRA_TARJETA }}>
+            {pendientesHoy.map((p, idx) => (
+              <PendienteItem key={idx} icon={p.icon} color={p.color} texto={p.texto} onClick={p.onClick} />
+            ))}
           </div>
         )}
-        {!(seDevuelveHoy > 0 || atrasados > 0 || alertas.length > 0) && (
-          <div style={{ fontSize: 13, color: C.muted, marginBottom: 16, marginTop: 4 }}>
-            Todo en orden — sin pendientes ni alertas por ahora.
-          </div>
-        )}
+
         {proximoEvento && (
           <div
             className="pf-pop"
@@ -4569,24 +4651,22 @@ function HomeScreen({ data, goTo, alertas, sucursalNombre, mostrarToast, usuario
             </div>
           </div>
         )}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: C.foreground }}>Resumen del Día</div>
-          <button onClick={compartirResumen} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 10px", color: C.primary, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-            <Share2 size={14} /> Compartir
-          </button>
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
-          {stats.map((s) => (
-            <StatCard key={s.key} icon={s.icon} value={s.value} label={s.label} color={s.color} />
+
+        <div style={{ fontSize: 18, fontWeight: 700, color: C.foreground, marginBottom: 12 }}>Salud por Área</div>
+        <div className="pf-tile-grid" style={{ marginBottom: 24 }}>
+          {areas.map((a) => (
+            <AreaTile key={a.key} icon={a.icon} label={a.label} value={a.value} onClick={a.onClick} />
           ))}
         </div>
+
         <div style={{ fontSize: 18, fontWeight: 700, color: C.foreground, marginBottom: 12 }}>Acceso Rápido</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
+        <div className="pf-tile-grid" style={{ marginBottom: 24 }}>
           <QuickActionCard icon={Camera} label="Equipo" color={C.primary} onClick={() => goTo("equipo")} />
           <QuickActionCard icon={Warehouse} label="Almacén" color={C.secondary} onClick={() => goTo("almacen")} />
           <QuickActionCard icon={Package} label="Materiales" color={C.accent1} onClick={() => goTo("materiales")} />
           <QuickActionCard icon={User} label="Mi Inventario" color={C.muted} onClick={() => goTo("miInventario")} />
         </div>
+
         <div style={{ fontSize: 18, fontWeight: 700, color: C.foreground, marginBottom: 12 }}>Movimientos Recientes</div>
         {movimientos.length === 0 && <EmptyState icon={Activity} text="Sin movimientos todavía. Aquí verás la actividad reciente." />}
         {movimientos.map((m, idx) => (
@@ -8506,7 +8586,7 @@ function ReportesScreen({ data, config, onBack }) {
           </div>
         </div>
         <div style={{ fontSize: 16, fontWeight: 700, color: C.foreground, marginBottom: 12 }}>Resumen mensual</div>
-        <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
+        <div className="pf-tile-grid" style={{ marginBottom: 24 }}>
           <StatCard icon={Warehouse} value={usoBases} label="Bases entregadas" color={C.secondary} />
           <StatCard icon={AlertTriangle} value={stockBajo} label="Materiales bajos" color={C.warning} />
         </div>
@@ -9300,8 +9380,18 @@ function TransferenciasScreen({ transferencias, transferenciasBases, sucursalAct
 }
 
 
-function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isDark, onToggleDark, onDeshacer, puedeDeshacer, usuarioActual, onCambiarUsuario, onAdminMode, transferenciasPendientes, transferenciasBasesPendientes, sucursalActiva, onConfirmarTransferencia, onConfirmarTransferenciaBase, permisoNotificaciones, onActivarNotificaciones, onVolverHub }) {
-  const [sub, setSub] = useState(null);
+function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isDark, onToggleDark, onDeshacer, puedeDeshacer, usuarioActual, onCambiarUsuario, onAdminMode, transferenciasPendientes, transferenciasBasesPendientes, sucursalActiva, onConfirmarTransferencia, onConfirmarTransferenciaBase, permisoNotificaciones, onActivarNotificaciones, onVolverHub, subInicial, onSubConsumido }) {
+  const [sub, setSub] = useState(subInicial || null);
+
+  /* Si el Home pide abrir directo una sub-pantalla de "Más" (por ejemplo,
+     tocar "Indumentaria" desde el nuevo bloque de Salud por Área), y este
+     componente ya estaba montado, el useState de arriba no lo agarra —
+     mismo patrón que abrirEquipoId en EquipoScreen. */
+  useEffect(() => {
+    if (!subInicial) return;
+    setSub(subInicial);
+    if (onSubConsumido) onSubConsumido();
+  }, [subInicial]);
 
   if (sub === "notificaciones") return <NotificacionesScreen alertas={alertas} onBack={() => setSub(null)} />;
   if (sub === "reportes") return <ReportesScreen data={data} config={config} onBack={() => setSub(null)} />;
@@ -9485,6 +9575,15 @@ export default function PhotografInventario() {
      específico, se muestra una pantalla de error clara en vez del inventario. */
   const [errorCargaInicial, setErrorCargaInicial] = useState(false);
   const [abrirEquipoId, setAbrirEquipoId] = useState(null);
+  // Para que el Home pueda mandar directo a una sub-pantalla de "Más"
+  // (Indumentaria, Calendario, Notificaciones) desde el nuevo bloque de
+  // Pendientes de hoy / Salud por Área, sin tener que pasar primero por el
+  // menú de Más.
+  const [subMasInicial, setSubMasInicial] = useState(null);
+  const goToMas = (sub) => {
+    setSubMasInicial(sub);
+    setScreen("mas");
+  };
   const [appActiva, setAppActiva] = useState(null); // null (hub) | "inventario" | "asistencia"
   const [config, setConfig] = useState(CONFIG_INICIAL);
   const [, forceRender] = useState(0);
@@ -10265,12 +10364,12 @@ export default function PhotografInventario() {
   }
 
   const screens = {
-    home: <HomeScreen data={data} goTo={setScreen} alertas={alertas} sucursalNombre={NOMBRES_SUCURSAL[sucursalActiva]} mostrarToast={mostrarToast} usuarioActual={usuarioActual} />,
+    home: <HomeScreen data={data} config={config} goTo={setScreen} goToMas={goToMas} alertas={alertas} sucursalNombre={NOMBRES_SUCURSAL[sucursalActiva]} mostrarToast={mostrarToast} usuarioActual={usuarioActual} />,
     equipo: <EquipoScreen data={data} setData={setData} bitacora={agregarBitacora} usuarioActual={usuarioActual} onIniciarTransferencia={iniciarTransferenciaEquipo} sucursalActiva={sucursalActiva} mostrarToast={mostrarToast} abrirEquipoId={abrirEquipoId} onAbrirConsumido={() => setAbrirEquipoId(null)} />,
     almacen: <AlmacenScreen data={data} setData={setData} bitacora={agregarBitacora} usuarioActual={usuarioActual} sucursal={sucursalActiva} mostrarToast={mostrarToast} onPedir={crearPedido} onIniciarTransferenciaBase={iniciarTransferenciaBase} />,
     materiales: <MaterialesScreen data={data} setData={setData} bitacora={agregarBitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} config={config} onPedir={crearPedido} sucursal={sucursalActiva} />,
     miInventario: <MiInventarioScreen allData={allData} usuarioActual={usuarioActual} />,
-    mas: <MasScreen data={data} setData={setData} bitacora={agregarBitacora} mostrarToast={mostrarToast} alertas={alertas} config={config} isDark={isDark} onToggleDark={toggleDark} onDeshacer={deshacer} puedeDeshacer={!!snapshot[sucursalActiva]} usuarioActual={usuarioActual} onCambiarUsuario={() => setUsuarioActual(null)} onAdminMode={() => setMostrarAdmin(true)} transferenciasPendientes={transferenciasPendientes} transferenciasBasesPendientes={transferenciasBasesPendientes} sucursalActiva={sucursalActiva} onConfirmarTransferencia={confirmarRecepcionTransferencia} onConfirmarTransferenciaBase={confirmarRecepcionTransferenciaBase} permisoNotificaciones={permisoNotificaciones} onActivarNotificaciones={activarNotificaciones} onVolverHub={() => { setAppActiva(null); setSucursalActiva(null); }} />,
+    mas: <MasScreen data={data} setData={setData} bitacora={agregarBitacora} mostrarToast={mostrarToast} alertas={alertas} config={config} isDark={isDark} onToggleDark={toggleDark} onDeshacer={deshacer} puedeDeshacer={!!snapshot[sucursalActiva]} usuarioActual={usuarioActual} onCambiarUsuario={() => setUsuarioActual(null)} onAdminMode={() => setMostrarAdmin(true)} transferenciasPendientes={transferenciasPendientes} transferenciasBasesPendientes={transferenciasBasesPendientes} sucursalActiva={sucursalActiva} onConfirmarTransferencia={confirmarRecepcionTransferencia} onConfirmarTransferenciaBase={confirmarRecepcionTransferenciaBase} permisoNotificaciones={permisoNotificaciones} onActivarNotificaciones={activarNotificaciones} onVolverHub={() => { setAppActiva(null); setSucursalActiva(null); }} subInicial={subMasInicial} onSubConsumido={() => setSubMasInicial(null)} />,
   };
 
   return (
