@@ -435,7 +435,7 @@ function fusionarAllData(base, propio, servidor) {
 }
 
 function fusionarDocumento(base, propio, servidor) {
-  const planas = fusionarPorLlave(base, propio, servidor, ["empleados", "transferenciasPendientes", "transferenciasBasesPendientes", "config"]);
+  const planas = fusionarPorLlave(base, propio, servidor, ["empleados", "transferenciasPendientes", "transferenciasBasesPendientes", "transferenciasIndumentariaPendientes", "config"]);
   return { ...planas, allData: fusionarAllData(base?.allData, propio?.allData, servidor?.allData) };
 }
 
@@ -3491,7 +3491,7 @@ function AdminMinimosBases({ allData, setAllData, config, onBack, mostrarToast }
 /* =========================================================================
    ADMIN · Ajustes (contraseñas, mínimos, respaldo, accesos)
    ========================================================================= */
-function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEmpleados, transferencias, setTransferencias, transferenciasBases, setTransferenciasBases, onBack, mostrarToast, permisoNotificaciones, onActivarNotificacionesAdmin }) {
+function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEmpleados, transferencias, setTransferencias, transferenciasBases, setTransferenciasBases, transferenciasIndumentaria, setTransferenciasIndumentaria, onBack, mostrarToast, permisoNotificaciones, onActivarNotificacionesAdmin }) {
   const [pw, setPw] = useState({ ...config.passwords });
   const [umbral, setUmbral] = useState(String(config.umbralStock));
   const [calendarios, setCalendarios] = useState({ queretaro: "", salinas: "", ...(config.calendarios || {}) });
@@ -3664,6 +3664,7 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
       config,
       transferenciasPendientes: transferencias,
       transferenciasBasesPendientes: transferenciasBases,
+      transferenciasIndumentariaPendientes: transferenciasIndumentaria,
     });
     mostrarToast("Respaldo descargado ✓");
   };
@@ -3695,6 +3696,7 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
     if (porRestaurar.config) setConfig(normalizarConfig(porRestaurar.config));
     if (porRestaurar.transferenciasPendientes) setTransferencias(porRestaurar.transferenciasPendientes);
     if (porRestaurar.transferenciasBasesPendientes) setTransferenciasBases(porRestaurar.transferenciasBasesPendientes);
+    if (porRestaurar.transferenciasIndumentariaPendientes) setTransferenciasIndumentaria(porRestaurar.transferenciasIndumentariaPendientes);
     setPorRestaurar(null);
     mostrarToast("Respaldo restaurado ✓");
   };
@@ -4282,7 +4284,7 @@ function exportarInventarioExcel(allData, config) {
 /* =========================================================================
    ADMIN · Pantalla principal del panel
    ========================================================================= */
-function AdminScreen({ empleados, setEmpleados, allData, setAllData, config, setConfig, transferencias, setTransferencias, transferenciasBases, setTransferenciasBases, onBack, mostrarToast, permisoNotificaciones, onActivarNotificacionesAdmin }) {
+function AdminScreen({ empleados, setEmpleados, allData, setAllData, config, setConfig, transferencias, setTransferencias, transferenciasBases, setTransferenciasBases, transferenciasIndumentaria, setTransferenciasIndumentaria, onBack, mostrarToast, permisoNotificaciones, onActivarNotificacionesAdmin }) {
   const [seccion, setSeccion] = useState(null);
 
   /* Todo lo que hace el administrador queda anotado en la bitácora de la
@@ -4318,6 +4320,8 @@ function AdminScreen({ empleados, setEmpleados, allData, setAllData, config, set
         setTransferencias={setTransferencias}
         transferenciasBases={transferenciasBases}
         setTransferenciasBases={setTransferenciasBases}
+        transferenciasIndumentaria={transferenciasIndumentaria}
+        setTransferenciasIndumentaria={setTransferenciasIndumentaria}
         onBack={volver}
         mostrarToast={mostrarToast}
         permisoNotificaciones={permisoNotificaciones}
@@ -6637,7 +6641,7 @@ function GrupoPersonalizadoScreen({ grupo, setData, bitacora, usuarioActual, mos
    PANTALLA: Materiales
    ========================================================================= */
 
-function MaterialesScreen({ data, setData, bitacora, usuarioActual, mostrarToast, config, onPedir, sucursal }) {
+function MaterialesScreen({ data, setData, bitacora, usuarioActual, mostrarToast, config, onPedir, sucursal, onIniciarTransferenciaIndumentaria }) {
   // La pestaña "Materiales" (lista genérica por cantidad) se quitó a
   // petición del negocio: lo que traía se organiza mejor en pestañas
   // propias (como "Papelería"), creadas con el botón "+ Nueva pestaña" de
@@ -6687,7 +6691,7 @@ function MaterialesScreen({ data, setData, bitacora, usuarioActual, mostrarToast
         </div>
       </div>
 
-      {tab === "indumentaria" && <IndumentariaScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} sucursal={sucursal} />}
+      {tab === "indumentaria" && <IndumentariaScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} sucursal={sucursal} onIniciarTransferencia={onIniciarTransferenciaIndumentaria} />}
       {tab === "emblematicos" && <EmblematicosScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} sucursal={sucursal} />}
       {tab === "placas" && <PlacasScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} config={config} sucursal={sucursal} />}
       {tab === "piezas" && <PiezasScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} config={config} sucursal={sucursal} />}
@@ -6739,7 +6743,7 @@ function MaterialesScreen({ data, setData, bitacora, usuarioActual, mostrarToast
    espera de vuelta el mismo día; por eso lleva su propio ledger de
    existencias más una lista de préstamos activos con fecha esperada.
    ========================================================================= */
-function IndumentariaScreen({ data, setData, bitacora, usuarioActual, mostrarToast, sucursal, onBack }) {
+function IndumentariaScreen({ data, setData, bitacora, usuarioActual, mostrarToast, sucursal, onBack, onIniciarTransferencia }) {
   const [search, setSearch] = useState("");
   const [filtro, setFiltro] = useState("Todas");
   const [modalAlta, setModalAlta] = useState(false);
@@ -6752,6 +6756,15 @@ function IndumentariaScreen({ data, setData, bitacora, usuarioActual, mostrarToa
   const [verPrestamosDe, setVerPrestamosDe] = useState(null);
   const [devolviendo, setDevolviendo] = useState(null); // { item, prestamo }
   const [cantDevuelta, setCantDevuelta] = useState("");
+  // Traslado a otra sucursal: mismo espíritu que "Enviar a otra sucursal"
+  // en Equipo, pero por cantidad (como el préstamo de bases en Almacén) —
+  // la cantidad enviada sale de "cantidadTotal" aquí mismo y queda "En
+  // tránsito" hasta que la sucursal destino confirme que la recibió.
+  const [trasladando, setTrasladando] = useState(null);
+  const [destinoTransfer, setDestinoTransfer] = useState(null);
+  const [trasladoForm, setTrasladoForm] = useState({ cantidad: "1", quien: usuarioActual, nota: "" });
+  const otrasSucursales = SUCURSALES.filter((s) => s !== sucursal);
+  const destinoFijo = otraSucursalUnica(sucursal);
 
   const tiposIndumentaria = data.tiposIndumentaria && data.tiposIndumentaria.length > 0 ? data.tiposIndumentaria : TIPOS_INDUMENTARIA;
   const agregarTipoIndumentaria = (t) => setData((d) => ({ ...d, tiposIndumentaria: [...(d.tiposIndumentaria && d.tiposIndumentaria.length > 0 ? d.tiposIndumentaria : TIPOS_INDUMENTARIA), t] }));
@@ -6875,6 +6888,31 @@ function IndumentariaScreen({ data, setData, bitacora, usuarioActual, mostrarToa
     setCantDevuelta("");
   };
 
+  const confirmarTraslado = () => {
+    const item = trasladando;
+    const destino = destinoTransfer || destinoFijo;
+    const cant = parseInt(trasladoForm.cantidad, 10) || 0;
+    if (!item || !destino || cant < 1 || cant > disponibles(item) || !trasladoForm.quien.trim()) return;
+    setData((d) => ({
+      ...d,
+      indumentaria: d.indumentaria.map((i) =>
+        i.id === item.id
+          ? {
+              ...i,
+              cantidadTotal: i.cantidadTotal - cant,
+              movimientos: [...(i.movimientos || []), movimientoBase("salida-traslado", -cant, trasladoForm.quien, trasladoForm.nota || `Enviado a ${NOMBRES_SUCURSAL[destino]}`, { destino })],
+            }
+          : i
+      ),
+    }));
+    bitacora(`${item.tipo}${item.detalle ? ` (${item.detalle})` : ""} ×${cant} enviado a ${NOMBRES_SUCURSAL[destino]}`, trasladoForm.quien);
+    onIniciarTransferencia(item, cant, trasladoForm.quien, trasladoForm.nota, destino);
+    mostrarToast(`Enviado a ${NOMBRES_SUCURSAL[destino]} ✓`);
+    setTrasladando(null);
+    setDestinoTransfer(null);
+    setTrasladoForm({ cantidad: "1", quien: usuarioActual, nota: "" });
+  };
+
   return (
     <div style={{ paddingBottom: 90, minHeight: "100vh" }}>
       <SectionHeader title="Indumentaria" subtitle="Togas, birretes, estolas, capas y lámparas" onBack={onBack} />
@@ -6932,6 +6970,15 @@ function IndumentariaScreen({ data, setData, bitacora, usuarioActual, mostrarToa
                   <History size={13} /> Préstamos y movimientos
                 </button>
               </div>
+              {otrasSucursales.length > 0 && (
+                <button
+                  onClick={() => { setTrasladando(i); setDestinoTransfer(null); setTrasladoForm({ cantidad: "1", quien: usuarioActual, nota: "" }); }}
+                  disabled={disp < 1}
+                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: disp < 1 ? C.muted : C.secondary, cursor: disp < 1 ? "not-allowed" : "pointer", opacity: disp < 1 ? 0.6 : 1, marginTop: 8 }}
+                >
+                  <Truck size={13} /> {destinoFijo ? `Trasladar a ${NOMBRES_SUCURSAL[destinoFijo].replace("Photograf ", "")}` : "Trasladar a otra sucursal"}
+                </button>
+              )}
             </div>
           );
         })}
@@ -7063,6 +7110,38 @@ function IndumentariaScreen({ data, setData, bitacora, usuarioActual, mostrarToa
           <TextInput type="number" value={cantDevuelta} onChange={(e) => setCantDevuelta(e.target.value)} />
           <PrimaryButton onClick={confirmarDevolucion} color={C.success} disabled={cantDevuelta === "" || parseInt(cantDevuelta, 10) < 0}>
             Confirmar devolución
+          </PrimaryButton>
+        </Modal>
+      )}
+
+      {trasladando && (
+        <Modal title={destinoFijo ? `Trasladar a ${NOMBRES_SUCURSAL[destinoFijo]}` : "Trasladar a otra sucursal"} onClose={() => { setTrasladando(null); setDestinoTransfer(null); }}>
+          <div style={{ fontSize: 12.5, color: C.muted }}>Hay {disponibles(trasladando)} disponibles de {trasladando.cantidadTotal}.</div>
+          {!destinoFijo && (
+            <>
+              <FieldLabel>¿A qué sucursal?</FieldLabel>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                {otrasSucursales.map((s) => (
+                  <FilterPill key={s} label={NOMBRES_SUCURSAL[s].replace("Photograf ", "")} active={destinoTransfer === s} onClick={() => setDestinoTransfer(s)} color={C.secondary} />
+                ))}
+              </div>
+            </>
+          )}
+          <FieldLabel>Cantidad</FieldLabel>
+          <TextInput type="number" value={trasladoForm.cantidad} onChange={(e) => setTrasladoForm({ ...trasladoForm, cantidad: e.target.value })} />
+          <FieldLabel>¿Quién envía?</FieldLabel>
+          <TextInput value={trasladoForm.quien} onChange={(e) => setTrasladoForm({ ...trasladoForm, quien: e.target.value })} placeholder="Tu nombre" />
+          <FieldLabel>Nota (opcional)</FieldLabel>
+          <TextInput value={trasladoForm.nota} onChange={(e) => setTrasladoForm({ ...trasladoForm, nota: e.target.value })} placeholder="Ej. para la graduación del sábado" />
+          <div style={{ fontSize: 11.5, color: C.muted, marginTop: 8 }}>
+            Queda "En tránsito" hasta que {(destinoTransfer || destinoFijo) ? NOMBRES_SUCURSAL[destinoTransfer || destinoFijo] : "la sucursal destino"} confirme que lo recibió. Puedes verlo en Más → Transferencias.
+          </div>
+          <PrimaryButton
+            onClick={confirmarTraslado}
+            color={C.secondary}
+            disabled={!(destinoTransfer || destinoFijo) || !trasladoForm.quien.trim() || !trasladoForm.cantidad || parseInt(trasladoForm.cantidad, 10) < 1 || parseInt(trasladoForm.cantidad, 10) > disponibles(trasladando)}
+          >
+            Enviar
           </PrimaryButton>
         </Modal>
       )}
@@ -9197,7 +9276,7 @@ function CierreScreen({ data, onBack }) {
    Antes esto no existía como pantalla: el envío borraba el equipo sin
    dejar ningún lugar donde confirmarlo del otro lado.
    ========================================================================= */
-function TransferenciasScreen({ transferencias, transferenciasBases, sucursalActiva, onConfirmar, onConfirmarBase, onBack }) {
+function TransferenciasScreen({ transferencias, transferenciasBases, transferenciasIndumentaria, sucursalActiva, onConfirmar, onConfirmarBase, onConfirmarIndumentaria, onBack }) {
   const [tab, setTab] = useState("equipo");
   const [recibiendo, setRecibiendo] = useState(null);
   const [quienRecibe, setQuienRecibe] = useState("");
@@ -9209,6 +9288,11 @@ function TransferenciasScreen({ transferencias, transferenciasBases, sucursalAct
   const [cantRecibida, setCantRecibida] = useState("");
   const [notaBase, setNotaBase] = useState("");
 
+  const [recibiendoIndumentaria, setRecibiendoIndumentaria] = useState(null);
+  const [quienRecibeIndumentaria, setQuienRecibeIndumentaria] = useState("");
+  const [cantRecibidaIndumentaria, setCantRecibidaIndumentaria] = useState("");
+  const [notaIndumentaria, setNotaIndumentaria] = useState("");
+
   const porRecibir = transferencias.filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito");
   const historial = [...transferencias]
     .filter((t) => (t.origen === sucursalActiva || t.destino === sucursalActiva) && !porRecibir.includes(t))
@@ -9217,6 +9301,11 @@ function TransferenciasScreen({ transferencias, transferenciasBases, sucursalAct
   const porRecibirBases = (transferenciasBases || []).filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito");
   const historialBases = [...(transferenciasBases || [])]
     .filter((t) => (t.origen === sucursalActiva || t.destino === sucursalActiva) && !porRecibirBases.includes(t))
+    .sort((a, b) => (a.fechaRecepcion || a.fechaEnvio < (b.fechaRecepcion || b.fechaEnvio) ? 1 : -1));
+
+  const porRecibirIndumentaria = (transferenciasIndumentaria || []).filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito");
+  const historialIndumentaria = [...(transferenciasIndumentaria || [])]
+    .filter((t) => (t.origen === sucursalActiva || t.destino === sucursalActiva) && !porRecibirIndumentaria.includes(t))
     .sort((a, b) => (a.fechaRecepcion || a.fechaEnvio < (b.fechaRecepcion || b.fechaEnvio) ? 1 : -1));
 
   const abrirConfirmacion = (t) => {
@@ -9245,8 +9334,22 @@ function TransferenciasScreen({ transferencias, transferenciasBases, sucursalAct
     setRecibiendoBase(null);
   };
 
-  // Días de atraso de un préstamo de base que sigue "en tránsito" —
-  // pedido explícito del negocio: avisar cuando algo prestado no vuelve.
+  const abrirConfirmacionIndumentaria = (t) => {
+    setRecibiendoIndumentaria(t);
+    setQuienRecibeIndumentaria("");
+    setCantRecibidaIndumentaria(String(t.cantidad));
+    setNotaIndumentaria("");
+  };
+
+  const confirmarIndumentaria = () => {
+    if (!quienRecibeIndumentaria || cantRecibidaIndumentaria === "") return;
+    onConfirmarIndumentaria(recibiendoIndumentaria.id, quienRecibeIndumentaria, parseInt(cantRecibidaIndumentaria, 10) || 0, notaIndumentaria);
+    setRecibiendoIndumentaria(null);
+  };
+
+  // Días de atraso de un préstamo de base (o traslado de indumentaria) que
+  // sigue "en tránsito" — pedido explícito del negocio: avisar cuando algo
+  // prestado no vuelve.
   const diasEnTransito = (t) => diasTranscurridos(t.fechaEnvio);
 
   return (
@@ -9256,6 +9359,7 @@ function TransferenciasScreen({ transferencias, transferenciasBases, sucursalAct
         <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
           <FilterPill label={`Equipo${porRecibir.length ? ` (${porRecibir.length})` : ""}`} active={tab === "equipo"} onClick={() => setTab("equipo")} />
           <FilterPill label={`Bases${porRecibirBases.length ? ` (${porRecibirBases.length})` : ""}`} active={tab === "bases"} onClick={() => setTab("bases")} color={C.secondary} />
+          <FilterPill label={`Indumentaria${porRecibirIndumentaria.length ? ` (${porRecibirIndumentaria.length})` : ""}`} active={tab === "indumentaria"} onClick={() => setTab("indumentaria")} color={C.accent1} />
         </div>
 
         {tab === "equipo" && (
@@ -9334,6 +9438,47 @@ function TransferenciasScreen({ transferencias, transferenciasBases, sucursalAct
             ))}
           </>
         )}
+
+        {tab === "indumentaria" && (
+          <>
+            <div style={{ fontSize: 16, fontWeight: 700, color: C.foreground, marginBottom: 12 }}>Por recibir aquí</div>
+            {porRecibirIndumentaria.length === 0 && <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Nada esperando confirmación. ✓</div>}
+            {porRecibirIndumentaria.map((t) => (
+              <div key={t.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12, boxShadow: SOMBRA_TARJETA }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{t.tipo}{t.detalle ? ` (${t.detalle})` : ""} × {t.cantidad}</div>
+                    <div style={{ fontSize: 12, color: C.muted, margin: "2px 0 6px" }}>Desde {NOMBRES_SUCURSAL[t.origen]} · enviado por {t.quienEnvio} el {t.fechaEnvio}</div>
+                    <Badge estado={t.estado} />
+                  </div>
+                  <button onClick={() => abrirConfirmacionIndumentaria(t)} style={{ display: "flex", alignItems: "center", gap: 4, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                    <Truck size={14} /> Recibir
+                  </button>
+                </div>
+                {diasEnTransito(t) >= 5 && (
+                  <div style={{ marginTop: 8, fontSize: 11.5, color: C.warning, display: "flex", alignItems: "center", gap: 5 }}>
+                    <AlertTriangle size={13} /> Lleva {diasEnTransito(t)} días en tránsito sin confirmarse
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <div style={{ fontSize: 16, fontWeight: 700, color: C.foreground, marginTop: 16, marginBottom: 12 }}>Historial</div>
+            {historialIndumentaria.length === 0 && <div style={{ fontSize: 13, color: C.muted }}>Sin traslados de indumentaria anteriores.</div>}
+            {historialIndumentaria.map((t) => (
+              <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+                <div>
+                  <div style={{ fontSize: 13, color: C.foreground }}>{t.tipo}{t.detalle ? ` (${t.detalle})` : ""} × {t.cantidad}</div>
+                  <div style={{ fontSize: 11, color: C.muted }}>
+                    {NOMBRES_SUCURSAL[t.origen]} → {NOMBRES_SUCURSAL[t.destino]}
+                    {t.estado === "Recibido" ? ` · recibido por ${t.quienRecibio} el ${t.fechaRecepcion}${t.cantidadRecibida !== t.cantidad ? ` (llegaron ${t.cantidadRecibida})` : ""}` : ` · enviado el ${t.fechaEnvio}`}
+                  </div>
+                </div>
+                <Badge estado={t.estado} />
+              </div>
+            ))}
+          </>
+        )}
       </div>
 
       {recibiendo && (
@@ -9375,12 +9520,31 @@ function TransferenciasScreen({ transferencias, transferenciasBases, sucursalAct
           </PrimaryButton>
         </Modal>
       )}
+
+      {recibiendoIndumentaria && (
+        <Modal title={`Recibir: ${recibiendoIndumentaria.tipo}${recibiendoIndumentaria.detalle ? ` (${recibiendoIndumentaria.detalle})` : ""}`} onClose={() => setRecibiendoIndumentaria(null)}>
+          <div style={{ fontSize: 12.5, color: C.muted }}>Se enviaron {recibiendoIndumentaria.cantidad}. Si llegaron menos (alguna se quedó en el camino, etc.), ajusta la cantidad aquí.</div>
+          <FieldLabel>¿Quién recibe?</FieldLabel>
+          <TextInput value={quienRecibeIndumentaria} onChange={(e) => setQuienRecibeIndumentaria(e.target.value)} placeholder="Tu nombre" />
+          <FieldLabel>¿Cuántas llegaron?</FieldLabel>
+          <TextInput type="number" value={cantRecibidaIndumentaria} onChange={(e) => setCantRecibidaIndumentaria(e.target.value)} />
+          {parseInt(cantRecibidaIndumentaria, 10) !== recibiendoIndumentaria.cantidad && (
+            <>
+              <FieldLabel>¿Qué pasó con la diferencia? (opcional)</FieldLabel>
+              <TextInput value={notaIndumentaria} onChange={(e) => setNotaIndumentaria(e.target.value)} placeholder="Ej. una se quedó allá" />
+            </>
+          )}
+          <PrimaryButton onClick={confirmarIndumentaria} color={C.success} disabled={!quienRecibeIndumentaria || cantRecibidaIndumentaria === "" || parseInt(cantRecibidaIndumentaria, 10) < 0}>
+            Confirmar recepción
+          </PrimaryButton>
+        </Modal>
+      )}
     </div>
   );
 }
 
 
-function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isDark, onToggleDark, onDeshacer, puedeDeshacer, usuarioActual, onCambiarUsuario, onAdminMode, transferenciasPendientes, transferenciasBasesPendientes, sucursalActiva, onConfirmarTransferencia, onConfirmarTransferenciaBase, permisoNotificaciones, onActivarNotificaciones, onVolverHub, subInicial, onSubConsumido }) {
+function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isDark, onToggleDark, onDeshacer, puedeDeshacer, usuarioActual, onCambiarUsuario, onAdminMode, transferenciasPendientes, transferenciasBasesPendientes, transferenciasIndumentariaPendientes, sucursalActiva, onConfirmarTransferencia, onConfirmarTransferenciaBase, onConfirmarTransferenciaIndumentaria, onIniciarTransferenciaIndumentaria, permisoNotificaciones, onActivarNotificaciones, onVolverHub, subInicial, onSubConsumido }) {
   const [sub, setSub] = useState(subInicial || null);
 
   /* Si el Home pide abrir directo una sub-pantalla de "Más" (por ejemplo,
@@ -9397,7 +9561,7 @@ function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isD
   if (sub === "reportes") return <ReportesScreen data={data} config={config} onBack={() => setSub(null)} />;
   if (sub === "calendario") return <CalendarioScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} sucursalActiva={sucursalActiva} calendarId={config?.calendarios?.[sucursalActiva]} onBack={() => setSub(null)} />;
   if (sub === "cierre") return <CierreScreen data={data} onBack={() => setSub(null)} />;
-  if (sub === "indumentaria") return <IndumentariaScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} sucursal={sucursalActiva} onBack={() => setSub(null)} />;
+  if (sub === "indumentaria") return <IndumentariaScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} sucursal={sucursalActiva} onBack={() => setSub(null)} onIniciarTransferencia={onIniciarTransferenciaIndumentaria} />;
   if (sub === "emblematicos") return <EmblematicosScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} sucursal={sucursalActiva} onBack={() => setSub(null)} />;
   if (sub === "mobiliario") return <MobiliarioScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} sucursal={sucursalActiva} onBack={() => setSub(null)} />;
   if (sub === "piezas") return <PiezasScreen data={data} setData={setData} bitacora={bitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} config={config} sucursal={sucursalActiva} onBack={() => setSub(null)} />;
@@ -9407,15 +9571,18 @@ function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isD
       <TransferenciasScreen
         transferencias={transferenciasPendientes}
         transferenciasBases={transferenciasBasesPendientes}
+        transferenciasIndumentaria={transferenciasIndumentariaPendientes}
         sucursalActiva={sucursalActiva}
         onConfirmar={onConfirmarTransferencia}
         onConfirmarBase={onConfirmarTransferenciaBase}
+        onConfirmarIndumentaria={onConfirmarTransferenciaIndumentaria}
         onBack={() => setSub(null)}
       />
     );
 
   const porRecibir = transferenciasPendientes.filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito").length;
   const porRecibirBases = (transferenciasBasesPendientes || []).filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito").length;
+  const porRecibirIndumentaria = (transferenciasIndumentariaPendientes || []).filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito").length;
   const indumentariaAtrasada = (data.indumentaria || []).reduce(
     (a, i) => a + (i.prestamos || []).filter((p) => p.estado === "Prestado" && p.fechaEsperada && p.fechaEsperada < fmt(hoy)).length,
     0
@@ -9430,7 +9597,7 @@ function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isD
       titulo: "Para hoy",
       opciones: [
         { key: "notificaciones", label: "Notificaciones", icon: Bell, badge: alertas.length, color: C.warning },
-        { key: "transferencias", label: "Transferencias", icon: Truck, badge: porRecibir + porRecibirBases, color: C.secondary },
+        { key: "transferencias", label: "Transferencias", icon: Truck, badge: porRecibir + porRecibirBases + porRecibirIndumentaria, color: C.secondary },
         { key: "calendario", label: "Calendario", icon: CalendarIcon, color: C.secondary },
       ],
     },
@@ -9564,6 +9731,7 @@ export default function PhotografInventario() {
   const [adminAutenticado, setAdminAutenticado] = useState(false);
   const [transferenciasPendientes, setTransferenciasPendientes] = useState([]);
   const [transferenciasBasesPendientes, setTransferenciasBasesPendientes] = useState([]);
+  const [transferenciasIndumentariaPendientes, setTransferenciasIndumentariaPendientes] = useState([]);
   const [toast, setToast] = useState(null);
   const [datosListos, setDatosListos] = useState(false);
   const [errorGuardado, setErrorGuardado] = useState(false);
@@ -9670,6 +9838,7 @@ export default function PhotografInventario() {
           if (d.empleados) setEmpleados(d.empleados);
           if (d.transferenciasPendientes) setTransferenciasPendientes(d.transferenciasPendientes);
           if (d.transferenciasBasesPendientes) setTransferenciasBasesPendientes(d.transferenciasBasesPendientes);
+          if (d.transferenciasIndumentariaPendientes) setTransferenciasIndumentariaPendientes(d.transferenciasIndumentariaPendientes);
           setConfig(normalizarConfig(d.config));
         }
         setDatosListos(true);
@@ -9700,7 +9869,7 @@ export default function PhotografInventario() {
      ver el comentario junto a fusionarDocumento arriba. */
   useEffect(() => {
     if (!datosListos || !lecturaOkRef.current) return;
-    const propio = { allData, empleados, transferenciasPendientes, transferenciasBasesPendientes, config };
+    const propio = { allData, empleados, transferenciasPendientes, transferenciasBasesPendientes, transferenciasIndumentariaPendientes, config };
     const base = prevSyncedRef.current;
     if (base && JSON.stringify(base) === JSON.stringify(propio)) return;
 
@@ -9721,6 +9890,7 @@ export default function PhotografInventario() {
           if (fusion.empleados) setEmpleados(fusion.empleados);
           if (fusion.transferenciasPendientes) setTransferenciasPendientes(fusion.transferenciasPendientes);
           if (fusion.transferenciasBasesPendientes) setTransferenciasBasesPendientes(fusion.transferenciasBasesPendientes);
+          if (fusion.transferenciasIndumentariaPendientes) setTransferenciasIndumentariaPendientes(fusion.transferenciasIndumentariaPendientes);
           setConfig(normalizarConfig(fusion.config));
         }
         setErrorGuardado(false);
@@ -9729,7 +9899,7 @@ export default function PhotografInventario() {
         escribiendoRef.current = false;
         setErrorGuardado(true);
       });
-  }, [allData, empleados, transferenciasPendientes, transferenciasBasesPendientes, config, datosListos]);
+  }, [allData, empleados, transferenciasPendientes, transferenciasBasesPendientes, transferenciasIndumentariaPendientes, config, datosListos]);
 
   const notificadasRef = useRef(new Set());
   const [permisoNotificaciones, setPermisoNotificaciones] = useState(
@@ -10212,6 +10382,100 @@ export default function PhotografInventario() {
     );
   };
 
+  /* Transferencia de indumentaria entre sucursales — mismo espíritu que la
+     de bases (por cantidad, no por pieza única): la resta de cantidadTotal
+     ya se hizo en IndumentariaScreen; aquí solo se registra el viaje
+     pendiente hasta que la sucursal destino confirme que lo recibió. */
+  const iniciarTransferenciaIndumentaria = (item, cantidad, quien, nota, destinoElegido) => {
+    const destino = destinoElegido || otraSucursalUnica(sucursalActiva);
+    if (!destino) return; // salvaguarda: con 3+ sucursales activas hace falta elegir destino en la pantalla
+    setTransferenciasIndumentariaPendientes((t) => [
+      ...t,
+      {
+        id: Date.now(),
+        tipo: item.tipo,
+        detalle: item.detalle,
+        costo: item.costo || 0,
+        cantidad,
+        nota: nota || "",
+        origen: sucursalActiva,
+        destino,
+        estado: "En tránsito",
+        quienEnvio: quien,
+        fechaEnvio: fmt(hoy),
+        quienRecibio: null,
+        fechaRecepcion: null,
+        cantidadRecibida: null,
+      },
+    ]);
+    mostrarToast(`Enviado a ${NOMBRES_SUCURSAL[destino]} ✓`);
+    enviarNotificacionPush(
+      [destino, "admin"],
+      `Indumentaria en camino — ${NOMBRES_SUCURSAL[destino]}`,
+      `${cantidad} × ${item.tipo}${item.detalle ? ` (${item.detalle})` : ""} viene de ${NOMBRES_SUCURSAL[sucursalActiva]}. Confírmalo en Más → Transferencias cuando llegue.`
+    );
+  };
+
+  /* Al confirmar, la cantidad recibida entra al inventario de la sucursal
+     destino como una pieza de indumentaria más (si ya existe una con el
+     mismo tipo y detalle, se suma a su cantidadTotal; si no, se crea) y
+     queda anotada en su propio ledger. */
+  const confirmarRecepcionTransferenciaIndumentaria = (transferId, quienRecibe, cantidadRecibida, notaDiferencia) => {
+    const t = transferenciasIndumentariaPendientes.find((x) => x.id === transferId);
+    if (!t) return;
+    setAllData((prev) => {
+      const destinoData = prev[t.destino];
+      const existente = (destinoData.indumentaria || []).find((i) => i.tipo === t.tipo && (i.detalle || "") === (t.detalle || ""));
+      const nota =
+        cantidadRecibida !== t.cantidad
+          ? `Recibido por transferencia de ${NOMBRES_SUCURSAL[t.origen]} (se enviaron ${t.cantidad})${notaDiferencia ? ` — ${notaDiferencia}` : ""}`
+          : `Recibido por transferencia de ${NOMBRES_SUCURSAL[t.origen]}`;
+      let indumentaria;
+      if (existente) {
+        indumentaria = (destinoData.indumentaria || []).map((i) =>
+          i.id === existente.id
+            ? { ...i, cantidadTotal: i.cantidadTotal + cantidadRecibida, movimientos: [...(i.movimientos || []), movimientoBase("entrada", cantidadRecibida, quienRecibe, nota, { origen: t.origen })] }
+            : i
+        );
+      } else {
+        const nuevoId = Math.max(0, ...(destinoData.indumentaria || []).map((i) => i.id)) + 1;
+        indumentaria = [
+          ...(destinoData.indumentaria || []),
+          {
+            id: nuevoId,
+            tipo: t.tipo,
+            detalle: t.detalle || "",
+            costo: t.costo || 0,
+            cantidadTotal: cantidadRecibida,
+            prestamos: [],
+            movimientos: [movimientoBase("entrada", cantidadRecibida, quienRecibe, nota, { origen: t.origen })],
+          },
+        ];
+      }
+      return {
+        ...prev,
+        [t.destino]: {
+          ...destinoData,
+          indumentaria,
+          bitacora: [...destinoData.bitacora, { texto: `${t.tipo}${t.detalle ? ` (${t.detalle})` : ""} ×${cantidadRecibida} recibido de ${NOMBRES_SUCURSAL[t.origen]}`, quien: quienRecibe, fecha: fmt(hoy) }],
+        },
+        [t.origen]: {
+          ...prev[t.origen],
+          bitacora: [...prev[t.origen].bitacora, { texto: `Traslado de ${t.tipo}${t.detalle ? ` (${t.detalle})` : ""} ×${t.cantidad} confirmado como recibido en ${NOMBRES_SUCURSAL[t.destino]}`, quien: quienRecibe, fecha: fmt(hoy) }],
+        },
+      };
+    });
+    setTransferenciasIndumentariaPendientes((ts) => ts.map((x) => (x.id === transferId ? { ...x, estado: "Recibido", quienRecibio: quienRecibe, fechaRecepcion: fmt(hoy), cantidadRecibida } : x)));
+    mostrarToast("Recepción confirmada ✓");
+    enviarNotificacionPush(
+      [t.origen, "admin"],
+      `Traslado confirmado — ${NOMBRES_SUCURSAL[t.origen]}`,
+      cantidadRecibida === t.cantidad
+        ? `${cantidadRecibida} × ${t.tipo}${t.detalle ? ` (${t.detalle})` : ""} llegó bien a ${NOMBRES_SUCURSAL[t.destino]}, recibido por ${quienRecibe}.`
+        : `${t.tipo}${t.detalle ? ` (${t.detalle})` : ""} llegó a ${NOMBRES_SUCURSAL[t.destino]}: se enviaron ${t.cantidad}, llegaron ${cantidadRecibida}. ${notaDiferencia || ""}`
+    );
+  };
+
   if (errorCargaInicial) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.background, fontFamily: '-apple-system, "Segoe UI", Roboto, sans-serif', padding: 24, textAlign: "center" }}>
@@ -10257,6 +10521,8 @@ export default function PhotografInventario() {
             setTransferencias={setTransferenciasPendientes}
             transferenciasBases={transferenciasBasesPendientes}
             setTransferenciasBases={setTransferenciasBasesPendientes}
+            transferenciasIndumentaria={transferenciasIndumentariaPendientes}
+            setTransferenciasIndumentaria={setTransferenciasIndumentariaPendientes}
             mostrarToast={mostrarToast}
             onBack={() => {
               // Al salir del Panel de Administrador se le "cierra la sesión"
@@ -10375,9 +10641,9 @@ export default function PhotografInventario() {
     home: <HomeScreen data={data} config={config} goTo={setScreen} goToMas={goToMas} alertas={alertas} sucursalNombre={NOMBRES_SUCURSAL[sucursalActiva]} mostrarToast={mostrarToast} usuarioActual={usuarioActual} />,
     equipo: <EquipoScreen data={data} setData={setData} bitacora={agregarBitacora} usuarioActual={usuarioActual} onIniciarTransferencia={iniciarTransferenciaEquipo} sucursalActiva={sucursalActiva} mostrarToast={mostrarToast} abrirEquipoId={abrirEquipoId} onAbrirConsumido={() => setAbrirEquipoId(null)} />,
     almacen: <AlmacenScreen data={data} setData={setData} bitacora={agregarBitacora} usuarioActual={usuarioActual} sucursal={sucursalActiva} mostrarToast={mostrarToast} onPedir={crearPedido} onIniciarTransferenciaBase={iniciarTransferenciaBase} />,
-    materiales: <MaterialesScreen data={data} setData={setData} bitacora={agregarBitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} config={config} onPedir={crearPedido} sucursal={sucursalActiva} />,
+    materiales: <MaterialesScreen data={data} setData={setData} bitacora={agregarBitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} config={config} onPedir={crearPedido} sucursal={sucursalActiva} onIniciarTransferenciaIndumentaria={iniciarTransferenciaIndumentaria} />,
     miInventario: <MiInventarioScreen allData={allData} usuarioActual={usuarioActual} />,
-    mas: <MasScreen data={data} setData={setData} bitacora={agregarBitacora} mostrarToast={mostrarToast} alertas={alertas} config={config} isDark={isDark} onToggleDark={toggleDark} onDeshacer={deshacer} puedeDeshacer={!!snapshot[sucursalActiva]} usuarioActual={usuarioActual} onCambiarUsuario={() => setUsuarioActual(null)} onAdminMode={() => setMostrarAdmin(true)} transferenciasPendientes={transferenciasPendientes} transferenciasBasesPendientes={transferenciasBasesPendientes} sucursalActiva={sucursalActiva} onConfirmarTransferencia={confirmarRecepcionTransferencia} onConfirmarTransferenciaBase={confirmarRecepcionTransferenciaBase} permisoNotificaciones={permisoNotificaciones} onActivarNotificaciones={activarNotificaciones} onVolverHub={() => { setAppActiva(null); setSucursalActiva(null); }} subInicial={subMasInicial} onSubConsumido={() => setSubMasInicial(null)} />,
+    mas: <MasScreen data={data} setData={setData} bitacora={agregarBitacora} mostrarToast={mostrarToast} alertas={alertas} config={config} isDark={isDark} onToggleDark={toggleDark} onDeshacer={deshacer} puedeDeshacer={!!snapshot[sucursalActiva]} usuarioActual={usuarioActual} onCambiarUsuario={() => setUsuarioActual(null)} onAdminMode={() => setMostrarAdmin(true)} transferenciasPendientes={transferenciasPendientes} transferenciasBasesPendientes={transferenciasBasesPendientes} transferenciasIndumentariaPendientes={transferenciasIndumentariaPendientes} sucursalActiva={sucursalActiva} onConfirmarTransferencia={confirmarRecepcionTransferencia} onConfirmarTransferenciaBase={confirmarRecepcionTransferenciaBase} onConfirmarTransferenciaIndumentaria={confirmarRecepcionTransferenciaIndumentaria} onIniciarTransferenciaIndumentaria={iniciarTransferenciaIndumentaria} permisoNotificaciones={permisoNotificaciones} onActivarNotificaciones={activarNotificaciones} onVolverHub={() => { setAppActiva(null); setSucursalActiva(null); }} subInicial={subMasInicial} onSubConsumido={() => setSubMasInicial(null)} />,
   };
 
   return (
@@ -10385,7 +10651,7 @@ export default function PhotografInventario() {
         <GlobalStyles />
       {screen === "home" && <TopHeader sucursal={sucursalActiva} onLogout={() => setSucursalActiva(null)} onSearch={() => setVistaExterna("buscar")} onScan={() => setVistaExterna("escanear")} />}
       <div key={screen} className="pf-fade-in">{screens[screen]}</div>
-      <BottomNav active={screen} onChange={setScreen} badge={alertas.length + transferenciasPendientes.filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito").length + transferenciasBasesPendientes.filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito").length} />
+      <BottomNav active={screen} onChange={setScreen} badge={alertas.length + transferenciasPendientes.filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito").length + transferenciasBasesPendientes.filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito").length + transferenciasIndumentariaPendientes.filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito").length} />
       <Toast text={toast} />
       {errorGuardado && (
         <div style={{ position: "fixed", bottom: 70, left: "50%", transform: "translateX(-50%)", background: C.error, color: textoContraste(C.error), fontSize: 11, padding: "6px 12px", borderRadius: 20, zIndex: 60 }}>
