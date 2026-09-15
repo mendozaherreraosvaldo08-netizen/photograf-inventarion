@@ -10258,7 +10258,15 @@ export default function PhotografInventario() {
             transferenciasBases={transferenciasBasesPendientes}
             setTransferenciasBases={setTransferenciasBasesPendientes}
             mostrarToast={mostrarToast}
-            onBack={() => setMostrarAdmin(false)}
+            onBack={() => {
+              // Al salir del Panel de Administrador se le "cierra la sesión"
+              // de admin (adminAutenticado vuelve a false) — antes se
+              // quedaba en true toda la sesión de la app, así que después
+              // de entrar una vez ya no volvía a pedir la contraseña. Ahora
+              // sí la vuelve a pedir cada vez que se entra al panel.
+              setMostrarAdmin(false);
+              setAdminAutenticado(false);
+            }}
             permisoNotificaciones={permisoNotificaciones}
             onActivarNotificacionesAdmin={activarNotificacionesAdmin}
           />
