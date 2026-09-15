@@ -13,16 +13,23 @@
 
    Quién recibe cada push: cualquier celular que haya tocado "Activar
    notificaciones" queda guardado en Firestore (colección fcm_tokens) con
-   la sucursal a la que pertenece — "queretaro", "salinas", o "admin" para
-   quien lo activó desde el Panel de Administrador. Aquí solo se le manda
-   a los tokens de las sucursales que pide quien llama a esta función.
+   la sucursal a la que pertenece — el id de la sucursal (queretaro,
+   salinas, o cualquier otra que el administrador haya creado desde la
+   app), o "admin" para quien lo activó desde el Panel de Administrador.
+   Aquí solo se le manda a los tokens de las sucursales que pide quien
+   llama a esta función.
+
+   Las sucursales "válidas" ya NO son una lista fija: se leen del mismo
+   documento donde vive el resto del inventario (config.sucursales), para
+   que las que el administrador cree desde la app (Ajustes → Sucursales)
+   puedan recibir notificaciones sin tener que tocar este archivo. Si por
+   algo ese campo no existe todavía (documentos viejos), se usa el mismo
+   valor de fábrica de siempre.
    ========================================================================= */
 
 import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
-
-const SUCURSALES_VALIDAS = ["queretaro", "salinas", "admin"];
 
 function appAdmin() {
   if (getApps().length) return getApps()[0];
@@ -63,15 +70,27 @@ export default async function handler(req, res) {
     res.status(400).json({ ok: false, error: "Faltan datos (sucursales, titulo, cuerpo)" });
     return;
   }
-  const destinos = [...new Set(sucursales)].filter((s) => SUCURSALES_VALIDAS.includes(s));
-  if (destinos.length === 0) {
-    res.status(400).json({ ok: false, error: "Sucursales inválidas" });
-    return;
-  }
 
   try {
     const app = appAdmin();
     const db = getFirestore(app);
+
+    // Sucursales que de verdad existen ahorita mismo (para no mandarle un
+    // push a un id inventado) — se leen del mismo documento del inventario,
+    // más "admin" que siempre es válido.
+    const datosSnap = await db.collection("photograf").doc("inventario-datos").get();
+    const listaSucursales = datosSnap.exists ? datosSnap.data()?.config?.sucursales : null;
+    const sucursalesValidas = [
+      ...((Array.isArray(listaSucursales) && listaSucursales.length ? listaSucursales.map((s) => s.id) : ["queretaro", "salinas"])),
+      "admin",
+    ];
+
+    const destinos = [...new Set(sucursales)].filter((s) => sucursalesValidas.includes(s));
+    if (destinos.length === 0) {
+      res.status(400).json({ ok: false, error: "Sucursales inválidas" });
+      return;
+    }
+
     const snap = await db.collection("fcm_tokens").where("sucursal", "in", destinos).get();
     const tokens = snap.docs.map((d) => d.id);
 
