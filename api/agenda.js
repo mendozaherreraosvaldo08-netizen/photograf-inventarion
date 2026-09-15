@@ -35,8 +35,6 @@ import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { JWT } from "google-auth-library";
 
-const SUCURSALES_VALIDAS = ["queretaro", "salinas"];
-
 function appAdmin() {
   if (getApps().length) return getApps()[0];
   const privateKey = (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
@@ -60,8 +58,13 @@ export default async function handler(req, res) {
     return;
   }
 
+  // Ya no se valida contra una lista fija de sucursales (queretaro/salinas):
+  // el administrador puede crear sucursales nuevas desde la app, así que
+  // cualquier id no vacío se acepta aquí — si esa sucursal no tiene
+  // calendario conectado en config.calendarios, sencillamente regresa la
+  // lista vacía de abajo, igual que ya pasaba antes de conectar el paso 3.
   const sucursal = String(req.query.sucursal || "");
-  if (!SUCURSALES_VALIDAS.includes(sucursal)) {
+  if (!sucursal) {
     res.status(400).json({ ok: false, error: "Sucursal inválida" });
     return;
   }
