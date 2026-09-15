@@ -785,13 +785,17 @@ function basesDesdeCatalogo(sucursal) {
    la app (Panel de Administrador → Ajustes → Sucursales): a diferencia de
    generarDatosIniciales (que trae equipo/materiales de ejemplo, pensados
    solo para que Querétaro y Salinas no se vieran vacías la primera vez que
-   se abrió la app), una sucursal nueva de verdad debe empezar SIN nada
-   inventado — normalizarSucursal({}) ya rellena solo cada lista vacía con
-   la forma correcta, y basesDesdeCatalogo trae el catálogo general de
-   Panorámicas/Diplomas en 0 piezas (igual que ya pasa para Salinas, porque
-   esta función solo incluye la línea UNICEQ cuando sucursal === "queretaro"). */
+   se abrió la app), una sucursal nueva de verdad debe empezar TOTALMENTE
+   vacía — ni equipo, ni materiales, ni bases (ni siquiera el catálogo
+   general de paquetes escolares/Universidad). Antes esta función sí
+   precargaba ese catálogo con basesDesdeCatalogo, pero eso hacía que una
+   sucursal recién creada apareciera con decenas de paquetes (Fotográfico,
+   Orca, Alcala, etc.) que esa sucursal ni siquiera va a manejar — el
+   administrador prefiere darlos de alta él mismo, uno por uno, según lo
+   que de verdad ofrezca cada sucursal nueva. normalizarSucursal({}) ya
+   rellena cada lista con su forma correcta pero vacía. */
 function datosVaciosSucursal(id) {
-  return normalizarSucursal({ bases: basesDesdeCatalogo(id) });
+  return normalizarSucursal({});
 }
 
 /* =========================================================================
