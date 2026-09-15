@@ -24,8 +24,6 @@ import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 
-const SUCURSALES = ["queretaro", "salinas"];
-
 function appAdmin() {
   if (getApps().length) return getApps()[0];
   const privateKey = (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
@@ -73,9 +71,15 @@ export default async function handler(req, res) {
     const datos = snap.data();
     const fechaObjetivo = manana();
 
+    // Qué sucursales revisar: ya no es una lista fija — se recorren todas
+    // las que existan en el documento (incluye cualquiera que el
+    // administrador haya creado desde Ajustes → Sucursales), no solo
+    // queretaro/salinas.
+    const sucursales = Object.keys(datos.allData || {});
+
     // Un mensaje por evento de mañana, con a quién avisarle.
     const mensajes = [];
-    for (const suc of SUCURSALES) {
+    for (const suc of sucursales) {
       const d = datos.allData?.[suc];
       if (!d) continue;
       const eventosManana = (d.eventos || []).filter((ev) => ev.fecha === fechaObjetivo);
