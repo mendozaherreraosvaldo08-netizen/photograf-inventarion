@@ -64,6 +64,7 @@ import {
   FileSpreadsheet,
   Eye,
   EyeOff,
+  Gauge,
 } from "lucide-react";
 
 /* =========================================================================
@@ -179,13 +180,61 @@ const LOGO_PHOTOGRAF = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICA
    cambian, se reflejan aquí mismo con Object.assign (mismo truco que ya se
    usa para el tema claro/oscuro con la "C" de colores) — así no hace falta
    pasarle "config" a cada una de las decenas de pantallas que ya usan
-   NOMBRES_SUCURSAL directamente. Las llaves (queretaro/salinas) NO
-   cambian, solo lo que se les muestra a las personas. */
+   NOMBRES_SUCURSAL directamente. Las llaves de queretaro/salinas NUNCA
+   cambian; las de sucursales nuevas se agregan solas cuando el
+   administrador las crea (ver AdminAjustes → Sucursales). */
 const NOMBRES_SUCURSAL_FABRICA = { queretaro: "Photograf Querétaro", salinas: "Photograf Salinas" };
 const NOMBRES_SUCURSAL = { ...NOMBRES_SUCURSAL_FABRICA };
-const OTRA_SUCURSAL = { queretaro: "salinas", salinas: "queretaro" };
 const EMPLEADOS_INICIALES = ["Carlos López", "Ana Torres", "Luis Fernández", "Sofía Ramírez"];
+/* SUCURSALES: la lista de sucursales ACTIVAS (las que se pueden elegir para
+   entrar a trabajar, recibir transferencias, etc). Empieza con las dos de
+   siempre, pero el administrador puede agregar más o archivar alguna desde
+   Panel de Administrador → Ajustes → Sucursales — cuando eso pasa, esta
+   misma lista se actualiza en cada render con sincronizarSucursales() (el
+   mismo truco de Object.assign que ya se usa para NOMBRES_SUCURSAL y el
+   tema claro/oscuro), así que las decenas de pantallas que ya hacen
+   SUCURSALES.map(...)/.forEach(...) siguen funcionando sin cambiarles nada.
+   Una sucursal archivada YA NO aparece aquí, pero sus datos no se borran:
+   siguen en allData y se pueden volver a ver desde "Editar inventario". */
 const SUCURSALES = ["queretaro", "salinas"];
+
+/* Reacomoda el contenido (no la referencia) de SUCURSALES según
+   config.sucursales — se llama una vez por render desde el componente raíz,
+   igual que Object.assign(NOMBRES_SUCURSAL, ...) arriba. */
+function sincronizarSucursales(config) {
+  const activas = (config?.sucursales || []).filter((s) => s && s.activa !== false).map((s) => s.id);
+  const finales = activas.length ? activas : ["queretaro", "salinas"];
+  SUCURSALES.length = 0;
+  SUCURSALES.push(...finales);
+}
+
+/* Cuando se transfiere equipo o una base a "la otra sucursal" con un solo
+   toque (sin tener que elegir destino), esto dice cuál es esa otra — nada
+   más existe una respuesta clara mientras haya exactamente 2 sucursales
+   activas. Con 3 o más, regresa null y la pantalla debe pedir elegir
+   destino (ver EquipoScreen/AlmacenScreen). */
+function otraSucursalUnica(sucursalActiva) {
+  const otras = SUCURSALES.filter((s) => s !== sucursalActiva);
+  return otras.length === 1 ? otras[0] : null;
+}
+
+/* Convierte "Photograf CDMX" en un id corto tipo "cdmx" para usarlo como
+   llave interna (allData, config.passwords, etc.) — sin acentos, espacios
+   ni mayúsculas, y sin chocar con ids que ya existan ni con "admin" (esa
+   palabra está reservada para la contraseña del panel). */
+function slugSucursal(nombre, idsExistentes) {
+  const base = (nombre || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
+    .slice(0, 20) || "sucursal";
+  const ocupados = new Set([...(idsExistentes || []), "admin"]);
+  if (!ocupados.has(base)) return base;
+  let i = 2;
+  while (ocupados.has(`${base}${i}`)) i++;
+  return `${base}${i}`;
+}
 
 /* Las contraseñas y el mínimo de stock ya no viven fijos en el código: son
    configuración que el administrador puede cambiar desde su panel, y se
@@ -204,6 +253,15 @@ const CONFIG_INICIAL = {
   // Nombres personalizados de sucursal (ver NOMBRES_SUCURSAL más arriba) —
   // vacío usa el de fábrica ("Photograf Querétaro"/"Photograf Salinas").
   nombresSucursal: {},
+  // Qué sucursales existen y cuáles están activas (ver SUCURSALES más
+  // arriba). "activa: false" = archivada: ya no aparece para entrar a
+  // trabajar ni para recibir transferencias, pero su información sigue
+  // intacta en allData y se puede seguir viendo desde Panel de
+  // Administrador → Editar inventario.
+  sucursales: [
+    { id: "queretaro", activa: true },
+    { id: "salinas", activa: true },
+  ],
 };
 
 /* Mínimo de existencias de un material: si tiene su propio umbral usa ese,
@@ -315,9 +373,21 @@ function normalizarSucursal(d) {
   };
 }
 
+/* Junta las llaves (ids de sucursal) de uno o más objetos allData/aportes,
+   más queretaro/salinas por si acaso. Se usa en vez de recorrer SUCURSALES
+   en normalizarTodo/fusionarAllData a propósito: SUCURSALES solo trae las
+   sucursales ACTIVAS, y estas dos funciones tienen que seguir procesando
+   también las archivadas (para no perder ni un dato) y cualquier sucursal
+   recién creada, sin depender de que config ya se haya sincronizado. */
+function idsConocidos(...objetos) {
+  const ids = new Set(["queretaro", "salinas"]);
+  objetos.forEach((o) => Object.keys(o || {}).forEach((k) => ids.add(k)));
+  return [...ids];
+}
+
 function normalizarTodo(allData) {
   const salida = {};
-  SUCURSALES.forEach((s) => {
+  idsConocidos(allData).forEach((s) => {
     salida[s] = normalizarSucursal(allData?.[s]);
   });
   return salida;
@@ -359,7 +429,7 @@ function fusionarPorLlave(base, propio, servidor, llaves) {
 
 function fusionarAllData(base, propio, servidor) {
   const salida = {};
-  SUCURSALES.forEach((s) => {
+  idsConocidos(base, propio, servidor).forEach((s) => {
     salida[s] = fusionarPorLlave(base?.[s], propio?.[s], servidor?.[s], LLAVES_SUCURSAL);
   });
   return salida;
@@ -370,6 +440,23 @@ function fusionarDocumento(base, propio, servidor) {
   return { ...planas, allData: fusionarAllData(base?.allData, propio?.allData, servidor?.allData) };
 }
 
+/* Asegura que queretaro y salinas SIEMPRE existan en config.sucursales
+   (por si viene de una versión anterior de la app que ni sabía que este
+   campo existía), conservando cualquier sucursal adicional que el
+   administrador ya haya creado o archivado. */
+function normalizarListaSucursales(lista) {
+  const porId = new Map();
+  (Array.isArray(lista) ? lista : []).forEach((s) => {
+    if (s && s.id) porId.set(s.id, { id: s.id, activa: s.activa !== false });
+  });
+  if (!porId.has("queretaro")) porId.set("queretaro", { id: "queretaro", activa: true });
+  if (!porId.has("salinas")) porId.set("salinas", { id: "salinas", activa: true });
+  // queretaro/salinas primero, para que se sigan viendo en el mismo orden
+  // de siempre en los selectores; lo demás, en el orden en que se creó.
+  const orden = ["queretaro", "salinas", ...[...porId.keys()].filter((id) => id !== "queretaro" && id !== "salinas")];
+  return orden.map((id) => porId.get(id));
+}
+
 function normalizarConfig(config) {
   return {
     ...CONFIG_INICIAL,
@@ -378,6 +465,7 @@ function normalizarConfig(config) {
     accesos: config?.accesos || [],
     calendarios: { ...CONFIG_INICIAL.calendarios, ...(config?.calendarios || {}) },
     nombresSucursal: { ...(config?.nombresSucursal || {}) },
+    sucursales: normalizarListaSucursales(config?.sucursales),
   };
 }
 
@@ -691,6 +779,19 @@ function basesDesdeCatalogo(sucursal) {
     reservas: [],
     movimientos: [],
   }));
+}
+
+/* Datos de arranque para una sucursal NUEVA que el administrador crea desde
+   la app (Panel de Administrador → Ajustes → Sucursales): a diferencia de
+   generarDatosIniciales (que trae equipo/materiales de ejemplo, pensados
+   solo para que Querétaro y Salinas no se vieran vacías la primera vez que
+   se abrió la app), una sucursal nueva de verdad debe empezar SIN nada
+   inventado — normalizarSucursal({}) ya rellena solo cada lista vacía con
+   la forma correcta, y basesDesdeCatalogo trae el catálogo general de
+   Panorámicas/Diplomas en 0 piezas (igual que ya pasa para Salinas, porque
+   esta función solo incluye la línea UNICEQ cuando sucursal === "queretaro"). */
+function datosVaciosSucursal(id) {
+  return normalizarSucursal({ bases: basesDesdeCatalogo(id) });
 }
 
 /* =========================================================================
@@ -1662,7 +1763,7 @@ function AdminMenuItem({ icon: Icon, label, detalle, badge, color, onClick }) {
 function SelectorSucursal({ valor, onChange, incluirAmbas }) {
   return (
     <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto" }}>
-      {incluirAmbas && <FilterPill label="Ambas" active={valor === "ambas"} onClick={() => onChange("ambas")} />}
+      {incluirAmbas && <FilterPill label="Todas" active={valor === "ambas"} onClick={() => onChange("ambas")} />}
       {SUCURSALES.map((s) => (
         <FilterPill key={s} label={NOMBRES_SUCURSAL[s].replace("Photograf ", "")} active={valor === s} onClick={() => onChange(s)} />
       ))}
@@ -2396,6 +2497,20 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
       <SectionHeader title="Editar inventario" subtitle="Corrige o elimina cualquier artículo" onBack={onBack} />
       <div style={{ padding: 16 }}>
         <SelectorSucursal valor={suc} onChange={setSuc} />
+        {/* Sucursales archivadas (ver AdminAjustes → Sucursales): ya no
+            aparecen arriba para el trabajo diario, pero sus datos siguen
+            intactos — aquí es donde se pueden seguir consultando o
+            corrigiendo si hace falta. */}
+        {Object.keys(allData).filter((s) => !SUCURSALES.includes(s)).length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11.5, color: C.muted, marginBottom: 6 }}>Archivadas (solo consulta/corrección):</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {Object.keys(allData).filter((s) => !SUCURSALES.includes(s)).map((s) => (
+                <FilterPill key={s} label={NOMBRES_SUCURSAL[s] || s} active={suc === s} onClick={() => setSuc(s)} color={C.muted} />
+              ))}
+            </div>
+          </div>
+        )}
         {/* Resumen rápido de las dos sucursales a la vez, para no tener que
             ir cambiando el selector de arriba solo para comparar cómo va
             cada una. */}
@@ -3212,6 +3327,117 @@ function AdminCategorias({ allData, setAllData, registrar, onBack, mostrarToast 
 }
 
 /* =========================================================================
+   ADMIN · Mínimos de Panorámicas/Diplomas, uno por uno y por sucursal
+   ---------------------------------------------------------------------
+   Antes, para ponerle su propio mínimo a cada Panorámica/Diploma (en vez
+   de usar el general de Ajustes) había que entrar a Editar inventario y
+   abrir el formulario de edición de cada una, una por una — tedioso
+   cuando hay muchas ("el Elegas con 5 ya es bajo, el Orca con 2 ya es
+   bajo, depende de cada una"). Aquí se ven y se editan todas juntas, y
+   como cada sucursal tiene su propia copia de cada base (ver
+   basesDesdeCatalogo), cambiar de sucursal arriba muestra y guarda los
+   mínimos de esa sucursal nada más — nunca se mezclan entre sí.
+   ========================================================================= */
+function AdminMinimosBases({ allData, setAllData, config, onBack, mostrarToast }) {
+  const [suc, setSuc] = useState(SUCURSALES[0]);
+  const [borradores, setBorradores] = useState({});
+
+  const items = (allData[suc]?.bases || []).filter((b) => b.catalogo === "Panoramica" || b.catalogo === "Diploma");
+
+  // Al cambiar de sucursal (o si se crea/edita algo desde otro celular),
+  // se vuelve a partir de lo que de verdad hay guardado — así no se
+  // arrastran borradores de una sucursal a otra por accidente.
+  useEffect(() => {
+    const iniciales = {};
+    items.forEach((b) => {
+      iniciales[b.id] = b.minimo === null || b.minimo === undefined ? "" : String(b.minimo);
+    });
+    setBorradores(iniciales);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suc, allData[suc]?.bases?.length]);
+
+  const cambiarBorrador = (id, valor) => setBorradores((b) => ({ ...b, [id]: valor }));
+
+  const toggleDescontinuada = (id, valor) => {
+    setAllData((prev) => ({
+      ...prev,
+      [suc]: { ...prev[suc], bases: prev[suc].bases.map((b) => (b.id === id ? { ...b, descontinuada: valor } : b)) },
+    }));
+  };
+
+  const guardarTodos = () => {
+    setAllData((prev) => ({
+      ...prev,
+      [suc]: {
+        ...prev[suc],
+        bases: prev[suc].bases.map((b) => {
+          if (!(b.id in borradores)) return b;
+          const val = borradores[b.id];
+          const minimo = val === "" || val === null || val === undefined ? null : Math.max(0, parseInt(val, 10) || 0);
+          return { ...b, minimo };
+        }),
+      },
+    }));
+    mostrarToast("Mínimos guardados ✓");
+  };
+
+  const grupos = [
+    { catalogo: "Panoramica", titulo: "Panorámicas" },
+    { catalogo: "Diploma", titulo: "Diplomas" },
+  ];
+
+  return (
+    <div style={{ paddingBottom: 40, minHeight: "100vh" }}>
+      <SectionHeader title="Mínimos de Panorámicas/Diplomas" subtitle="El límite para avisar stock bajo, uno por uno" onBack={onBack} />
+      <div style={{ padding: 16 }}>
+        <SelectorSucursal valor={suc} onChange={setSuc} />
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>
+          Deja uno en blanco para que use el mínimo general ({config.umbralStock}, se cambia en Ajustes). Los cambios son solo de {NOMBRES_SUCURSAL[suc]} — cada sucursal tiene su propio stock y su propio mínimo.
+        </div>
+
+        {items.length === 0 && <EmptyState icon={Gauge} text="Todavía no hay Panorámicas ni Diplomas registrados en esta sucursal." />}
+
+        {grupos.map((g) => {
+          const deEsteGrupo = items.filter((b) => b.catalogo === g.catalogo);
+          if (deEsteGrupo.length === 0) return null;
+          return (
+            <div key={g.catalogo} style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: C.foreground, marginBottom: 8 }}>{g.titulo}</div>
+              {deEsteGrupo.map((b) => (
+                <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12, marginBottom: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: C.foreground, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.nombre}</div>
+                    <div style={{ fontSize: 11.5, color: C.muted, marginTop: 2 }}>Tenemos: {tenemosBase(b)}</div>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 11.5, color: C.muted, cursor: "pointer" }}>
+                      <input type="checkbox" checked={!!b.descontinuada} onChange={(e) => toggleDescontinuada(b.id, e.target.checked)} style={{ width: 14, height: 14 }} />
+                      Descontinuada (no avisar stock bajo)
+                    </label>
+                  </div>
+                  <TextInput
+                    type="number"
+                    value={borradores[b.id] ?? ""}
+                    onChange={(e) => cambiarBorrador(b.id, e.target.value)}
+                    placeholder={String(config.umbralStock)}
+                    disabled={!!b.descontinuada}
+                    style={{ width: 76, flexShrink: 0, textAlign: "center" }}
+                  />
+                </div>
+              ))}
+            </div>
+          );
+        })}
+
+        {items.length > 0 && (
+          <PrimaryButton onClick={guardarTodos} color={C.secondary}>
+            Guardar mínimos de {NOMBRES_SUCURSAL[suc]}
+          </PrimaryButton>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
    ADMIN · Ajustes (contraseñas, mínimos, respaldo, accesos)
    ========================================================================= */
 function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEmpleados, transferencias, setTransferencias, transferenciasBases, setTransferenciasBases, onBack, mostrarToast, permisoNotificaciones, onActivarNotificacionesAdmin }) {
@@ -3221,7 +3447,15 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
   const [nombresSuc, setNombresSuc] = useState({ ...NOMBRES_SUCURSAL_FABRICA, ...(config.nombresSucursal || {}) });
   const [porRestaurar, setPorRestaurar] = useState(null);
   const [sucRendimiento, setSucRendimiento] = useState(SUCURSALES[0]);
+  const [nuevaSuc, setNuevaSuc] = useState({ nombre: "", password: "" });
   const archivoRef = useRef(null);
+
+  // Todas las sucursales que existen (activas y archivadas), en el mismo
+  // orden que guarda config.sucursales — a diferencia de SUCURSALES (que
+  // solo trae las activas), esta lista es la que se necesita aquí para
+  // poder renombrar/archivar/reactivar cualquiera de ellas.
+  const todasLasSucursales = config.sucursales && config.sucursales.length ? config.sucursales : [{ id: "queretaro", activa: true }, { id: "salinas", activa: true }];
+  const activasCount = todasLasSucursales.filter((s) => s.activa !== false).length;
 
   /* Respaldos que la app guarda ella sola cada noche (ver api/backup.js),
      para no depender de que alguien se acuerde de darle "Descargar
@@ -3275,17 +3509,61 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
   };
 
   const guardarPasswords = () => {
-    const limpio = {
-      queretaro: (pw.queretaro || "").trim(),
-      salinas: (pw.salinas || "").trim(),
-      admin: (pw.admin || "").trim(),
-    };
-    if (!limpio.queretaro || !limpio.salinas || !limpio.admin) {
-      mostrarToast("Ninguna contraseña puede quedar vacía");
+    const ids = [...todasLasSucursales.map((s) => s.id), "admin"];
+    const limpio = {};
+    for (const id of ids) {
+      limpio[id] = (pw[id] || "").trim();
+      if (!limpio[id]) {
+        mostrarToast("Ninguna contraseña puede quedar vacía");
+        return;
+      }
+    }
+    setConfig((c) => ({ ...c, passwords: { ...c.passwords, ...limpio } }));
+    mostrarToast("Contraseñas actualizadas ✓");
+  };
+
+  /* Crea una sucursal nueva: genera su id a partir del nombre, la agrega a
+     allData (con datosVaciosSucursal, sin nada inventado) y a
+     config.sucursales/nombresSucursal/passwords. No pisa nada de lo que ya
+     existe — solo agrega. */
+  const crearSucursalNueva = () => {
+    const nombre = (nuevaSuc.nombre || "").trim();
+    const password = (nuevaSuc.password || "").trim();
+    if (!nombre || !password) {
+      mostrarToast("Escribe un nombre y una contraseña para la nueva sucursal");
       return;
     }
-    setConfig((c) => ({ ...c, passwords: limpio }));
-    mostrarToast("Contraseñas actualizadas ✓");
+    const id = slugSucursal(nombre, todasLasSucursales.map((s) => s.id));
+    setAllData((prev) => ({ ...prev, [id]: datosVaciosSucursal(id) }));
+    setConfig((c) => ({
+      ...c,
+      sucursales: [...(c.sucursales || todasLasSucursales), { id, activa: true }],
+      nombresSucursal: { ...c.nombresSucursal, [id]: nombre },
+      passwords: { ...c.passwords, [id]: password },
+    }));
+    setNombresSuc((n) => ({ ...n, [id]: nombre }));
+    setPw((p) => ({ ...p, [id]: password }));
+    setNuevaSuc({ nombre: "", password: "" });
+    mostrarToast(`Sucursal "${nombre}" creada ✓`);
+  };
+
+  /* Archivar: la sucursal deja de aparecer para entrar a trabajar, elegir
+     como destino de transferencia, etc. — pero nada de su información se
+     toca ni se borra (sigue en allData, y se puede seguir viendo desde
+     Editar inventario). No se permite dejar la app sin ninguna sucursal
+     activa. */
+  const archivarSucursal = (id) => {
+    if (activasCount <= 1) {
+      mostrarToast("Tiene que quedar al menos una sucursal activa");
+      return;
+    }
+    setConfig((c) => ({ ...c, sucursales: (c.sucursales || todasLasSucursales).map((s) => (s.id === id ? { ...s, activa: false } : s)) }));
+    mostrarToast(`${NOMBRES_SUCURSAL[id] || id} archivada ✓`);
+  };
+
+  const reactivarSucursal = (id) => {
+    setConfig((c) => ({ ...c, sucursales: (c.sucursales || todasLasSucursales).map((s) => (s.id === id ? { ...s, activa: true } : s)) }));
+    mostrarToast(`${NOMBRES_SUCURSAL[id] || id} reactivada ✓`);
   };
 
   const guardarUmbral = () => {
@@ -3304,10 +3582,12 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
   };
 
   const guardarNombresSucursal = () => {
-    const queretaro = (nombresSuc.queretaro || "").trim() || NOMBRES_SUCURSAL_FABRICA.queretaro;
-    const salinas = (nombresSuc.salinas || "").trim() || NOMBRES_SUCURSAL_FABRICA.salinas;
-    setNombresSuc({ queretaro, salinas });
-    setConfig((c) => ({ ...c, nombresSucursal: { queretaro, salinas } }));
+    const limpio = {};
+    for (const s of todasLasSucursales) {
+      limpio[s.id] = (nombresSuc[s.id] || "").trim() || NOMBRES_SUCURSAL_FABRICA[s.id] || NOMBRES_SUCURSAL[s.id] || s.id;
+    }
+    setNombresSuc((n) => ({ ...n, ...limpio }));
+    setConfig((c) => ({ ...c, nombresSucursal: { ...c.nombresSucursal, ...limpio } }));
     mostrarToast("Nombres guardados ✓");
   };
 
@@ -3398,15 +3678,58 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
           </>
         )}
 
-        <div style={{ fontSize: 15, fontWeight: 700, color: C.foreground, marginBottom: 4 }}>Nombres de las sucursales</div>
-        <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>
-          Cómo se ven en toda la app (el selector de sucursal, transferencias, reportes, etc.). Son las mismas dos sucursales de siempre — esto solo cambia su nombre, no crea sucursales nuevas.
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.foreground, marginBottom: 4 }}>Sucursales</div>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 12 }}>
+          Cambia el nombre de cualquiera, crea sucursales nuevas o archiva las que ya no se usan. Archivar NO borra nada: la sucursal deja de aparecer para entrar a trabajar o recibir transferencias, pero todo su inventario e historial se conserva y se puede seguir viendo desde Editar inventario.
         </div>
-        <FieldLabel>Nombre actual: {NOMBRES_SUCURSAL.queretaro}</FieldLabel>
-        <TextInput value={nombresSuc.queretaro} onChange={(e) => setNombresSuc({ ...nombresSuc, queretaro: e.target.value })} placeholder={NOMBRES_SUCURSAL_FABRICA.queretaro} />
-        <FieldLabel>Nombre actual: {NOMBRES_SUCURSAL.salinas}</FieldLabel>
-        <TextInput value={nombresSuc.salinas} onChange={(e) => setNombresSuc({ ...nombresSuc, salinas: e.target.value })} placeholder={NOMBRES_SUCURSAL_FABRICA.salinas} />
+        {todasLasSucursales.map((s) => {
+          const archivada = s.activa === false;
+          return (
+            <div key={s.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12, marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, marginTop: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Nombre actual: {NOMBRES_SUCURSAL[s.id] || s.id}</div>
+                {archivada && (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: textoContraste(C.warning), background: C.warning, borderRadius: 8, padding: "2px 8px" }}>Archivada</span>
+                )}
+              </div>
+              <TextInput
+                value={nombresSuc[s.id] ?? NOMBRES_SUCURSAL[s.id] ?? ""}
+                onChange={(e) => setNombresSuc({ ...nombresSuc, [s.id]: e.target.value })}
+                placeholder={NOMBRES_SUCURSAL_FABRICA[s.id] || s.id}
+              />
+              {archivada ? (
+                <button
+                  onClick={() => reactivarSucursal(s.id)}
+                  style={{ marginTop: 8, width: "100%", background: "none", border: `1px solid ${C.success}`, color: C.success, borderRadius: 10, padding: 10, fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                >
+                  Reactivar sucursal
+                </button>
+              ) : (
+                <button
+                  onClick={() => archivarSucursal(s.id)}
+                  disabled={activasCount <= 1}
+                  style={{ marginTop: 8, width: "100%", background: "none", border: `1px solid ${C.error}`, color: activasCount <= 1 ? C.muted : C.error, borderRadius: 10, padding: 10, fontSize: 13, fontWeight: 600, cursor: activasCount <= 1 ? "not-allowed" : "pointer" }}
+                >
+                  Archivar sucursal
+                </button>
+              )}
+            </div>
+          );
+        })}
         <PrimaryButton onClick={guardarNombresSucursal} color={C.secondary}>Guardar nombres</PrimaryButton>
+
+        <div style={{ height: 24 }} />
+
+        <div style={{ background: C.surface, border: `1px dashed ${C.border}`, borderRadius: 12, padding: 12 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: C.foreground, marginBottom: 8 }}>Crear sucursal nueva</div>
+          <FieldLabel>Nombre</FieldLabel>
+          <TextInput value={nuevaSuc.nombre} onChange={(e) => setNuevaSuc({ ...nuevaSuc, nombre: e.target.value })} placeholder="Ej. Photograf CDMX" />
+          <FieldLabel>Contraseña de esa sucursal</FieldLabel>
+          <PasswordInput value={nuevaSuc.password} onChange={(e) => setNuevaSuc({ ...nuevaSuc, password: e.target.value })} placeholder="••••••••" />
+          <PrimaryButton onClick={crearSucursalNueva} color={C.secondary} disabled={!nuevaSuc.nombre.trim() || !nuevaSuc.password.trim()}>
+            Crear sucursal
+          </PrimaryButton>
+        </div>
 
         <div style={{ height: 32 }} />
 
@@ -3414,10 +3737,12 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>
           Cámbialas cuando alguien deje de trabajar aquí. El cambio se aplica en todos los celulares al momento.
         </div>
-        <FieldLabel>Querétaro</FieldLabel>
-        <TextInput value={pw.queretaro} onChange={(e) => setPw({ ...pw, queretaro: e.target.value })} />
-        <FieldLabel>Salinas</FieldLabel>
-        <TextInput value={pw.salinas} onChange={(e) => setPw({ ...pw, salinas: e.target.value })} />
+        {todasLasSucursales.map((s) => (
+          <div key={s.id}>
+            <FieldLabel>{NOMBRES_SUCURSAL[s.id] || s.id}</FieldLabel>
+            <TextInput value={pw[s.id] || ""} onChange={(e) => setPw({ ...pw, [s.id]: e.target.value })} />
+          </div>
+        ))}
         <FieldLabel>Administrador</FieldLabel>
         <TextInput value={pw.admin} onChange={(e) => setPw({ ...pw, admin: e.target.value })} />
         <PrimaryButton onClick={guardarPasswords}>Guardar contraseñas</PrimaryButton>
@@ -3928,6 +4253,7 @@ function AdminScreen({ empleados, setEmpleados, allData, setAllData, config, set
   if (seccion === "mantenimiento") return <AdminMantenimiento {...comun} />;
   if (seccion === "bitacora") return <AdminBitacora allData={allData} onBack={volver} mostrarToast={mostrarToast} />;
   if (seccion === "categorias") return <AdminCategorias {...comun} />;
+  if (seccion === "minimosBases") return <AdminMinimosBases {...comun} />;
   if (seccion === "ajustes")
     return (
       <AdminAjustes
@@ -3968,6 +4294,7 @@ function AdminScreen({ empleados, setEmpleados, allData, setAllData, config, set
         <AdminMenuItem icon={Wrench} label="Equipo fuera de servicio" detalle="Dañado o en reparación" badge={nFuera} color={C.error} onClick={() => setSeccion("mantenimiento")} />
         <AdminMenuItem icon={Pencil} label="Editar inventario" detalle="Corrige o elimina equipo, materiales y bases" color={C.secondary} onClick={() => setSeccion("inventario")} />
         <AdminMenuItem icon={Tag} label="Categorías" detalle="Renombra o junta categorías repetidas" color={C.secondary} onClick={() => setSeccion("categorias")} />
+        <AdminMenuItem icon={Gauge} label="Mínimos de Panorámicas/Diplomas" detalle="Configura el límite de cada una, por sucursal" color={C.secondary} onClick={() => setSeccion("minimosBases")} />
         <AdminMenuItem icon={History} label="Historial de movimientos" detalle={`${nMovs} movimientos registrados`} color={C.muted} onClick={() => setSeccion("bitacora")} />
         <AdminMenuItem icon={Sliders} label="Ajustes" detalle="Contraseñas, mínimos de stock y respaldos" color={C.muted} onClick={() => setSeccion("ajustes")} />
 
@@ -4113,7 +4440,7 @@ function SucursalSelector({ usuario, onCambiarUsuario, onUnlock, onOpenMiInventa
       </div>
       <div style={{ fontSize: 13, color: C.muted, marginBottom: 24, marginTop: 10 }}>Elige una sucursal para entrar</div>
 
-      {["queretaro", "salinas"].map((s) => (
+      {SUCURSALES.map((s) => (
         <button key={s} onClick={() => setIntento(s)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", boxShadow: SOMBRA_TARJETA }}>
           <div style={{ textAlign: "left" }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: C.foreground }}>{NOMBRES_SUCURSAL[s]}</div>
@@ -4289,6 +4616,12 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
   }, [abrirEquipoId]);
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
+  // A qué sucursal se envía la transferencia: solo hace falta elegirlo
+  // cuando hay 3 o más sucursales activas (con 2, otraSucursalUnica ya
+  // sabe cuál es "la otra" sin preguntar).
+  const [destinoTransfer, setDestinoTransfer] = useState(null);
+  const otrasSucursales = SUCURSALES.filter((s) => s !== sucursalActiva);
+  const destinoFijo = otraSucursalUnica(sucursalActiva);
   const [warning, setWarning] = useState("");
   const [confirmandoBaja, setConfirmandoBaja] = useState(false);
   const [porEliminarEquipo, setPorEliminarEquipo] = useState(false);
@@ -4500,12 +4833,16 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
               <>
                 {/* Antes se podía mandar a la otra sucursal un equipo que
                     alguien traía prestado, y desaparecía de las dos listas. */}
-                {selected.estado === "En uso" ? (
+                {otrasSucursales.length === 0 ? null : selected.estado === "En uso" ? (
                   <div style={{ fontSize: 12, color: C.muted, textAlign: "center", padding: "6px 0" }}>
-                    Para enviarlo a {NOMBRES_SUCURSAL[OTRA_SUCURSAL[sucursalActiva]].replace("Photograf ", "")}, primero regístralo como devuelto.
+                    {destinoFijo
+                      ? `Para enviarlo a ${NOMBRES_SUCURSAL[destinoFijo].replace("Photograf ", "")}, primero regístralo como devuelto.`
+                      : "Para transferirlo a otra sucursal, primero regístralo como devuelto."}
                   </div>
                 ) : (
-                  <PrimaryButton onClick={() => { setForm({ quien: usuarioActual }); setModal("transferir"); }} color={C.secondary}>Enviar a {NOMBRES_SUCURSAL[OTRA_SUCURSAL[sucursalActiva]]}</PrimaryButton>
+                  <PrimaryButton onClick={() => { setForm({ quien: usuarioActual }); setDestinoTransfer(destinoFijo); setModal("transferir"); }} color={C.secondary}>
+                    {destinoFijo ? `Enviar a ${NOMBRES_SUCURSAL[destinoFijo]}` : "Enviar a otra sucursal"}
+                  </PrimaryButton>
                 )}
                 <PrimaryButton onClick={() => { setForm({ motivo: "", quien: usuarioActual }); setConfirmandoBaja(false); setModal("baja"); }} color={C.muted}>Dar de baja definitiva</PrimaryButton>
               </>
@@ -4593,20 +4930,31 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
         )}
 
         {modal === "transferir" && (
-          <Modal title={`Enviar a ${NOMBRES_SUCURSAL[OTRA_SUCURSAL[sucursalActiva]]}`} onClose={() => setModal(null)}>
+          <Modal title={destinoFijo ? `Enviar a ${NOMBRES_SUCURSAL[destinoFijo]}` : "Enviar a otra sucursal"} onClose={() => { setModal(null); setDestinoTransfer(null); }}>
+            {!destinoFijo && (
+              <>
+                <FieldLabel>¿A cuál sucursal?</FieldLabel>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                  {otrasSucursales.map((s) => (
+                    <FilterPill key={s} label={NOMBRES_SUCURSAL[s].replace("Photograf ", "")} active={destinoTransfer === s} onClick={() => setDestinoTransfer(s)} color={C.secondary} />
+                  ))}
+                </div>
+              </>
+            )}
             <div style={{ fontSize: 13, color: C.muted }}>
-              El equipo queda "En tránsito" hasta que {NOMBRES_SUCURSAL[OTRA_SUCURSAL[sucursalActiva]]} confirme que lo recibió — así nunca desaparece del sistema mientras viaja. Puedes ver el estado en Más → Transferencias.
+              El equipo queda "En tránsito" hasta que {destinoTransfer ? NOMBRES_SUCURSAL[destinoTransfer] : "la sucursal destino"} confirme que lo recibió — así nunca desaparece del sistema mientras viaja. Puedes ver el estado en Más → Transferencias.
             </div>
             <FieldLabel>¿Quién lo mueve?</FieldLabel>
             <TextInput value={form.quien} onChange={(e) => setForm({ ...form, quien: e.target.value })} placeholder="Nombre de quién transfiere" />
             <PrimaryButton
               onClick={() => {
-                onIniciarTransferencia(selected, form.quien);
+                onIniciarTransferencia(selected, form.quien, destinoTransfer);
                 setSelectedId(null);
                 setModal(null);
+                setDestinoTransfer(null);
               }}
               color={C.secondary}
-              disabled={!form.quien}
+              disabled={!form.quien || !destinoTransfer}
             >
               Confirmar envío
             </PrimaryButton>
@@ -4716,7 +5064,9 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
   const [pedidoForm, setPedidoForm] = useState({ item: "", cantidad: "1", urgencia: "Normal", tipo: "material", color: "" });
   const [imagenAmpliada, setImagenAmpliada] = useState(null);
   const [registrandoSalida, setRegistrandoSalida] = useState(null); // base
-  const [salidaForm, setSalidaForm] = useState({ tipo: "entrega", cantidad: "1", nota: "", color: "" });
+  const [salidaForm, setSalidaForm] = useState({ tipo: "entrega", cantidad: "1", nota: "", color: "", destino: "" });
+  const otrasSucursales = SUCURSALES.filter((s) => s !== sucursal);
+  const destinoFijo = otraSucursalUnica(sucursal);
   const [registrandoEntrada, setRegistrandoEntrada] = useState(null); // base
   const [entradaForm, setEntradaForm] = useState({ cantidad: "1", nota: "", color: "" });
   const [verMovimientosDe, setVerMovimientosDe] = useState(null); // base
@@ -5161,7 +5511,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
               -cant,
               usuarioActual,
               `${salidaForm.nota || (salidaForm.tipo === "prestamo" ? "Préstamo a otra sucursal" : "Entrega / uso")} — color ${varianteElegida.color}`,
-              { color: varianteElegida.color, ...(salidaForm.tipo === "prestamo" ? { destino: OTRA_SUCURSAL[sucursal] } : {}) }
+              { color: varianteElegida.color, ...(salidaForm.tipo === "prestamo" ? { destino: salidaForm.destino || destinoFijo } : {}) }
             ),
           ],
         };
@@ -5176,7 +5526,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
             -cant,
             usuarioActual,
             salidaForm.nota || (salidaForm.tipo === "prestamo" ? "Préstamo a otra sucursal" : "Entrega / uso"),
-            salidaForm.tipo === "prestamo" ? { destino: OTRA_SUCURSAL[sucursal] } : {}
+            salidaForm.tipo === "prestamo" ? { destino: salidaForm.destino || destinoFijo } : {}
           ),
         ],
       };
@@ -5191,13 +5541,13 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
     });
 
     if (salidaForm.tipo === "prestamo") {
-      onIniciarTransferenciaBase(base, cant, usuarioActual, salidaForm.nota + (tieneVariantes ? ` (color ${varianteElegida.color})` : ""));
+      onIniciarTransferenciaBase(base, cant, usuarioActual, salidaForm.nota + (tieneVariantes ? ` (color ${varianteElegida.color})` : ""), salidaForm.destino || destinoFijo);
     } else {
       bitacora(`Salida de ${base.nombre}${tieneVariantes ? ` (${varianteElegida.color})` : ""}: -${cant} (entrega)${salidaForm.nota ? ` — ${salidaForm.nota}` : ""}`, usuarioActual);
       mostrarToast("Salida registrada ✓");
     }
     setRegistrandoSalida(null);
-    setSalidaForm({ tipo: "entrega", cantidad: "1", nota: "", color: "" });
+    setSalidaForm({ tipo: "entrega", cantidad: "1", nota: "", color: "", destino: "" });
   };
 
   /* Entrada: cuando llegan más piezas de una base/panorámica/diploma que
@@ -5606,13 +5956,32 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
               </div>
             </>
           ) : (
-            <div style={{ fontSize: 12.5, color: C.muted }}>Hay {registrandoSalida.tenemos} en existencia. Una entrega resta y ya; un préstamo resta aquí y crea una transferencia pendiente hasta que {NOMBRES_SUCURSAL[OTRA_SUCURSAL[sucursal]]} confirme que la recibió.</div>
+            <div style={{ fontSize: 12.5, color: C.muted }}>
+              Hay {registrandoSalida.tenemos} en existencia. Una entrega resta y ya; un préstamo resta aquí y crea una transferencia pendiente hasta que {destinoFijo ? NOMBRES_SUCURSAL[destinoFijo] : "la sucursal destino"} confirme que la recibió.
+            </div>
           )}
           <FieldLabel>Tipo de salida</FieldLabel>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <FilterPill label="Entrega / uso" active={salidaForm.tipo === "entrega"} onClick={() => setSalidaForm({ ...salidaForm, tipo: "entrega" })} />
-            <FilterPill label={`Préstamo a ${NOMBRES_SUCURSAL[OTRA_SUCURSAL[sucursal]].replace("Photograf ", "")}`} active={salidaForm.tipo === "prestamo"} onClick={() => setSalidaForm({ ...salidaForm, tipo: "prestamo" })} color={C.secondary} />
+            {otrasSucursales.length > 0 && (
+              <FilterPill
+                label={destinoFijo ? `Préstamo a ${NOMBRES_SUCURSAL[destinoFijo].replace("Photograf ", "")}` : "Préstamo a otra sucursal"}
+                active={salidaForm.tipo === "prestamo"}
+                onClick={() => setSalidaForm({ ...salidaForm, tipo: "prestamo", destino: destinoFijo || salidaForm.destino })}
+                color={C.secondary}
+              />
+            )}
           </div>
+          {salidaForm.tipo === "prestamo" && !destinoFijo && (
+            <>
+              <FieldLabel>¿A cuál sucursal?</FieldLabel>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {otrasSucursales.map((s) => (
+                  <FilterPill key={s} label={NOMBRES_SUCURSAL[s].replace("Photograf ", "")} active={salidaForm.destino === s} onClick={() => setSalidaForm({ ...salidaForm, destino: s })} color={C.secondary} />
+                ))}
+              </div>
+            </>
+          )}
           <FieldLabel>Cantidad</FieldLabel>
           <TextInput type="number" value={salidaForm.cantidad} onChange={(e) => setSalidaForm({ ...salidaForm, cantidad: e.target.value })} />
           <FieldLabel>Nota (opcional)</FieldLabel>
@@ -5622,6 +5991,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
             disabled={
               !salidaForm.cantidad ||
               parseInt(salidaForm.cantidad, 10) < 1 ||
+              (salidaForm.tipo === "prestamo" && !(salidaForm.destino || destinoFijo)) ||
               (registrandoSalida.variantes && registrandoSalida.variantes.length > 0
                 ? !salidaForm.color || parseInt(salidaForm.cantidad, 10) > (registrandoSalida.variantes.find((v) => v.color === salidaForm.color)?.tenemos || 0)
                 : parseInt(salidaForm.cantidad, 10) > registrandoSalida.tenemos)
@@ -9122,6 +9492,10 @@ export default function PhotografInventario() {
   // tema claro/oscuro con "C". Las llaves internas (queretaro/salinas)
   // nunca cambian, solo lo que se muestra.
   Object.assign(NOMBRES_SUCURSAL, NOMBRES_SUCURSAL_FABRICA, config.nombresSucursal || {});
+  // Igual que arriba, pero para la lista de sucursales activas (ver
+  // sincronizarSucursales más arriba) — así el resto de la app puede seguir
+  // usando SUCURSALES.map/.forEach directo, sin recibir "config".
+  sincronizarSucursales(config);
 
   /* La app se queda abierta días en la tablet del mostrador. Cada minuto se
      revisa si ya cambió el día para redibujar con la fecha correcta; si no,
@@ -9426,8 +9800,12 @@ export default function PhotografInventario() {
   }, [allData, sucursalActiva]);
 
   const resolverCodigoEscaneado = (codigo, { navegar = true } = {}) => {
-    const match = codigo.trim().match(/^(EQ|BASE)-(queretaro|salinas)-(\d+)$/i);
-    if (!match) {
+    // El id de sucursal ya no es siempre "queretaro" o "salinas" — puede
+    // ser cualquiera que el administrador haya creado — así que aquí se
+    // acepta cualquier palabra y se valida aparte que sea una sucursal que
+    // de verdad existe.
+    const match = codigo.trim().match(/^(EQ|BASE)-([a-z0-9]+)-(\d+)$/i);
+    if (!match || !allData[match[2].toLowerCase()]) {
       mostrarToast("Código no reconocido");
       return null;
     }
@@ -9550,8 +9928,9 @@ export default function PhotografInventario() {
      deja "En tránsito" hasta que la sucursal destino confirme su recepción.
      Antes, este paso borraba el equipo y nunca lo volvía a agregar en
      ningún lado — se perdía. */
-  const iniciarTransferenciaEquipo = (item, quien) => {
-    const destino = OTRA_SUCURSAL[sucursalActiva];
+  const iniciarTransferenciaEquipo = (item, quien, destinoElegido) => {
+    const destino = destinoElegido || otraSucursalUnica(sucursalActiva);
+    if (!destino) return; // salvaguarda: con 3+ sucursales activas hace falta elegir destino en la pantalla
     setData((d) => ({ ...d, equipo: d.equipo.filter((e) => e.id !== item.id) }));
     setTransferenciasPendientes((t) => [
       ...t,
@@ -9643,8 +10022,9 @@ export default function PhotografInventario() {
      equipo, pero por cantidad en vez de por pieza única: la resta ya se
      hizo en AlmacenScreen (junto con su movimiento en el ledger); aquí solo
      se registra el viaje pendiente. */
-  const iniciarTransferenciaBase = (base, cantidad, quien, nota) => {
-    const destino = OTRA_SUCURSAL[sucursalActiva];
+  const iniciarTransferenciaBase = (base, cantidad, quien, nota, destinoElegido) => {
+    const destino = destinoElegido || otraSucursalUnica(sucursalActiva);
+    if (!destino) return; // salvaguarda: con 3+ sucursales activas hace falta elegir destino en la pantalla
     setTransferenciasBasesPendientes((t) => [
       ...t,
       {
@@ -9831,10 +10211,13 @@ export default function PhotografInventario() {
     }
     if (vistaExterna === "buscar") {
       const etiquetar = (arr, suc) => arr.map((x) => ({ ...x, _sucursal: suc }));
+      // Antes juntaba a mano queretaro + salinas; ahora recorre todas las
+      // sucursales ACTIVAS que existan, para que una recién creada también
+      // aparezca en el buscador general.
       const combinado = {
-        equipo: [...etiquetar(allData.queretaro.equipo, "queretaro"), ...etiquetar(allData.salinas.equipo, "salinas")],
-        materiales: [...etiquetar(allData.queretaro.materiales, "queretaro"), ...etiquetar(allData.salinas.materiales, "salinas")],
-        bases: [...etiquetar(allData.queretaro.bases, "queretaro"), ...etiquetar(allData.salinas.bases, "salinas")],
+        equipo: SUCURSALES.flatMap((s) => etiquetar(allData[s].equipo, s)),
+        materiales: SUCURSALES.flatMap((s) => etiquetar(allData[s].materiales, s)),
+        bases: SUCURSALES.flatMap((s) => etiquetar(allData[s].bases, s)),
       };
       return (
         <div className="pf-shell" style={{ fontFamily: '-apple-system, "Segoe UI", Roboto, sans-serif', background: C.background, minHeight: "100vh" }}>
