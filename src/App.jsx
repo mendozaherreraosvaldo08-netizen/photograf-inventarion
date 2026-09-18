@@ -384,6 +384,36 @@ function idsConocidos(...objetos) {
   return [...ids];
 }
 
+/* Comparación estable para saber si algo "de verdad" cambió antes de
+   guardar. JSON.stringify a secas depende del ORDEN en que quedaron las
+   llaves de cada objeto — y ese orden puede ser distinto entre lo que
+   Firestore devuelve (el orden en que se guardaron los campos alguna vez)
+   y un objeto armado aquí en el código (siempre en el mismo orden en que
+   está escrito). Cuando esos dos órdenes no coinciden — por ejemplo, justo
+   después de agregar un campo nuevo — el guardado pensaba "esto cambió"
+   aunque el contenido fuera idéntico, lo volvía a subir, eso disparaba una
+   nueva comparación que otra vez pensaba "esto cambió", y así sin parar:
+   así es como se gastaron ~21,000 guardados en un día y se bloqueó todo.
+   Esta función ordena las llaves antes de comparar, así que el resultado
+   ya no depende de en qué orden hayan llegado los campos. */
+function comparableEstable(valor) {
+  if (valor && typeof valor === "object" && typeof valor.toJSON === "function") {
+    valor = valor.toJSON();
+  }
+  if (Array.isArray(valor)) return valor.map(comparableEstable);
+  if (valor && typeof valor === "object") {
+    const salida = {};
+    Object.keys(valor).sort().forEach((k) => {
+      salida[k] = comparableEstable(valor[k]);
+    });
+    return salida;
+  }
+  return valor;
+}
+function sonIguales(a, b) {
+  return JSON.stringify(comparableEstable(a)) === JSON.stringify(comparableEstable(b));
+}
+
 function normalizarTodo(allData) {
   const salida = {};
   idsConocidos(allData).forEach((s) => {
@@ -420,7 +450,7 @@ const LLAVES_SUCURSAL = [
 function fusionarPorLlave(base, propio, servidor, llaves) {
   const salida = { ...(servidor || {}) };
   llaves.forEach((k) => {
-    const cambioLocal = JSON.stringify(base ? base[k] : undefined) !== JSON.stringify(propio ? propio[k] : undefined);
+    const cambioLocal = !sonIguales(base ? base[k] : undefined, propio ? propio[k] : undefined);
     salida[k] = cambioLocal ? propio?.[k] : (servidor && servidor[k] !== undefined ? servidor[k] : propio?.[k]);
   });
   return salida;
@@ -9871,7 +9901,7 @@ export default function PhotografInventario() {
     if (!datosListos || !lecturaOkRef.current) return;
     const propio = { allData, empleados, transferenciasPendientes, transferenciasBasesPendientes, transferenciasIndumentariaPendientes, config };
     const base = prevSyncedRef.current;
-    if (base && JSON.stringify(base) === JSON.stringify(propio)) return;
+    if (base && sonIguales(base, propio)) return;
 
     escribiendoRef.current = true;
     runTransaction(db, async (tx) => {
@@ -9885,7 +9915,7 @@ export default function PhotografInventario() {
         prevSyncedRef.current = normalizarDocumento(fusion);
         // Si el servidor traía algo de otro celular que nosotros no
         // teníamos todavía, reflejarlo en pantalla ahora.
-        if (JSON.stringify(fusion) !== JSON.stringify(propio)) {
+        if (!sonIguales(fusion, propio)) {
           if (fusion.allData) setAllData(normalizarTodo(fusion.allData));
           if (fusion.empleados) setEmpleados(fusion.empleados);
           if (fusion.transferenciasPendientes) setTransferenciasPendientes(fusion.transferenciasPendientes);
@@ -10666,3 +10696,4 @@ export default function PhotografInventario() {
     </div>
   );
 }
+    
