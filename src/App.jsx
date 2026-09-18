@@ -110,7 +110,22 @@ const C = { ...LIGHT };
    las fechas de la bitácora se quedaran mal. Ahora es una variable viva que
    la app revisa cada minuto (ver refrescarHoy más abajo). */
 let hoy = new Date();
-const fmt = (d) => d.toISOString().slice(0, 10);
+/* OJO: antes esto usaba d.toISOString().slice(0,10), que arma la fecha en
+   hora de Greenwich (UTC), no en la hora local del celular. Querétaro y
+   Salinas están en UTC-6/UTC-7, así que a partir de aproximadamente las
+   6-7pm hora local, toISOString() ya piensa que es el día SIGUIENTE — eso
+   hacía que un préstamo con regreso "hoy" se marcara como atrasado desde
+   media tarde, todos los días, y que "Movimientos por semana" se recorriera
+   de semana justo en esa franja. Ahora arma la fecha con los componentes
+   locales del Date (año/mes/día tal como los ve el celular), que es lo que
+   de verdad hay que comparar contra las fechas que vienen de los campos
+   <input type="date"> (esas siempre son locales, sin zona horaria). */
+const fmt = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dia}`;
+};
 const enDias = (n) => {
   const d = new Date(hoy);
   d.setDate(d.getDate() + n);
@@ -580,6 +595,22 @@ function movimientoBase(tipo, cantidad, quien, nota, extra) {
 function tenemosBase(b) {
   if (b.variantes && b.variantes.length > 0) return b.variantes.reduce((a, v) => a + (Number(v.tenemos) || 0), 0);
   return Number(b.tenemos) || 0;
+}
+
+/* Antes de borrar un artículo del catálogo por completo, hay que revisar si
+   todavía sigue en uso de verdad (prestado, en custodia, o con una reserva
+   de cliente sin recoger) — si se borra igual, ese registro (y con él, el
+   rastro de a quién había que pedírselo o entregárselo) desaparece junto
+   con el artículo. "llave" es el nombre de la sección donde vive el
+   artículo dentro de una sucursal (equipo, indumentaria, emblematicos,
+   bases, etc.). */
+function itemEnUso(llave, item) {
+  if (!item) return false;
+  if (llave === "equipo") return item.estado === "En uso";
+  if (llave === "indumentaria") return (item.prestamos || []).some((p) => p.estado === "Prestado");
+  if (llave === "emblematicos") return (item.custodios || []).some((c) => c.activo);
+  if (llave === "bases") return (item.reservas || []).some((r) => r.estado === "Reservada");
+  return false;
 }
 
 /* ---------------------------------------------------------------------
@@ -1788,6 +1819,9 @@ function UserPicker({ empleados, onSelect, onAdminMode }) {
 function AdminGate({ config, onSuccess, onCancel }) {
   const [pass, setPass] = useState("");
   const [error, setError] = useState("");
+  const [intentos, setIntentos] = useState(0);
+  const [bloqueadoHasta, setBloqueadoHasta] = useState(0);
+  const [, forceTick] = useState(0);
   const inputRef = useRef(null);
 
   // autoFocus a veces no basta en celular (el teclado no abre si el campo
@@ -1798,10 +1832,34 @@ function AdminGate({ config, onSuccess, onCancel }) {
     return () => clearTimeout(t);
   }, []);
 
+  // Antes se podía escribir contraseñas sin parar, sin ningún límite —
+  // cualquiera con el celular en la mano podía probar cientos de
+  // combinaciones. Ahora, después de 5 intentos fallidos seguidos, se
+  // bloquea el botón 30 segundos antes de dejar probar de nuevo.
+  const bloqueado = bloqueadoHasta > Date.now();
+  useEffect(() => {
+    if (!bloqueado) return;
+    const t = setInterval(() => forceTick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [bloqueado]);
+
   const confirmar = () => {
-    if (pass === (config?.passwords?.admin ?? CONFIG_INICIAL.passwords.admin)) onSuccess();
-    else setError("Esa no es la contraseña de administrador. Vuelve a intentar.");
+    if (bloqueado) return;
+    if (pass === (config?.passwords?.admin ?? CONFIG_INICIAL.passwords.admin)) {
+      onSuccess();
+      return;
+    }
+    const nuevosIntentos = intentos + 1;
+    setIntentos(nuevosIntentos);
+    if (nuevosIntentos >= 5) {
+      setBloqueadoHasta(Date.now() + 30000);
+      setIntentos(0);
+      setError("Demasiados intentos. Espera 30 segundos e inténtalo de nuevo.");
+    } else {
+      setError("Esa no es la contraseña de administrador. Vuelve a intentar.");
+    }
   };
+  const segundosRestantes = bloqueado ? Math.ceil((bloqueadoHasta - Date.now()) / 1000) : 0;
   return (
     <div style={{ padding: 20, minHeight: "100vh", background: C.background }}>
       <SectionHeader title="Panel de Administrador" onBack={onCancel} />
@@ -1813,9 +1871,9 @@ function AdminGate({ config, onSuccess, onCancel }) {
         style={{ padding: "20px 0" }}
       >
         <FieldLabel>Contraseña de administrador</FieldLabel>
-        <PasswordInput ref={inputRef} enterKeyHint="go" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="••••••••" autoFocus />
-        {error && <div style={{ color: C.error, fontSize: 12, marginTop: 8 }}>{error}</div>}
-        <PrimaryButton disabled={!pass}>Entrar</PrimaryButton>
+        <PasswordInput ref={inputRef} enterKeyHint="go" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="••••••••" autoFocus disabled={bloqueado} />
+        {error && <div style={{ color: C.error, fontSize: 12, marginTop: 8 }}>{error}{bloqueado ? ` (${segundosRestantes}s)` : ""}</div>}
+        <PrimaryButton disabled={!pass || bloqueado}>Entrar</PrimaryButton>
       </form>
     </div>
   );
@@ -1859,7 +1917,15 @@ function bitacoraCombinada(allData) {
 
 /* Agrupa movimientos por semana para la gráfica de tendencia. */
 function movimientosPorSemana(movs, n = 8) {
-  const base = new Date(fmt(hoy));
+  // OJO: "new Date(fmt(hoy))" se ve inocente pero tiene el mismo problema de
+  // huso horario que ya se explicó junto a fmt() — un texto de fecha sin
+  // hora ("2026-09-18") SIEMPRE se interpreta como medianoche en Greenwich,
+  // sin importar cómo se haya armado ese texto. Al leerlo de vuelta con
+  // getDate()/getDay() (que sí son locales), en Querétaro/Salinas eso
+  // regresa el día ANTERIOR durante todo el horario de trabajo — recorriendo
+  // de semana el conteo de "Movimientos por semana". Armar la fecha
+  // directamente con año/mes/día locales evita ese viaje de ida y vuelta.
+  const base = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
   const inicioActual = new Date(base);
   inicioActual.setDate(base.getDate() - base.getDay());
   const cubos = [];
@@ -2550,6 +2616,14 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
       tipo === "emblematico" ? "emblematicos" :
       tipo === "mobiliario" ? "mobiliario" :
       tipo === "pieza" ? "piezas" : "bases";
+    // Antes esto borraba el artículo aunque todavía estuviera prestado, en
+    // custodia de alguien, o con una reserva de cliente sin recoger — se
+    // perdía el rastro de a quién había que pedírselo o entregárselo. Ahora
+    // se bloquea si sigue en uso.
+    if (itemEnUso(llave, item)) {
+      mostrarToast("No se puede eliminar: todavía está prestado, en custodia o con una reserva activa");
+      return;
+    }
     setAllData((prev) => ({ ...prev, [suc]: { ...prev[suc], [llave]: prev[suc][llave].filter((x) => x.id !== item.id) } }));
     registrar(suc, `Eliminado por el administrador: ${item.nombre || item.modelo || item.tipo}`);
     mostrarToast("Eliminado");
@@ -3016,14 +3090,26 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
         </Modal>
       )}
 
-      {porEliminar && (
-        <Modal title="Eliminar del inventario" onClose={() => setPorEliminar(null)} danger>
-          <div style={{ fontSize: 14, color: C.foreground }}>
-            "{porEliminar.item.nombre}" se borra por completo, junto con su historial. Si solo dejó de servir, es mejor marcarlo como Baja: así se conserva el registro.
-          </div>
-          <PrimaryButton onClick={eliminar} color={C.error}>Sí, eliminar</PrimaryButton>
-        </Modal>
-      )}
+      {porEliminar && (() => {
+        const llavePorEliminar =
+          porEliminar.tipo === "equipo" ? "equipo" :
+          porEliminar.tipo === "material" ? "materiales" :
+          porEliminar.tipo === "indumentaria" ? "indumentaria" :
+          porEliminar.tipo === "emblematico" ? "emblematicos" :
+          porEliminar.tipo === "mobiliario" ? "mobiliario" :
+          porEliminar.tipo === "pieza" ? "piezas" : "bases";
+        const enUso = itemEnUso(llavePorEliminar, porEliminar.item);
+        return (
+          <Modal title="Eliminar del inventario" onClose={() => setPorEliminar(null)} danger>
+            <div style={{ fontSize: 14, color: C.foreground }}>
+              {enUso
+                ? `"${porEliminar.item.nombre || porEliminar.item.tipo}" todavía está prestado, en custodia o tiene una reserva de cliente activa — primero hay que resolver eso (marcar la devolución, liberar la custodia o la reserva) antes de poder eliminarlo.`
+                : `"${porEliminar.item.nombre}" se borra por completo, junto con su historial. Si solo dejó de servir, es mejor marcarlo como Baja: así se conserva el registro.`}
+            </div>
+            <PrimaryButton onClick={eliminar} color={C.error} disabled={enUso}>Sí, eliminar</PrimaryButton>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }
@@ -5379,7 +5465,15 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
             <CameraIcon size={13} /> {b.imagen ? "Cambiar foto" : "Foto"}
           </button>
         </div>
-        {b.catalogo === "UNICEQ" && (
+        {/* Las variantes de color son de los modelos de Universidad (ver
+            comentario en tenemosBase/confirmarAgregarVariante) — antes este
+            botón aparecía en UNICEQ, que es justo el catálogo que NO debe
+            llevar variantes propias porque comparte existencia con su
+            pano gemelo de Universidad (ver hermanasDePano/conPanoSincronizado):
+            en cuanto una base con pano compartido recibe variantes, deja de
+            sincronizarse para siempre con su gemela, y las dos empiezan a
+            llevar su cuenta por separado sin que nadie se dé cuenta. */}
+        {b.catalogo === "Universidad" && (
           <button
             onClick={() => setGestionandoVariantesDe(b)}
             style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px dashed ${C.accent1}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.accent1, cursor: "pointer", marginTop: 8 }}
@@ -5605,8 +5699,16 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
 
 
   const confirmarSalidaBase = () => {
-    const base = registrandoSalida;
     const cant = parseInt(salidaForm.cantidad, 10) || 0;
+    // Se vuelve a buscar la base en "data" (la más reciente que ya llegó a
+    // este celular) en vez de usar la foto que se tomó cuando se abrió el
+    // formulario ("registrandoSalida"): si alguien más, en otro celular,
+    // metió o sacó piezas de esta misma base mientras el formulario seguía
+    // abierto aquí, ya no se usa ese número viejo para decidir si alcanza
+    // ni para sincronizar el pano gemelo (ver conPanoSincronizado más abajo,
+    // que si recibe un número viejo le borra a la otra base lo que acaba de
+    // cambiar).
+    const base = data.bases.find((b) => b.id === registrandoSalida?.id);
     const tieneVariantes = base && base.variantes && base.variantes.length > 0;
     const varianteElegida = tieneVariantes ? base.variantes.find((v) => v.color === salidaForm.color) : null;
     if (!base || cant < 1) return;
@@ -5653,8 +5755,13 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
     setData((d) => {
       const basesConSalida = d.bases.map(actualizarBase);
       if (tieneVariantes) return { ...d, bases: basesConSalida };
-      const nuevoTenemos = base.tenemos - cant;
-      const bases = conPanoSincronizado(basesConSalida, base, nuevoTenemos, usuarioActual, `Sincronizado: salida de "${base.nombre}" en ${panoDe(base.nombre)}`);
+      // Otra vez: se toma el "tenemos" más fresco posible (el que trae "d"
+      // en este instante) en vez del que traía "base" desde que se abrió el
+      // formulario, para no pisar con un número viejo lo que el pano gemelo
+      // pueda tener ya sincronizado.
+      const baseFresca = d.bases.find((x) => x.id === base.id) || base;
+      const nuevoTenemos = (Number(baseFresca.tenemos) || 0) - cant;
+      const bases = conPanoSincronizado(basesConSalida, baseFresca, nuevoTenemos, usuarioActual, `Sincronizado: salida de "${base.nombre}" en ${panoDe(base.nombre)}`);
       return { ...d, bases };
     });
 
@@ -5673,8 +5780,10 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
      suman solas al "Tenemos" — sin tener que sacar la cuenta a mano con
      el lápiz de editar. */
   const confirmarEntradaBase = () => {
-    const base = registrandoEntrada;
     const cant = parseInt(entradaForm.cantidad, 10) || 0;
+    // Igual que en confirmarSalidaBase: se vuelve a leer la base actual de
+    // "data" en vez de la foto vieja de cuando se abrió el formulario.
+    const base = data.bases.find((b) => b.id === registrandoEntrada?.id);
     const tieneVariantes = base && base.variantes && base.variantes.length > 0;
     const varianteElegida = tieneVariantes ? base.variantes.find((v) => v.color === entradaForm.color) : null;
     if (!base || cant < 1) return;
@@ -5702,8 +5811,9 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
     setData((d) => {
       const basesConEntrada = d.bases.map(actualizarBase);
       if (tieneVariantes) return { ...d, bases: basesConEntrada };
-      const nuevoTenemos = base.tenemos + cant;
-      const bases = conPanoSincronizado(basesConEntrada, base, nuevoTenemos, usuarioActual, `Sincronizado: entrada de "${base.nombre}" en ${panoDe(base.nombre)}`);
+      const baseFresca = d.bases.find((x) => x.id === base.id) || base;
+      const nuevoTenemos = (Number(baseFresca.tenemos) || 0) + cant;
+      const bases = conPanoSincronizado(basesConEntrada, baseFresca, nuevoTenemos, usuarioActual, `Sincronizado: entrada de "${base.nombre}" en ${panoDe(base.nombre)}`);
       return { ...d, bases };
     });
 
@@ -5752,6 +5862,16 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
   };
 
   const eliminarBase = () => {
+    if (!porEliminarBase) return;
+    // El aviso de "tiene reservas activas" antes era solo texto: no impedía
+    // borrar. Ahora si de verdad tiene una reserva de cliente sin recoger,
+    // se bloquea el borrado — si no, se pierde el rastro de a quién se le
+    // debe entregar ese paquete.
+    const tieneReservasActivas = porEliminarBase.reservas.filter((r) => r.estado === "Reservada").length > 0;
+    if (tieneReservasActivas) {
+      mostrarToast("No se puede eliminar: tiene reservas de clientes activas");
+      return;
+    }
     setData((d) => ({ ...d, bases: d.bases.filter((b) => b.id !== porEliminarBase.id) }));
     bitacora(`Base eliminada: ${porEliminarBase.nombre}`, usuarioActual);
     mostrarToast("Base eliminada");
@@ -6246,14 +6366,17 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
         </Modal>
       )}
 
-      {porEliminarBase && (
-        <Modal title="Eliminar base" onClose={() => setPorEliminarBase(null)} danger>
-          <div style={{ fontSize: 14, color: C.foreground }}>
-            ¿Eliminar "{porEliminarBase.nombre}" del catálogo? {porEliminarBase.reservas.filter((r) => r.estado === "Reservada").length > 0 ? "Tiene reservas activas — revísalas antes de eliminarla." : "Esto no se puede deshacer."}
-          </div>
-          <PrimaryButton onClick={eliminarBase} color={C.error}>Sí, eliminar</PrimaryButton>
-        </Modal>
-      )}
+      {porEliminarBase && (() => {
+        const tieneReservasActivas = porEliminarBase.reservas.filter((r) => r.estado === "Reservada").length > 0;
+        return (
+          <Modal title="Eliminar base" onClose={() => setPorEliminarBase(null)} danger>
+            <div style={{ fontSize: 14, color: C.foreground }}>
+              ¿Eliminar "{porEliminarBase.nombre}" del catálogo? {tieneReservasActivas ? "Tiene reservas de clientes activas — primero hay que reasignarlas o cancelarlas (revisa 'Paquetes de clientes' en esta base) antes de poder eliminarla." : "Esto no se puede deshacer."}
+            </div>
+            <PrimaryButton onClick={eliminarBase} color={C.error} disabled={tieneReservasActivas}>Sí, eliminar</PrimaryButton>
+          </Modal>
+        );
+      })()}
 
       {agregandoPaqueteA !== null && (
         <Modal title="Asignar paquete a cliente" onClose={() => setAgregandoPaqueteA(null)}>
@@ -6861,6 +6984,10 @@ function IndumentariaScreen({ data, setData, bitacora, usuarioActual, mostrarToa
   };
 
   const eliminar = () => {
+    if (itemEnUso("indumentaria", porEliminar)) {
+      mostrarToast("No se puede eliminar: todavía tiene un préstamo activo");
+      return;
+    }
     setData((d) => ({ ...d, indumentaria: d.indumentaria.filter((i) => i.id !== porEliminar.id) }));
     bitacora(`Indumentaria eliminada: ${porEliminar.tipo}${porEliminar.detalle ? ` (${porEliminar.detalle})` : ""}`, usuarioActual);
     mostrarToast("Eliminado");
@@ -7064,9 +7191,9 @@ function IndumentariaScreen({ data, setData, bitacora, usuarioActual, mostrarToa
       {porEliminar && (
         <Modal title="Eliminar indumentaria" onClose={() => setPorEliminar(null)} danger>
           <div style={{ fontSize: 14, color: C.foreground }}>
-            ¿Eliminar "{porEliminar.tipo}{porEliminar.detalle ? ` (${porEliminar.detalle})` : ""}"? {(porEliminar.prestamos || []).some((p) => p.estado === "Prestado") ? "Tiene préstamos activos — revísalos antes de eliminarla." : "Esto no se puede deshacer."}
+            ¿Eliminar "{porEliminar.tipo}{porEliminar.detalle ? ` (${porEliminar.detalle})` : ""}"? {(porEliminar.prestamos || []).some((p) => p.estado === "Prestado") ? "Tiene préstamos activos — primero hay que registrar la devolución antes de poder eliminarla." : "Esto no se puede deshacer."}
           </div>
-          <PrimaryButton onClick={eliminar} color={C.error}>Sí, eliminar</PrimaryButton>
+          <PrimaryButton onClick={eliminar} color={C.error} disabled={(porEliminar.prestamos || []).some((p) => p.estado === "Prestado")}>Sí, eliminar</PrimaryButton>
         </Modal>
       )}
 
@@ -7265,6 +7392,10 @@ function EmblematicosScreen({ data, setData, bitacora, usuarioActual, mostrarToa
   };
 
   const eliminar = () => {
+    if (itemEnUso("emblematicos", porEliminar)) {
+      mostrarToast("No se puede eliminar: todavía tiene una custodia activa");
+      return;
+    }
     setData((d) => ({ ...d, emblematicos: d.emblematicos.filter((e) => e.id !== porEliminar.id) }));
     bitacora(`Emblemático eliminado: ${porEliminar.tipo}${porEliminar.detalle ? ` (${porEliminar.detalle})` : ""}`, usuarioActual);
     mostrarToast("Eliminado");
@@ -7472,9 +7603,9 @@ function EmblematicosScreen({ data, setData, bitacora, usuarioActual, mostrarToa
       {porEliminar && (
         <Modal title="Eliminar emblemático" onClose={() => setPorEliminar(null)} danger>
           <div style={{ fontSize: 14, color: C.foreground }}>
-            ¿Eliminar "{porEliminar.tipo}{porEliminar.detalle ? ` (${porEliminar.detalle})` : ""}"? {(porEliminar.custodios || []).some((c) => c.activo) ? "Tiene resguardos activos — revísalos antes de eliminarlo." : "Esto no se puede deshacer."}
+            ¿Eliminar "{porEliminar.tipo}{porEliminar.detalle ? ` (${porEliminar.detalle})` : ""}"? {(porEliminar.custodios || []).some((c) => c.activo) ? "Tiene resguardos activos — primero hay que liberarlos antes de poder eliminarlo." : "Esto no se puede deshacer."}
           </div>
-          <PrimaryButton onClick={eliminar} color={C.error}>Sí, eliminar</PrimaryButton>
+          <PrimaryButton onClick={eliminar} color={C.error} disabled={(porEliminar.custodios || []).some((c) => c.activo)}>Sí, eliminar</PrimaryButton>
         </Modal>
       )}
 
@@ -8767,8 +8898,18 @@ function estadoTolerancia(reserva) {
    día. Se usa al armar un evento nuevo, para avisar antes de que choque. */
 function conflictoDeEquipo(data, equipoId, fecha, excluirEventoId) {
   const item = data.equipo.find((e) => e.id === equipoId);
-  if (item && item.estado === "En uso" && item.fechaDevolucion && item.fechaDevolucion >= fecha) {
-    return `Sigue prestado hasta el ${item.fechaDevolucion}`;
+  // Antes solo se avisaba del choque si el equipo tenía una fecha de
+  // regreso capturada Y esa fecha caía en o después del nuevo evento. Dos
+  // casos se colaban sin ningún aviso: un préstamo sin fecha de regreso
+  // registrada (se veía como "libre" siempre), y un préstamo YA atrasado
+  // (la fecha de regreso ya pasó pero nadie lo marcó como devuelto) — ahí
+  // ya no se puede confiar en esa fecha para asegurar que va a estar de
+  // vuelta a tiempo para el nuevo evento.
+  const yaVencido = item && item.fechaDevolucion && item.fechaDevolucion < fmt(hoy);
+  if (item && item.estado === "En uso" && (!item.fechaDevolucion || yaVencido || item.fechaDevolucion >= fecha)) {
+    if (item.fechaDevolucion && !yaVencido) return `Sigue prestado hasta el ${item.fechaDevolucion}`;
+    if (yaVencido) return `Sigue prestado y atrasado desde el ${item.fechaDevolucion}`;
+    return "Sigue prestado (sin fecha de regreso registrada)";
   }
   const otroEvento = (data.eventos || []).find((ev) => ev.id !== excluirEventoId && ev.fecha === fecha && ev.equipoIds.includes(equipoId));
   if (otroEvento) return `Ya asignado a "${otroEvento.nombre}" ese mismo día`;
@@ -10696,4 +10837,3 @@ export default function PhotografInventario() {
     </div>
   );
 }
-    
