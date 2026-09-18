@@ -9895,7 +9895,12 @@ export default function PhotografInventario() {
         }
         setErrorGuardado(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        // Se deja en la consola del navegador el motivo real (antes se
+        // tragaba el error por completo) — así, si "No se pudo guardar"
+        // vuelve a salir, con F12 → Console se puede ver la causa exacta
+        // en vez de solo saber que algo falló.
+        console.error("Photograf: no se pudo guardar en Firestore —", err);
         escribiendoRef.current = false;
         setErrorGuardado(true);
       });
