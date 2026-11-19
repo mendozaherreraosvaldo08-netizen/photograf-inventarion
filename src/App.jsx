@@ -6752,7 +6752,7 @@ function GrupoPersonalizadoScreen({ grupo, setData, bitacora, usuarioActual, mos
       <div className={conMovimientos ? undefined : "pf-list-grid"} style={{ padding: 16 }}>
         {items.map((it) =>
           conMovimientos ? (
-            <div key={it.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
+            <div key={it.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{it.nombre}</div>
@@ -6770,19 +6770,19 @@ function GrupoPersonalizadoScreen({ grupo, setData, bitacora, usuarioActual, mos
                 <button
                   onClick={() => { setRegistrandoSalida(it); setSalidaCantidad("1"); }}
                   disabled={it.cantidad < 1}
-                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: it.cantidad < 1 ? C.muted : C.foreground, cursor: it.cantidad < 1 ? "not-allowed" : "pointer", opacity: it.cantidad < 1 ? 0.5 : 1 }}
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.ink + "0B", border: "1px solid transparent", borderRadius: 12, padding: "10px 10px", fontSize: 12, fontWeight: 600, color: it.cantidad < 1 ? C.muted : C.foreground, cursor: it.cantidad < 1 ? "not-allowed" : "pointer", opacity: it.cantidad < 1 ? 0.5 : 1 }}
                 >
                   <ArrowUpRight size={13} /> Salida
                 </button>
                 <button
                   onClick={() => { setRegistrandoEntrada(it); setEntradaCantidad("1"); }}
-                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.ink + "0B", border: "1px solid transparent", borderRadius: 12, padding: "10px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
                 >
                   <Inbox size={13} /> Entrada
                 </button>
                 <button
                   onClick={() => setVerMovimientosDe(it)}
-                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.ink + "0B", border: "1px solid transparent", borderRadius: 12, padding: "10px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
                 >
                   <History size={13} /> Movimientos
                 </button>
@@ -7198,7 +7198,7 @@ function IndumentariaScreen({ data, setData, bitacora, usuarioActual, mostrarToa
           const disp = disponibles(i);
           const prestamosActivos = (i.prestamos || []).filter((p) => p.estado === "Prestado");
           return (
-            <div key={i.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
+            <div key={i.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{i.tipo}</div>
@@ -7227,13 +7227,13 @@ function IndumentariaScreen({ data, setData, bitacora, usuarioActual, mostrarToa
                 <button
                   onClick={() => { setPrestando(i); setPrestamoForm({ cantidad: "1", persona: "", nota: "", fechaEsperada: fmt(hoy) }); }}
                   disabled={disp < 1}
-                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: disp < 1 ? "none" : C.primary, color: disp < 1 ? C.muted : "#fff", border: disp < 1 ? `1px solid ${C.border}` : "none", borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, cursor: disp < 1 ? "not-allowed" : "pointer", opacity: disp < 1 ? 0.6 : 1 }}
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: disp < 1 ? "none" : C.primary, color: disp < 1 ? C.muted : "#fff", border: disp < 1 ? `1px solid ${C.border}` : "none", borderRadius: 12, padding: "10px 10px", fontSize: 12, fontWeight: 600, cursor: disp < 1 ? "not-allowed" : "pointer", opacity: disp < 1 ? 0.6 : 1 }}
                 >
                   <ArrowUpRight size={13} /> Prestar
                 </button>
                 <button
                   onClick={() => setVerPrestamosDe(i)}
-                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.ink + "0B", border: "1px solid transparent", borderRadius: 12, padding: "10px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
                 >
                   <History size={13} /> Préstamos y movimientos
                 </button>
@@ -7242,7 +7242,7 @@ function IndumentariaScreen({ data, setData, bitacora, usuarioActual, mostrarToa
                 <button
                   onClick={() => { setTrasladando(i); setDestinoTransfer(null); setTrasladoForm({ cantidad: "1", quien: usuarioActual, nota: "" }); }}
                   disabled={disp < 1}
-                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: disp < 1 ? C.muted : C.secondary, cursor: disp < 1 ? "not-allowed" : "pointer", opacity: disp < 1 ? 0.6 : 1, marginTop: 8 }}
+                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.ink + "0B", border: "1px solid transparent", borderRadius: 12, padding: "10px 10px", fontSize: 12, fontWeight: 600, color: disp < 1 ? C.muted : C.secondary, cursor: disp < 1 ? "not-allowed" : "pointer", opacity: disp < 1 ? 0.6 : 1, marginTop: 8 }}
                 >
                   <Truck size={13} /> {destinoFijo ? `Trasladar a ${NOMBRES_SUCURSAL[destinoFijo].replace("Photograf ", "")}` : "Trasladar a otra sucursal"}
                 </button>
@@ -7348,7 +7348,7 @@ function IndumentariaScreen({ data, setData, bitacora, usuarioActual, mostrarToa
                   </div>
                   <button
                     onClick={() => { setDevolviendo({ item: verPrestamosDe, prestamo: p }); setCantDevuelta(String(p.cantidad)); }}
-                    style={{ background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+                    style={{ background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 999, padding: "6px 12px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
                   >
                     Devolver
                   </button>
@@ -7585,13 +7585,13 @@ function EmblematicosScreen({ data, setData, bitacora, usuarioActual, mostrarToa
           const custodiosActivos = (e.custodios || []).filter((c) => c.activo);
           const oro = esOro(e);
           return (
-            <div key={e.id} style={{ background: C.surface, border: `1px solid ${oro ? C.warning : C.border}`, borderRadius: 12, padding: 14, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
+            <div key={e.id} style={{ background: C.surface, border: `1px solid ${oro ? C.warning : C.border}`, borderRadius: 20, padding: 16, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{e.tipo}</div>
-                    {oro && <span style={{ fontSize: 10, fontWeight: 700, color: textoContraste(C.warning), background: C.warning, borderRadius: 6, padding: "2px 8px" }}>ORO — requiere firma</span>}
-                    {!oro && e.material && <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, background: C.background, border: `1px solid ${C.border}`, borderRadius: 6, padding: "2px 8px" }}>{e.material}</span>}
+                    {oro && <span style={{ fontSize: 10, fontWeight: 700, color: textoContraste(C.warning), background: C.warning, borderRadius: 999, padding: "2px 8px" }}>ORO — requiere firma</span>}
+                    {!oro && e.material && <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, background: C.background, border: `1px solid ${C.border}`, borderRadius: 999, padding: "2px 8px" }}>{e.material}</span>}
                   </div>
                   <div style={{ fontSize: 12, color: C.muted }}>{e.detalle || "Sin detalle"}{e.costo ? ` · ${fmtMoneda(e.costo)}` : ""}</div>
                   <div style={{ fontSize: 10.5, color: C.muted, fontFamily: "monospace", marginTop: 2 }}>{codigoArticulo("EMB", sucursal, e.id)}</div>
@@ -7623,13 +7623,13 @@ function EmblematicosScreen({ data, setData, bitacora, usuarioActual, mostrarToa
                 <button
                   onClick={() => { setAsignando(e); setCustodioForm({ cantidad: "1", persona: "", nota: "", firmaResponsiva: false }); }}
                   disabled={disp < 1}
-                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: disp < 1 ? "none" : C.primary, color: disp < 1 ? C.muted : "#fff", border: disp < 1 ? `1px solid ${C.border}` : "none", borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, cursor: disp < 1 ? "not-allowed" : "pointer", opacity: disp < 1 ? 0.6 : 1 }}
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: disp < 1 ? "none" : C.primary, color: disp < 1 ? C.muted : "#fff", border: disp < 1 ? `1px solid ${C.border}` : "none", borderRadius: 12, padding: "10px 10px", fontSize: 12, fontWeight: 600, cursor: disp < 1 ? "not-allowed" : "pointer", opacity: disp < 1 ? 0.6 : 1 }}
                 >
                   <ArrowUpRight size={13} /> Asignar resguardo
                 </button>
                 <button
                   onClick={() => setVerCustodiaDe(e)}
-                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.ink + "0B", border: "1px solid transparent", borderRadius: 12, padding: "10px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
                 >
                   <History size={13} /> Custodia y movimientos
                 </button>
@@ -7732,7 +7732,7 @@ function EmblematicosScreen({ data, setData, bitacora, usuarioActual, mostrarToa
           {esOro(asignando) && (
             <button
               onClick={() => setCustodioForm({ ...custodioForm, firmaResponsiva: !custodioForm.firmaResponsiva })}
-              style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: custodioForm.firmaResponsiva ? `${C.success}15` : `${C.warning}15`, border: `1px solid ${custodioForm.firmaResponsiva ? C.success : C.warning}`, borderRadius: 10, padding: 12, marginTop: 4, cursor: "pointer", textAlign: "left" }}
+              style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: custodioForm.firmaResponsiva ? `${C.success}15` : `${C.warning}15`, border: `1px solid ${custodioForm.firmaResponsiva ? C.success : C.warning}`, borderRadius: 16, padding: 14, marginTop: 4, cursor: "pointer", textAlign: "left" }}
             >
               <FileSignature size={18} color={custodioForm.firmaResponsiva ? C.success : C.warning} />
               <div style={{ fontSize: 12.5, color: C.foreground, fontWeight: 600 }}>
@@ -7772,7 +7772,7 @@ function EmblematicosScreen({ data, setData, bitacora, usuarioActual, mostrarToa
                 </div>
                 <button
                   onClick={() => { setLiberando({ item: verCustodiaDe, custodio: c }); setCantLiberada(String(c.cantidad)); }}
-                  style={{ background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+                  style={{ background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 999, padding: "6px 12px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
                 >
                   Liberar
                 </button>
@@ -7904,7 +7904,7 @@ function MobiliarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
     <div style={{ paddingBottom: 90, minHeight: "100vh" }}>
       <SectionHeader title="Mobiliario" subtitle="Computadoras, escritorios y más" onBack={onBack} />
       {valorTotal > 0 && (
-        <div style={{ margin: "0 16px 4px", background: `${C.primary}12`, border: `1px solid ${C.primary}`, borderRadius: 10, padding: 12 }}>
+        <div style={{ margin: "0 16px 4px", background: `${C.primary}12`, border: `1px solid ${C.primary}`, borderRadius: 16, padding: 14 }}>
           <div style={{ fontSize: 11, color: C.muted }}>Inversión total en mobiliario</div>
           <div style={{ fontSize: 18, fontWeight: 700, color: C.foreground }}>{fmtMoneda(valorTotal)}</div>
         </div>
@@ -7920,7 +7920,7 @@ function MobiliarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
       <div style={{ padding: 16 }}>
         {items.length === 0 && <EmptyState icon={Monitor} text="No hay mobiliario capturado todavía con estos filtros." />}
         {items.map((m) => (
-          <div key={m.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
+          <div key={m.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -7943,7 +7943,7 @@ function MobiliarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
               <div style={{ fontSize: 24, fontWeight: 700, color: C.primary }}>{m.cantidad}</div>
               <div style={{ fontSize: 11, color: C.muted }}>en existencia</div>
               <div style={{ flex: 1 }} />
-              <button onClick={() => setVerMovimientosDe(m)} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 600, color: C.foreground, cursor: "pointer" }}>
+              <button onClick={() => setVerMovimientosDe(m)} style={{ display: "flex", alignItems: "center", gap: 5, background: C.ink + "0B", border: "1px solid transparent", borderRadius: 999, padding: "6px 12px", fontSize: 11.5, fontWeight: 600, color: C.foreground, cursor: "pointer" }}>
                 <History size={12} /> Movimientos
               </button>
             </div>
@@ -8162,12 +8162,12 @@ function PiezasScreen({ data, setData, bitacora, usuarioActual, mostrarToast, co
           const min = minimoDe(p, config);
           const bajo = p.cantidad <= min;
           return (
-            <div key={p.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
+            <div key={p.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{p.tipo}</div>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, background: C.background, border: `1px solid ${C.border}`, borderRadius: 6, padding: "2px 8px" }}>{p.grupo}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, background: C.background, border: `1px solid ${C.border}`, borderRadius: 999, padding: "2px 8px" }}>{p.grupo}</span>
                   </div>
                   <div style={{ fontSize: 12, color: C.muted }}>{p.detalle || "Sin detalle"}{p.costo ? ` · ${fmtMoneda(p.costo)}` : ""}</div>
                   {p.notas && <div style={{ fontSize: 11.5, color: C.muted, marginTop: 2 }}>{p.notas}</div>}
@@ -8184,7 +8184,7 @@ function PiezasScreen({ data, setData, bitacora, usuarioActual, mostrarToast, co
                 <div style={{ fontSize: 24, fontWeight: 700, color: bajo ? C.warning : C.primary }}>{p.cantidad}</div>
                 <div style={{ fontSize: 11, color: C.muted }}>en existencia {bajo && <LowStockBadge />}</div>
                 <div style={{ flex: 1 }} />
-                <button onClick={() => setVerMovimientosDe(p)} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 600, color: C.foreground, cursor: "pointer" }}>
+                <button onClick={() => setVerMovimientosDe(p)} style={{ display: "flex", alignItems: "center", gap: 5, background: C.ink + "0B", border: "1px solid transparent", borderRadius: 999, padding: "6px 12px", fontSize: 11.5, fontWeight: 600, color: C.foreground, cursor: "pointer" }}>
                   <History size={12} /> Movimientos
                 </button>
               </div>
@@ -8436,7 +8436,7 @@ function PlacasScreen({ data, setData, bitacora, usuarioActual, mostrarToast, co
       <div style={{ margin: "0 16px 4px" }}>
         <button
           onClick={() => setProduciendo(true)}
-          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.primary, color: textoContraste(C.primary), border: "none", borderRadius: 10, padding: "13px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.primary, color: textoContraste(C.primary), border: "none", borderRadius: 16, padding: "14px 18px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
         >
           <Scissors size={16} /> Producir placas desde una hoja
         </button>
@@ -8455,7 +8455,7 @@ function PlacasScreen({ data, setData, bitacora, usuarioActual, mostrarToast, co
               const min = minimoDe(h, config);
               const bajo = h.cantidad <= min;
               return (
-                <div key={h.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
+                <div key={h.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div>
                       <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>Hoja {h.tamaño}</div>
@@ -8470,7 +8470,7 @@ function PlacasScreen({ data, setData, bitacora, usuarioActual, mostrarToast, co
                     <div style={{ fontSize: 24, fontWeight: 700, color: bajo ? C.warning : C.primary }}>{h.cantidad}</div>
                     <div style={{ fontSize: 11, color: C.muted }}>en existencia {bajo && <LowStockBadge />}</div>
                     <div style={{ flex: 1 }} />
-                    <button onClick={() => setVerMovimientosDe({ tipo: "hoja", item: h })} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 600, color: C.foreground, cursor: "pointer" }}>
+                    <button onClick={() => setVerMovimientosDe({ tipo: "hoja", item: h })} style={{ display: "flex", alignItems: "center", gap: 5, background: C.ink + "0B", border: "1px solid transparent", borderRadius: 999, padding: "6px 12px", fontSize: 11.5, fontWeight: 600, color: C.foreground, cursor: "pointer" }}>
                       <History size={12} /> Movimientos
                     </button>
                   </div>
@@ -8479,7 +8479,7 @@ function PlacasScreen({ data, setData, bitacora, usuarioActual, mostrarToast, co
             })}
             <button
               onClick={() => { setModalAlta(true); setNuevaHoja({ tamaño: "30x60", cantidad: "", costo: "" }); }}
-              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "none", border: `1.5px dashed ${C.border}`, borderRadius: 10, padding: "12px 16px", fontSize: 13.5, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "none", border: `1.5px dashed ${C.border}`, borderRadius: 16, padding: "13px 16px", fontSize: 13.5, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
             >
               <Plus size={16} /> Agregar hoja grande
             </button>
@@ -8493,7 +8493,7 @@ function PlacasScreen({ data, setData, bitacora, usuarioActual, mostrarToast, co
               const min = minimoDe(p, config);
               const bajo = p.cantidad <= min;
               return (
-                <div key={p.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
+                <div key={p.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div>
                       <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{p.tipo}</div>
@@ -8508,7 +8508,7 @@ function PlacasScreen({ data, setData, bitacora, usuarioActual, mostrarToast, co
                     <div style={{ fontSize: 24, fontWeight: 700, color: bajo ? C.warning : C.primary }}>{p.cantidad}</div>
                     <div style={{ fontSize: 11, color: C.muted }}>en existencia {bajo && <LowStockBadge />}</div>
                     <div style={{ flex: 1 }} />
-                    <button onClick={() => setVerMovimientosDe({ tipo: "chica", item: p })} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 600, color: C.foreground, cursor: "pointer" }}>
+                    <button onClick={() => setVerMovimientosDe({ tipo: "chica", item: p })} style={{ display: "flex", alignItems: "center", gap: 5, background: C.ink + "0B", border: "1px solid transparent", borderRadius: 999, padding: "6px 12px", fontSize: 11.5, fontWeight: 600, color: C.foreground, cursor: "pointer" }}>
                       <History size={12} /> Movimientos
                     </button>
                   </div>
@@ -8517,7 +8517,7 @@ function PlacasScreen({ data, setData, bitacora, usuarioActual, mostrarToast, co
             })}
             <button
               onClick={() => { setModalAlta(true); setNuevaChica({ tipo: "Individual", cantidad: "", costo: "" }); }}
-              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "none", border: `1.5px dashed ${C.border}`, borderRadius: 10, padding: "12px 16px", fontSize: 13.5, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "none", border: `1.5px dashed ${C.border}`, borderRadius: 16, padding: "13px 16px", fontSize: 13.5, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
             >
               <Plus size={16} /> Agregar placa chica
             </button>
@@ -8542,7 +8542,7 @@ function PlacasScreen({ data, setData, bitacora, usuarioActual, mostrarToast, co
           <FieldLabel>¿Cuántas hojas se van a usar?</FieldLabel>
           <TextInput type="number" value={prodForm.hojasUsadas} onChange={(e) => setProdForm({ ...prodForm, hojasUsadas: e.target.value })} />
 
-          <div style={{ background: rendimiento > 0 ? `${C.success}12` : `${C.error}12`, border: `1px solid ${rendimiento > 0 ? C.success : C.error}`, borderRadius: 10, padding: 12, marginTop: 10 }}>
+          <div style={{ background: rendimiento > 0 ? `${C.success}12` : `${C.error}12`, border: `1px solid ${rendimiento > 0 ? C.success : C.error}`, borderRadius: 16, padding: 14, marginTop: 10 }}>
             {rendimiento > 0 ? (
               <>
                 <div style={{ fontSize: 12.5, color: C.muted }}>De {hojasUsadas || 0} hoja(s) {prodForm.tamaño} salen:</div>
