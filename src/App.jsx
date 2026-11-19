@@ -953,7 +953,7 @@ function Toast({ text }) {
       className="pf-toast"
       style={{
         position: "fixed",
-        bottom: 90,
+        bottom: "calc(96px + env(safe-area-inset-bottom, 0px))",
         left: "50%",
         transform: "translateX(-50%)",
         background: C.foreground, color: textoContraste(C.foreground),
@@ -984,6 +984,17 @@ function GlobalStyles() {
       @media (min-width: 700px) { .pf-hub-grid { grid-template-columns: repeat(3, 1fr); } }
       .pf-entrada-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
       @media (min-width: 700px) { .pf-entrada-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; } }
+      .pf-navbar { position: fixed; z-index: 40; left: 50%; transform: translateX(-50%); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); width: calc(100% - 24px); max-width: 456px; height: 64px; display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; background: ${C.surface}; border: 1px solid ${C.border}; border-radius: 26px; box-shadow: 0 14px 34px -14px rgba(40,20,60,0.35); box-sizing: border-box; padding: 0 4px; }
+      .pf-sidebar { display: none; }
+      .pf-app-contenido { padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+      @media (min-width: 900px) {
+        .pf-navbar { display: none; }
+        .pf-sidebar { display: flex; flex-direction: column; position: fixed; z-index: 40; top: 16px; bottom: 16px; left: 16px; width: 224px; box-sizing: border-box; padding: 18px 12px; background: ${C.surface}; border: 1px solid ${C.border}; border-radius: 26px; box-shadow: ${SOMBRA_TARJETA}; }
+        .pf-shell.pf-app { max-width: none; margin: 0 24px 0 256px; width: auto; }
+        .pf-app-contenido { padding-bottom: 0; }
+        .pf-fab { bottom: 28px !important; }
+        .pf-toast, .pf-aviso-guardado { bottom: 28px !important; left: calc(50% + 128px) !important; }
+      }
       * { scrollbar-width: thin; scrollbar-color: rgba(110,90,130,0.22) transparent; }
       /* El listón dorado — el único adorno recurrente de la app. Aparece
          bajo el nombre "Photograf" y en los momentos de mayor peso (el
@@ -1504,7 +1515,7 @@ function FAB({ color, onClick }) {
       onClick={onClick}
       style={{
         position: "fixed",
-        bottom: 84,
+        bottom: "calc(92px + env(safe-area-inset-bottom, 0px))",
         right: 16,
         width: 56,
         height: 56,
@@ -9791,7 +9802,7 @@ function TransferenciasScreen({ transferencias, transferenciasBases, transferenc
 }
 
 
-function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isDark, onToggleDark, onDeshacer, puedeDeshacer, usuarioActual, onCambiarUsuario, onAdminMode, transferenciasPendientes, transferenciasBasesPendientes, transferenciasIndumentariaPendientes, sucursalActiva, onConfirmarTransferencia, onConfirmarTransferenciaBase, onConfirmarTransferenciaIndumentaria, onIniciarTransferenciaIndumentaria, permisoNotificaciones, onActivarNotificaciones, onVolverHub, subInicial, onSubConsumido }) {
+function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isDark, onToggleDark, onDeshacer, puedeDeshacer, usuarioActual, onCambiarUsuario, onAdminMode, transferenciasPendientes, transferenciasBasesPendientes, transferenciasIndumentariaPendientes, sucursalActiva, onConfirmarTransferencia, onConfirmarTransferenciaBase, onConfirmarTransferenciaIndumentaria, onIniciarTransferenciaIndumentaria, permisoNotificaciones, onActivarNotificaciones, onVolverHub, subInicial, onSubConsumido, onIr }) {
   const [sub, setSub] = useState(subInicial || null);
 
   /* Si el Home pide abrir directo una sub-pantalla de "Más" (por ejemplo,
@@ -9841,6 +9852,13 @@ function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isD
 
   const gruposMenu = [
     {
+      titulo: "Inventario",
+      opciones: [
+        { key: "materiales", label: "Materiales", icon: Package, color: C.accent1, ir: true },
+        { key: "miInventario", label: "Mi Inventario", icon: User, color: C.primary, ir: true },
+      ],
+    },
+    {
       titulo: "Para hoy",
       opciones: [
         { key: "notificaciones", label: "Notificaciones", icon: Bell, badge: alertas.length, color: C.warning },
@@ -9877,7 +9895,7 @@ function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isD
             {grupo.opciones.map((o) => {
               const Icon = o.icon;
               return (
-                <button key={o.key} onClick={() => setSub(o.key)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12, cursor: "pointer" }}>
+                <button key={o.key} onClick={() => (o.ir && onIr ? onIr(o.key) : setSub(o.key))} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12, cursor: "pointer" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <Icon size={20} color={o.color} />
                     <span style={{ fontSize: 14, fontWeight: 600, color: C.foreground }}>{o.label}</span>
@@ -9934,30 +9952,72 @@ function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isD
   );
 }
 
+/* Navegación principal. Materiales y Mi Inventario viven ahora dentro de "Más". */
 const tabs = [
-  { key: "home", label: "Home", icon: Home },
+  { key: "home", label: "Inicio", icon: Home },
   { key: "equipo", label: "Equipo", icon: Camera },
   { key: "almacen", label: "Almacén", icon: Warehouse },
-  { key: "materiales", label: "Materiales", icon: Package },
-  { key: "miInventario", label: "Mi Inv.", icon: User },
   { key: "mas", label: "Más", icon: MoreHorizontal },
 ];
+/* Pantallas que se abren desde "Más": mientras se ven, "Más" queda marcado */
+const PANTALLAS_DE_MAS = ["mas", "materiales", "miInventario"];
 
-function BottomNav({ active, onChange, badge }) {
+function BotonNav({ t, isActive, badge, onChange, vertical }) {
+  const Icon = t.icon;
+  const tono = isActive ? C.primary : C.muted;
+  if (vertical) {
+    return (
+      <button onClick={() => onChange(t.key)} className="pf-press" style={{ position: "relative", width: "100%", display: "flex", alignItems: "center", gap: 12, background: isActive ? C.primary + "14" : "transparent", border: "none", borderRadius: 14, padding: "11px 12px", cursor: "pointer", textAlign: "left" }}>
+        <Icon size={20} color={tono} />
+        <span style={{ flex: 1, fontSize: 14, fontWeight: isActive ? 700 : 600, color: isActive ? C.primary : C.foreground }}>{t.label}</span>
+        {!!badge && <span style={{ background: C.error, color: textoContraste(C.error), fontSize: 11, fontWeight: 700, borderRadius: 999, padding: "1px 7px" }}>{badge}</span>}
+      </button>
+    );
+  }
   return (
-    <div className="pf-shell" style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: C.background, borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "space-around", padding: "8px 2px" }}>
-      {tabs.map((t) => {
-        const Icon = t.icon;
-        const isActive = active === t.key;
-        return (
-          <button key={t.key} onClick={() => onChange(t.key)} style={{ position: "relative", background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "4px 4px", cursor: "pointer", minWidth: 40 }}>
-            <Icon size={20} color={isActive ? C.primary : C.muted} />
-            {t.key === "mas" && !!badge && <span style={{ position: "absolute", top: 0, right: 4, background: C.error, borderRadius: 6, width: 8, height: 8 }} />}
-            <span style={{ fontSize: 9, fontWeight: isActive ? 700 : 400, color: isActive ? C.primary : C.muted }}>{t.label}</span>
+    <button onClick={() => onChange(t.key)} style={{ position: "relative", background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, padding: 0, cursor: "pointer", height: "100%" }}>
+      <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 46, height: 28, borderRadius: 999, background: isActive ? C.primary + "1A" : "transparent", transition: "background 160ms ease" }}>
+        <Icon size={20} color={tono} />
+      </span>
+      {!!badge && <span style={{ position: "absolute", top: 6, right: "calc(50% - 20px)", background: C.error, borderRadius: 6, width: 8, height: 8, border: `2px solid ${C.surface}` }} />}
+      <span style={{ fontSize: 10.5, fontWeight: isActive ? 700 : 500, color: isActive ? C.primary : C.muted }}>{t.label}</span>
+    </button>
+  );
+}
+
+function BottomNav({ active, onChange, badge, onScan, sucursalNombre }) {
+  const activo = PANTALLAS_DE_MAS.includes(active) ? "mas" : active;
+  const [a, b, c, d] = tabs;
+  return (
+    <>
+      {/* Celular: cápsula flotante con Escanear QR al centro */}
+      <nav className="pf-navbar" aria-label="Navegación">
+        {[a, b].map((t) => <BotonNav key={t.key} t={t} isActive={activo === t.key} onChange={onChange} />)}
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <button onClick={onScan} className="pf-fab" aria-label="Escanear QR" style={{ width: 58, height: 58, marginTop: -30, borderRadius: 999, background: C.ink, border: `4px solid ${C.surface}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 10px 22px -8px rgba(20,18,22,0.55)" }}>
+            <ScanLine size={24} color={textoContraste(C.ink)} />
           </button>
-        );
-      })}
-    </div>
+        </div>
+        {[c, d].map((t) => <BotonNav key={t.key} t={t} isActive={activo === t.key} badge={t.key === "mas" ? badge : 0} onChange={onChange} />)}
+      </nav>
+
+      {/* Tablet / computadora: barra lateral */}
+      <aside className="pf-sidebar" aria-label="Navegación">
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 6px 0" }}>
+          <img src={LOGO_PHOTOGRAF} alt="Photograf" style={{ width: 28, height: 28 }} />
+          <div className="pf-heading" style={{ fontSize: 19, color: C.foreground }}>Photograf</div>
+        </div>
+        {sucursalNombre && <div style={{ fontSize: 12.5, color: C.muted, padding: "4px 6px 0 44px" }}>{sucursalNombre}</div>}
+        <button onClick={onScan} className="pf-press" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", background: C.ink, color: textoContraste(C.ink), border: "none", borderRadius: 16, padding: "13px 14px", fontSize: 14, fontWeight: 700, cursor: "pointer", margin: "20px 0 14px", boxShadow: "0 10px 22px -12px rgba(20,18,22,0.6)" }}>
+          <ScanLine size={18} /> Escanear QR
+        </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {[a, b, c].map((t) => <BotonNav key={t.key} t={t} vertical isActive={activo === t.key} onChange={onChange} />)}
+        </div>
+        <div style={{ flex: 1 }} />
+        <BotonNav t={d} vertical isActive={activo === "mas"} badge={badge} onChange={onChange} />
+      </aside>
+    </>
   );
 }
 
@@ -10895,18 +10955,18 @@ export default function PhotografInventario() {
     almacen: <AlmacenScreen data={data} setData={setData} bitacora={agregarBitacora} usuarioActual={usuarioActual} sucursal={sucursalActiva} mostrarToast={mostrarToast} onPedir={crearPedido} onIniciarTransferenciaBase={iniciarTransferenciaBase} />,
     materiales: <MaterialesScreen data={data} setData={setData} bitacora={agregarBitacora} usuarioActual={usuarioActual} mostrarToast={mostrarToast} config={config} onPedir={crearPedido} sucursal={sucursalActiva} onIniciarTransferenciaIndumentaria={iniciarTransferenciaIndumentaria} />,
     miInventario: <MiInventarioScreen allData={allData} usuarioActual={usuarioActual} />,
-    mas: <MasScreen data={data} setData={setData} bitacora={agregarBitacora} mostrarToast={mostrarToast} alertas={alertas} config={config} isDark={isDark} onToggleDark={toggleDark} onDeshacer={deshacer} puedeDeshacer={!!snapshot[sucursalActiva]} usuarioActual={usuarioActual} onCambiarUsuario={() => setUsuarioActual(null)} onAdminMode={() => setMostrarAdmin(true)} transferenciasPendientes={transferenciasPendientes} transferenciasBasesPendientes={transferenciasBasesPendientes} transferenciasIndumentariaPendientes={transferenciasIndumentariaPendientes} sucursalActiva={sucursalActiva} onConfirmarTransferencia={confirmarRecepcionTransferencia} onConfirmarTransferenciaBase={confirmarRecepcionTransferenciaBase} onConfirmarTransferenciaIndumentaria={confirmarRecepcionTransferenciaIndumentaria} onIniciarTransferenciaIndumentaria={iniciarTransferenciaIndumentaria} permisoNotificaciones={permisoNotificaciones} onActivarNotificaciones={activarNotificaciones} onVolverHub={() => { setAppActiva(null); setSucursalActiva(null); }} subInicial={subMasInicial} onSubConsumido={() => setSubMasInicial(null)} />,
+    mas: <MasScreen data={data} setData={setData} bitacora={agregarBitacora} mostrarToast={mostrarToast} alertas={alertas} config={config} isDark={isDark} onToggleDark={toggleDark} onDeshacer={deshacer} puedeDeshacer={!!snapshot[sucursalActiva]} usuarioActual={usuarioActual} onCambiarUsuario={() => setUsuarioActual(null)} onAdminMode={() => setMostrarAdmin(true)} transferenciasPendientes={transferenciasPendientes} transferenciasBasesPendientes={transferenciasBasesPendientes} transferenciasIndumentariaPendientes={transferenciasIndumentariaPendientes} sucursalActiva={sucursalActiva} onConfirmarTransferencia={confirmarRecepcionTransferencia} onConfirmarTransferenciaBase={confirmarRecepcionTransferenciaBase} onConfirmarTransferenciaIndumentaria={confirmarRecepcionTransferenciaIndumentaria} onIniciarTransferenciaIndumentaria={iniciarTransferenciaIndumentaria} permisoNotificaciones={permisoNotificaciones} onActivarNotificaciones={activarNotificaciones} onVolverHub={() => { setAppActiva(null); setSucursalActiva(null); }} subInicial={subMasInicial} onSubConsumido={() => setSubMasInicial(null)} onIr={setScreen} />,
   };
 
   return (
-    <div className="pf-shell" style={{ fontFamily: 'Inter, -apple-system, "Segoe UI", Roboto, sans-serif', background: "transparent", minHeight: "100vh", position: "relative" }}>
+    <div className="pf-shell pf-app" style={{ fontFamily: 'Inter, -apple-system, "Segoe UI", Roboto, sans-serif', background: "transparent", minHeight: "100vh", position: "relative" }}>
         <GlobalStyles />
       {screen === "home" && <TopHeader sucursal={sucursalActiva} onLogout={() => setSucursalActiva(null)} onSearch={() => setVistaExterna("buscar")} onScan={() => setVistaExterna("escanear")} />}
-      <div key={screen} className="pf-fade-in">{screens[screen]}</div>
-      <BottomNav active={screen} onChange={setScreen} badge={alertas.length + transferenciasPendientes.filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito").length + transferenciasBasesPendientes.filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito").length + transferenciasIndumentariaPendientes.filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito").length} />
+      <div key={screen} className="pf-fade-in pf-app-contenido">{screens[screen]}</div>
+      <BottomNav active={screen} onChange={setScreen} onScan={() => setVistaExterna("escanear")} sucursalNombre={NOMBRES_SUCURSAL[sucursalActiva]} badge={alertas.length + transferenciasPendientes.filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito").length + transferenciasBasesPendientes.filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito").length + transferenciasIndumentariaPendientes.filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito").length} />
       <Toast text={toast} />
       {errorGuardado && (
-        <div style={{ position: "fixed", bottom: 70, left: "50%", transform: "translateX(-50%)", background: C.error, color: textoContraste(C.error), fontSize: 11, padding: "6px 12px", borderRadius: 20, zIndex: 60 }}>
+        <div className="pf-aviso-guardado" style={{ position: "fixed", bottom: "calc(96px + env(safe-area-inset-bottom, 0px))", left: "50%", transform: "translateX(-50%)", background: C.error, color: textoContraste(C.error), fontSize: 11, padding: "6px 12px", borderRadius: 20, zIndex: 60 }}>
           No se pudo guardar. Revisa tu conexión.
         </div>
       )}
