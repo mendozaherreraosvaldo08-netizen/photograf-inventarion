@@ -75,31 +75,36 @@ import {
    a una función distinta, y de casualidad el rojo/naranja/verde ya
    coinciden con lo que error/warning/success necesitan de por sí. */
 const LIGHT = {
-  primary: "#0072BA",
-  secondary: "#BA0E63",
+  primary: "#1572B8",
+  secondary: "#B3195F",
   accent1: "#FCDC00",
-  warning: "#F59A00",
+  warning: "#E58A00",
   background: "#FFFFFF",
-  surface: "#F8F9FB",
-  foreground: "#1A1A1A",
-  muted: "#757575",
-  border: "#E8E8E8",
-  success: "#00B532",
-  error: "#FF0809",
+  surface: "#FFFFFF",
+  foreground: "#141216",
+  muted: "#6D6573",
+  border: "#ECE5EE",
+  success: "#14A44D",
+  error: "#E5484D",
+  /* rediseño: tinta para botones principales y el fondo pastel de toda la app */
+  ink: "#141216",
+  pageBg: "linear-gradient(160deg, #F6E9F1 0%, #ECE8F7 45%, #E4EEFA 100%)",
 };
 
 const DARK = {
-  primary: "#2698E0",
-  secondary: "#E03489",
-  accent1: "#FFFF26",
-  warning: "#FFC026",
-  background: "#121212",
-  surface: "#1E1E1E",
-  foreground: "#F5F5F5",
-  muted: "#A0A0A0",
-  border: "#2E2E2E",
-  success: "#26DB58",
-  error: "#FF2E2F",
+  primary: "#4AA3E8",
+  secondary: "#E55A9A",
+  accent1: "#FFE24D",
+  warning: "#FFB547",
+  background: "#1D1B22",
+  surface: "#1D1B22",
+  foreground: "#F4F0F6",
+  muted: "#A69FAD",
+  border: "#2E2B35",
+  success: "#3DD07A",
+  error: "#FF6369",
+  ink: "#F4F0F6",
+  pageBg: "linear-gradient(160deg, #1A1420 0%, #15131B 50%, #121722 100%)",
 };
 
 const C = { ...LIGHT };
@@ -970,8 +975,12 @@ function Toast({ text }) {
 function GlobalStyles() {
   return (
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
-      .pf-heading { font-family: 'Fraunces', Georgia, serif; letter-spacing: -0.01em; }
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+      .pf-heading { font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 800 !important; letter-spacing: -0.03em; }
+      html, body { background: ${C.pageBg}; background-attachment: fixed; min-height: 100%; }
+      body { font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif; color: ${C.foreground}; }
+      button, input, select, textarea { font-family: inherit; }
+      * { scrollbar-width: thin; scrollbar-color: rgba(110,90,130,0.22) transparent; }
       /* El listón dorado — el único adorno recurrente de la app. Aparece
          bajo el nombre "Photograf" y en los momentos de mayor peso (el
          resumen del administrador), nunca como decoración suelta. */
@@ -1000,13 +1009,8 @@ function GlobalStyles() {
       html, body { overflow-x: hidden; }
       .pf-shell { max-width: 480px; margin: 0 auto; width: 100%; box-sizing: border-box; }
       @media (min-width: 700px) {
-        html, body {
-          background: linear-gradient(135deg, #EEF2FF 0%, #F5F0FF 50%, #FFF5F0 100%);
-          background-attachment: fixed;
-        }
         .pf-shell {
           max-width: 640px;
-          box-shadow: 0 0 50px rgba(16,24,40,0.10);
         }
         .pf-list-grid {
           display: grid !important;
@@ -1051,10 +1055,10 @@ function GlobalStyles() {
 
 function Modal({ title, onClose, children, danger }) {
   return (
-    <div className="pf-fade-in" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50 }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="pf-modal-in" style={{ background: C.background, width: "100%", maxWidth: 480, borderRadius: "16px 16px 0 0", padding: 20, maxHeight: "85vh", overflowY: "auto" }}>
+    <div className="pf-fade-in" style={{ position: "fixed", inset: 0, background: "rgba(24,14,32,0.38)", backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="pf-modal-in" style={{ background: C.background, width: "100%", maxWidth: 520, borderRadius: "26px 26px 0 0", padding: "22px 20px", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 -12px 40px rgba(40,20,60,0.18)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: danger ? C.error : C.foreground }}>{title}</div>
+          <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: "-0.02em", color: danger ? C.error : C.foreground }}>{title}</div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: C.muted }}>
             <X size={22} />
           </button>
@@ -1066,11 +1070,11 @@ function Modal({ title, onClose, children, danger }) {
 }
 
 function FieldLabel({ children }) {
-  return <div style={{ fontSize: 12, fontWeight: 600, color: C.muted, marginBottom: 6, marginTop: 12 }}>{children}</div>;
+  return <div style={{ fontSize: 12.5, fontWeight: 600, color: C.muted, marginBottom: 6, marginTop: 14 }}>{children}</div>;
 }
 
 const TextInput = forwardRef(function TextInput({ style, ...props }, ref) {
-  return <input ref={ref} {...props} style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", fontSize: 14, color: C.foreground, background: C.background, boxSizing: "border-box", ...style }} />;
+  return <input ref={ref} {...props} style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 14, padding: "12px 14px", fontSize: 15, color: C.foreground, background: C.background, boxSizing: "border-box", outline: "none", ...style }} />;
 });
 
 /* Campo de contraseña con un ojito para mostrar/ocultar lo que se escribió —
@@ -1093,7 +1097,7 @@ const PasswordInput = forwardRef(function PasswordInput(props, ref) {
   );
 });
 
-function PrimaryButton({ children, onClick, color = C.primary, disabled }) {
+function PrimaryButton({ children, onClick, color = C.ink, disabled }) {
   return (
     <button
       className="pf-press"
@@ -1101,16 +1105,16 @@ function PrimaryButton({ children, onClick, color = C.primary, disabled }) {
       disabled={disabled}
       style={{
         width: "100%",
-        background: disabled ? C.border : `linear-gradient(135deg, ${shadeColor(color, 8)}, ${shadeColor(color, -14)})`,
+        background: disabled ? C.border : color,
         color: disabled ? C.muted : textoContraste(color),
         border: "none",
-        borderRadius: 10,
-        padding: "12px 16px",
-        fontSize: 14,
-        fontWeight: 600,
+        borderRadius: 16,
+        padding: "14px 18px",
+        fontSize: 15,
+        fontWeight: 700,
         cursor: disabled ? "not-allowed" : "pointer",
         marginTop: 16,
-        boxShadow: disabled ? "none" : `0 4px 14px ${color}40`,
+        boxShadow: disabled ? "none" : `0 10px 22px -12px ${color}`,
       }}
     >
       {children}
@@ -1226,7 +1230,7 @@ function CodigoQR({ codigo, tamaño = 140 }) {
 
 function TopHeader({ sucursal, onLogout, onSearch, onScan }) {
   return (
-    <div style={{ background: C.background, borderBottom: `1px solid ${C.border}`, padding: "12px 16px 20px" }}>
+    <div style={{ background: "transparent", padding: "16px 16px 14px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1253,16 +1257,16 @@ function TopHeader({ sucursal, onLogout, onSearch, onScan }) {
 
 function SectionHeader({ title, subtitle, onBack, right }) {
   return (
-    <div style={{ background: C.background, borderBottom: `1px solid ${C.border}`, padding: "12px 16px 16px" }}>
+    <div style={{ background: "transparent", padding: "16px 16px 10px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {onBack && (
-            <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: C.foreground, padding: 0 }}>
-              <ArrowLeft size={20} />
+            <button onClick={onBack} style={{ background: C.background, border: `1px solid ${C.border}`, borderRadius: 12, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: C.foreground, padding: 0 }}>
+              <ArrowLeft size={18} />
             </button>
           )}
           <div>
-            <div className="pf-heading" style={{ fontSize: 20, fontWeight: 700, color: C.foreground }}>{title}</div>
+            <div className="pf-heading" style={{ fontSize: 22, fontWeight: 800, color: C.foreground }}>{title}</div>
             {subtitle && <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{subtitle}</div>}
           </div>
         </div>
@@ -1274,7 +1278,7 @@ function SectionHeader({ title, subtitle, onBack, right }) {
 
 function SearchBar({ placeholder, value, onChange, autoFocus }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 10px", margin: "16px 16px 0" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, background: C.background, border: `1px solid ${C.border}`, borderRadius: 999, padding: "11px 16px", margin: "12px 16px 0", boxShadow: SOMBRA_TARJETA }}>
       <Search size={20} color={C.muted} />
       <input autoFocus={autoFocus} value={value} onChange={onChange} placeholder={placeholder} style={{ border: "none", outline: "none", background: "transparent", fontSize: 16, color: C.foreground, width: "100%" }} />
     </div>
@@ -1282,9 +1286,9 @@ function SearchBar({ placeholder, value, onChange, autoFocus }) {
 }
 
 function FilterPill({ label, active, onClick, color }) {
-  const fondo = active ? color || C.primary : C.surface;
+  const fondo = active ? color || C.ink : C.background;
   return (
-    <button className="pf-press" onClick={onClick} style={{ background: fondo, color: active ? textoContraste(fondo) : C.foreground, border: active ? "none" : `1px solid ${C.border}`, borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", cursor: "pointer", transition: "background 150ms ease, color 150ms ease" }}>
+    <button className="pf-press" onClick={onClick} style={{ background: fondo, color: active ? textoContraste(fondo) : C.foreground, border: active ? "none" : `1px solid ${C.border}`, borderRadius: 999, padding: "8px 15px", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", cursor: "pointer", transition: "background 150ms ease, color 150ms ease" }}>
       {label}
     </button>
   );
@@ -1387,7 +1391,7 @@ function estadoColorDe(estado) {
 
 function Badge({ estado }) {
   const fondo = estadoColorDe(estado);
-  return <span style={{ display: "inline-block", background: fondo, color: textoContraste(fondo), fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 8 }}>{estado}</span>;
+  return <span style={{ display: "inline-block", background: fondo, color: textoContraste(fondo), fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 999 }}>{estado}</span>;
 }
 
 function EstadoBadges({ estados }) {
@@ -1402,9 +1406,9 @@ function EstadoBadges({ estados }) {
 
 function Thumb({ src, fallback: Icon = ImagePlus }) {
   return src ? (
-    <img src={src} alt="" loading="lazy" style={{ width: 44, height: 44, borderRadius: 10, objectFit: "cover", flexShrink: 0 }} />
+    <img src={src} alt="" loading="lazy" style={{ width: 46, height: 46, borderRadius: 14, objectFit: "cover", flexShrink: 0 }} />
   ) : (
-    <div style={{ width: 44, height: 44, borderRadius: 10, background: C.border, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+    <div style={{ width: 46, height: 46, borderRadius: 14, background: C.border, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
       <Icon size={18} color={C.muted} />
     </div>
   );
@@ -1412,7 +1416,7 @@ function Thumb({ src, fallback: Icon = ImagePlus }) {
 
 function InventoryCard({ nombre, categoria, estados = [], right, alertColor, onClick, onEdit, foto }) {
   return (
-    <div onClick={onClick} className={onClick ? "pf-press" : ""} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px 14px", boxShadow: SOMBRA_TARJETA, display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, borderLeft: alertColor ? `4px solid ${alertColor}` : `1px solid ${C.border}`, cursor: onClick ? "pointer" : "default", gap: 10 }}>
+    <div onClick={onClick} className={onClick ? "pf-press" : ""} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: "14px 16px", boxShadow: SOMBRA_TARJETA, display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, borderLeft: alertColor ? `4px solid ${alertColor}` : `1px solid ${C.border}`, cursor: onClick ? "pointer" : "default", gap: 10 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
         {foto !== undefined && <Thumb src={foto} />}
         <div style={{ flex: 1 }}>
@@ -1435,9 +1439,9 @@ function InventoryCard({ nombre, categoria, estados = [], right, alertColor, onC
 
 function StatCard({ icon: Icon, value, label, color }) {
   return (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, boxShadow: SOMBRA_TARJETA, textAlign: "center" }}>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, boxShadow: SOMBRA_TARJETA, textAlign: "left" }}>
       <Icon size={28} color={color} style={{ marginBottom: 6 }} />
-      <div className="pf-pop" style={{ fontSize: 24, fontWeight: 700, color: C.primary }}>{value}</div>
+      <div className="pf-pop" style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.03em", color: C.foreground }}>{value}</div>
       <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{label}</div>
     </div>
   );
@@ -1445,9 +1449,9 @@ function StatCard({ icon: Icon, value, label, color }) {
 
 function QuickActionCard({ icon: Icon, label, color, onClick }) {
   return (
-    <button className="pf-press" onClick={onClick} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, boxShadow: SOMBRA_TARJETA, display: "flex", flexDirection: "column", alignItems: "center", gap: 12, cursor: "pointer" }}>
-      <div style={{ width: 56, height: 56, borderRadius: 28, background: color, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Icon size={28} color="#fff" />
+    <button className="pf-press" onClick={onClick} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 18, boxShadow: SOMBRA_TARJETA, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+      <div style={{ width: 46, height: 46, borderRadius: 15, background: color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Icon size={23} color="#fff" />
       </div>
       <div style={{ fontSize: 13, fontWeight: 600, color: C.foreground }}>{label}</div>
     </button>
@@ -1464,7 +1468,7 @@ function AreaTile({ icon: Icon, label, value, onClick }) {
   const bien = value === 0;
   const color = bien ? C.success : C.warning;
   return (
-    <button className="pf-press" onClick={onClick} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px 12px", boxShadow: SOMBRA_TARJETA, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer", textAlign: "center" }}>
+    <button className="pf-press" onClick={onClick} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: "14px 12px", boxShadow: SOMBRA_TARJETA, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer", textAlign: "center" }}>
       <Icon size={22} color={color} />
       <div className="pf-pop" style={{ fontSize: 20, fontWeight: 700, color: C.foreground }}>{value}</div>
       <div style={{ fontSize: 11.5, color: C.muted, fontWeight: 600 }}>{label}</div>
@@ -1500,10 +1504,10 @@ function FAB({ color, onClick }) {
         right: 16,
         width: 56,
         height: 56,
-        borderRadius: 28,
-        background: `linear-gradient(135deg, ${shadeColor(color, 10)}, ${shadeColor(color, -12)})`,
+        borderRadius: 20,
+        background: color,
         border: "none",
-        boxShadow: `0 8px 20px ${color}4D, 0 2px 6px rgba(0,0,0,0.15)`,
+        boxShadow: `0 14px 28px -10px ${color}, 0 2px 6px rgba(0,0,0,0.12)`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -1786,7 +1790,7 @@ function calcularAlertas(data, config) {
 function UserPicker({ empleados, onSelect, onAdminMode }) {
   const [custom, setCustom] = useState("");
   return (
-    <div style={{ padding: 20, minHeight: "100vh", background: C.background }}>
+    <div style={{ padding: 20, minHeight: "100vh", background: "transparent" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
         <img src={LOGO_PHOTOGRAF} alt="Photograf" style={{ width: 32, height: 32 }} />
         <div>
@@ -1861,7 +1865,7 @@ function AdminGate({ config, onSuccess, onCancel }) {
   };
   const segundosRestantes = bloqueado ? Math.ceil((bloqueadoHasta - Date.now()) / 1000) : 0;
   return (
-    <div style={{ padding: 20, minHeight: "100vh", background: C.background }}>
+    <div style={{ padding: 20, minHeight: "100vh", background: "transparent" }}>
       <SectionHeader title="Panel de Administrador" onBack={onCancel} />
       <form
         onSubmit={(e) => {
@@ -4496,7 +4500,7 @@ const URL_ASISTENCIA = "https://asistencia-front-ee3eg87bc.vercel.app/";
    ========================================================================= */
 function HubScreen({ usuario, onAbrirInventario, onAbrirAsistencia, onCambiarUsuario }) {
   return (
-    <div style={{ padding: 20, minHeight: "100vh", background: C.background }}>
+    <div style={{ padding: 20, minHeight: "100vh", background: "transparent" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <img src={LOGO_PHOTOGRAF} alt="Photograf" style={{ width: 30, height: 30 }} />
@@ -4596,7 +4600,7 @@ function SucursalSelector({ usuario, onCambiarUsuario, onUnlock, onOpenMiInventa
   };
 
   return (
-    <div style={{ padding: 20, minHeight: "100vh", background: C.background }}>
+    <div style={{ padding: 20, minHeight: "100vh", background: "transparent" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <img src={LOGO_PHOTOGRAF} alt="Photograf" style={{ width: 28, height: 28 }} />
@@ -10654,7 +10658,7 @@ export default function PhotografInventario() {
 
   if (errorCargaInicial) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.background, fontFamily: '-apple-system, "Segoe UI", Roboto, sans-serif', padding: 24, textAlign: "center" }}>
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "transparent", fontFamily: '-apple-system, "Segoe UI", Roboto, sans-serif', padding: 24, textAlign: "center" }}>
         <GlobalStyles />
         <img src={LOGO_PHOTOGRAF} alt="Photograf" style={{ width: 48, height: 48 }} />
         <div style={{ marginTop: 16, fontSize: 14.5, fontWeight: 700, color: C.foreground }}>No se pudo conectar</div>
@@ -10673,7 +10677,7 @@ export default function PhotografInventario() {
 
   if (!datosListos) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.background, fontFamily: '-apple-system, "Segoe UI", Roboto, sans-serif' }}>
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "transparent", fontFamily: '-apple-system, "Segoe UI", Roboto, sans-serif' }}>
         <GlobalStyles />
         <img src={LOGO_PHOTOGRAF} alt="Photograf" style={{ width: 48, height: 48 }} className="pf-pop" />
         <div style={{ marginTop: 10, fontSize: 13, color: C.muted }}>Cargando inventario…</div>
@@ -10683,7 +10687,7 @@ export default function PhotografInventario() {
 
   if (mostrarAdmin) {
     return (
-      <div className="pf-shell" style={{ fontFamily: '-apple-system, "Segoe UI", Roboto, sans-serif' }}>
+      <div className="pf-shell" style={{ fontFamily: 'Inter, -apple-system, "Segoe UI", Roboto, sans-serif' }}>
         <GlobalStyles />
         {adminAutenticado ? (
           <AdminScreen
@@ -10721,7 +10725,7 @@ export default function PhotografInventario() {
 
   if (!appActiva) {
     return (
-      <div className="pf-shell" style={{ fontFamily: '-apple-system, "Segoe UI", Roboto, sans-serif' }}>
+      <div className="pf-shell" style={{ fontFamily: 'Inter, -apple-system, "Segoe UI", Roboto, sans-serif' }}>
         <GlobalStyles />
         <HubScreen
           usuario={usuarioActual}
@@ -10735,7 +10739,7 @@ export default function PhotografInventario() {
 
   if (appActiva === "asistencia") {
     return (
-      <div className="pf-shell" style={{ fontFamily: '-apple-system, "Segoe UI", Roboto, sans-serif', background: C.background, minHeight: "100vh" }}>
+      <div className="pf-shell" style={{ fontFamily: 'Inter, -apple-system, "Segoe UI", Roboto, sans-serif', background: "transparent", minHeight: "100vh" }}>
         <GlobalStyles />
         <AsistenciaScreen onBack={() => setAppActiva(null)} />
       </div>
@@ -10745,7 +10749,7 @@ export default function PhotografInventario() {
   // A partir de aquí, appActiva === "inventario": recién aquí se pide el nombre.
   if (!usuarioActual) {
     return (
-      <div className="pf-shell" style={{ fontFamily: '-apple-system, "Segoe UI", Roboto, sans-serif' }}>
+      <div className="pf-shell" style={{ fontFamily: 'Inter, -apple-system, "Segoe UI", Roboto, sans-serif' }}>
         <GlobalStyles />
         <UserPicker empleados={empleados} onSelect={setUsuarioActual} onAdminMode={() => setMostrarAdmin(true)} />
       </div>
@@ -10755,7 +10759,7 @@ export default function PhotografInventario() {
   if (!sucursalActiva) {
     if (vistaExterna === "miInventario") {
       return (
-        <div className="pf-shell" style={{ fontFamily: '-apple-system, "Segoe UI", Roboto, sans-serif', background: C.background, minHeight: "100vh" }}>
+        <div className="pf-shell" style={{ fontFamily: 'Inter, -apple-system, "Segoe UI", Roboto, sans-serif', background: "transparent", minHeight: "100vh" }}>
         <GlobalStyles />
           <SectionHeader title="Mi Inventario" onBack={() => setVistaExterna(null)} />
           <MiInventarioScreen allData={allData} usuarioActual={usuarioActual} />
@@ -10773,14 +10777,14 @@ export default function PhotografInventario() {
         bases: SUCURSALES.flatMap((s) => etiquetar(allData[s].bases, s)),
       };
       return (
-        <div className="pf-shell" style={{ fontFamily: '-apple-system, "Segoe UI", Roboto, sans-serif', background: C.background, minHeight: "100vh" }}>
+        <div className="pf-shell" style={{ fontFamily: 'Inter, -apple-system, "Segoe UI", Roboto, sans-serif', background: "transparent", minHeight: "100vh" }}>
         <GlobalStyles />
           <BuscadorGeneral data={combinado} onClose={() => setVistaExterna(null)} />
         </div>
       );
     }
     return (
-      <div className="pf-shell" style={{ fontFamily: '-apple-system, "Segoe UI", Roboto, sans-serif' }}>
+      <div className="pf-shell" style={{ fontFamily: 'Inter, -apple-system, "Segoe UI", Roboto, sans-serif' }}>
         <GlobalStyles />
         <SucursalSelector usuario={usuarioActual} onCambiarUsuario={() => setUsuarioActual(null)} onUnlock={(s) => { setSucursalActiva(s); setScreen("home"); }} onOpenMiInventario={() => setVistaExterna("miInventario")} onOpenBuscar={() => setVistaExterna("buscar")} config={config} />
       </div>
@@ -10797,7 +10801,7 @@ export default function PhotografInventario() {
       setVistaExterna(null);
     };
     return (
-      <div className="pf-shell" style={{ fontFamily: '-apple-system, "Segoe UI", Roboto, sans-serif', background: C.background, minHeight: "100vh" }}>
+      <div className="pf-shell" style={{ fontFamily: 'Inter, -apple-system, "Segoe UI", Roboto, sans-serif', background: "transparent", minHeight: "100vh" }}>
         <GlobalStyles />
         <BuscadorGeneral data={data} onClose={() => setVistaExterna(null)} onSelect={irABuscarResultado} />
       </div>
@@ -10806,7 +10810,7 @@ export default function PhotografInventario() {
 
   if (vistaExterna === "escanear") {
     return (
-      <div className="pf-shell" style={{ fontFamily: '-apple-system, "Segoe UI", Roboto, sans-serif', background: C.background, minHeight: "100vh" }}>
+      <div className="pf-shell" style={{ fontFamily: 'Inter, -apple-system, "Segoe UI", Roboto, sans-serif', background: "transparent", minHeight: "100vh" }}>
         <GlobalStyles />
         <EscanearScreen sucursalActiva={sucursalActiva} onClose={() => setVistaExterna(null)} onEncontrado={resolverCodigoEscaneado} />
       </div>
@@ -10823,7 +10827,7 @@ export default function PhotografInventario() {
   };
 
   return (
-    <div className="pf-shell" style={{ fontFamily: '-apple-system, "Segoe UI", Roboto, sans-serif', background: C.background, minHeight: "100vh", position: "relative" }}>
+    <div className="pf-shell" style={{ fontFamily: 'Inter, -apple-system, "Segoe UI", Roboto, sans-serif', background: "transparent", minHeight: "100vh", position: "relative" }}>
         <GlobalStyles />
       {screen === "home" && <TopHeader sucursal={sucursalActiva} onLogout={() => setSucursalActiva(null)} onSearch={() => setVistaExterna("buscar")} onScan={() => setVistaExterna("escanear")} />}
       <div key={screen} className="pf-fade-in">{screens[screen]}</div>
