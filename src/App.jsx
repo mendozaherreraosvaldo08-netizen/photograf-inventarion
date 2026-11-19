@@ -1417,6 +1417,8 @@ function estadoColorDe(estado) {
     Recibido: C.success,
     "En tránsito": C.secondary,
     Vencido: C.error,
+    Rentada: C.secondary,
+    Devuelta: C.success,
     Desarmada: C.muted,
   };
   return map[estado] || C.muted;
@@ -4826,7 +4828,13 @@ function HomeScreen({ data, config, goTo, goToMas, alertas, sucursalNombre, most
   if (atrasados > 0) pendientesHoy.push({ icon: AlertTriangle, color: C.error, texto: `${atrasados} equipo(s) atrasado(s)`, onClick: () => goTo("equipo") });
   if (indumentariaHoy > 0) pendientesHoy.push({ icon: Shirt, color: C.primary, texto: `${indumentariaHoy} indumentaria(s) por devolver hoy`, onClick: () => goToMas("indumentaria") });
   if (indumentariaAtrasada > 0) pendientesHoy.push({ icon: Shirt, color: C.error, texto: `${indumentariaAtrasada} indumentaria(s) sin devolver`, onClick: () => goToMas("indumentaria") });
-  eventosHoy.forEach((ev) => pendientesHoy.push({ icon: CalendarIcon, color: C.secondary, texto: `Evento hoy: ${ev.nombre}`, onClick: () => goToMas("calendario") }));
+  eventosHoy.filter((ev) => ev.tipo !== "renta").forEach((ev) => pendientesHoy.push({ icon: CalendarIcon, color: C.secondary, texto: `Evento hoy: ${ev.nombre}`, onClick: () => goToMas("calendario") }));
+  (data.eventos || []).filter((ev) => ev.tipo === "renta" && !ev.devuelta).forEach((ev) => {
+    const fin = ev.fechaRegreso || ev.fecha;
+    if (fin < fmt(hoy)) pendientesHoy.push({ icon: Shirt, color: C.error, texto: `La renta a ${ev.nombre} debía regresar el ${fin}`, onClick: () => goToMas("calendario") });
+    else if (fin === fmt(hoy)) pendientesHoy.push({ icon: Shirt, color: C.primary, texto: `Hoy regresa la renta a ${ev.nombre}`, onClick: () => goToMas("calendario") });
+    else if (ev.fecha === fmt(hoy)) pendientesHoy.push({ icon: Shirt, color: C.secondary, texto: `Hoy sale la renta a ${ev.nombre}`, onClick: () => goToMas("calendario") });
+  });
   eventosManana.forEach((ev) => pendientesHoy.push({ icon: CalendarIcon, color: C.muted, texto: `Mañana: ${ev.nombre}`, onClick: () => goToMas("calendario") }));
   {
     const vencidas = data.bases.flatMap((b) => b.reservas.filter((r) => estadoTolerancia(r)?.nivel === "vencido"));
@@ -7406,7 +7414,8 @@ function IndumentariaScreen({ data, setData, bitacora, usuarioActual, mostrarToa
     .filter((i) => `${i.tipo} ${i.detalle}`.toLowerCase().includes(search.toLowerCase()));
 
   const prestadas = (i) => (i.prestamos || []).filter((p) => p.estado === "Prestado").reduce((a, p) => a + p.cantidad, 0);
-  const disponibles = (i) => i.cantidadTotal - prestadas(i);
+  const disponibles = (i) => Math.max(0, i.cantidadTotal - prestadas(i) - rentadasHoyDe(data, i.id));
+  const rentasDe = (i) => (data.eventos || []).filter((ev) => rentaOcupa(ev, fmt(hoy)) && (ev.indumentaria || []).some((x) => x.id === i.id && x.cantidad > 0));
 
   const confirmarAlta = () => {
     if (!nuevo.tipo || nuevo.cantidadTotal === "") return;
@@ -7589,6 +7598,15 @@ function IndumentariaScreen({ data, setData, bitacora, usuarioActual, mostrarToa
                   <div style={{ fontSize: 11, color: C.muted }}>Préstamos</div>
                 </div>
               </div>
+              {rentasDe(i).map((ev) => {
+                const cant = ev.indumentaria.find((x) => x.id === i.id)?.cantidad || 0;
+                const atrasada = (ev.fechaRegreso || ev.fecha) < fmt(hoy);
+                return (
+                  <div key={ev.id} style={{ marginTop: 8, fontSize: 12, borderRadius: 12, padding: "7px 10px", background: atrasada ? `${C.error}14` : `${C.secondary}12`, color: atrasada ? C.error : C.foreground }}>
+                    {cant} rentada(s) a {ev.nombre} · {atrasada ? `debía regresar el ${ev.fechaRegreso}` : `regresa el ${ev.fechaRegreso}`}
+                  </div>
+                );
+              })}
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                 <button
                   onClick={() => { setPrestando(i); setPrestamoForm({ cantidad: "1", persona: "", nota: "", fechaEsperada: fmt(hoy) }); }}
@@ -9498,14 +9516,55 @@ function disponibleIndumentaria(item) {
    resolvía con el equipo (conflictoDeEquipo/equipoDisponiblePara): sin
    esto, "armar el evento" podía ofrecer más togas/birretes de los que en
    realidad quedan libres si ya hay otro evento ese día usándolas. */
-function disponibleIndumentariaPara(data, item, fecha, excluirEventoId) {
+/* Renta a escuela: la indumentaria sale desde "fecha" y ocupa hasta "fechaRegreso".
+   Si ya pasó la fecha de regreso y nadie tocó "Devuelta", se sigue contando
+   como afuera (no regresa sola). */
+function rentaOcupa(ev, f) {
+  if (!ev || ev.tipo !== "renta" || ev.devuelta) return false;
+  if (!f || f < ev.fecha) return false;
+  const fin = ev.fechaRegreso || ev.fecha;
+  if (f <= fin) return true;
+  return fin < fmt(hoy);
+}
+/* Piezas de esta indumentaria que hoy están rentadas a escuelas */
+function rentadasHoyDe(data, itemId) {
+  const hoyStr = fmt(hoy);
+  return (data?.eventos || [])
+    .filter((ev) => rentaOcupa(ev, hoyStr))
+    .reduce((a, ev) => a + ((ev.indumentaria || []).find((x) => x.id === itemId)?.cantidad || 0), 0);
+}
+function diasEntre(desde, hasta) {
+  const dias = [];
+  if (!desde) return dias;
+  const fin = hasta && hasta >= desde ? hasta : desde;
+  let d = new Date(desde + "T12:00:00");
+  for (let i = 0; i < 400; i++) {
+    const t = fmt(d);
+    dias.push(t);
+    if (t >= fin) break;
+    d.setDate(d.getDate() + 1);
+  }
+  return dias;
+}
+
+function disponibleIndumentariaPara(data, item, fecha, excluirEventoId, fechaFin) {
   const base = disponibleIndumentaria(item);
-  if (!fecha) return { disponible: base, otrosEventos: [] };
-  const otros = (data.eventos || []).filter(
-    (ev) => ev.id !== excluirEventoId && ev.fecha === fecha && (ev.indumentaria || []).some((x) => x.id === item.id && x.cantidad > 0)
-  );
-  const yaApartado = otros.reduce((a, ev) => a + (ev.indumentaria.find((x) => x.id === item.id)?.cantidad || 0), 0);
-  return { disponible: Math.max(0, base - yaApartado), otrosEventos: otros.map((ev) => ev.nombre) };
+  const apartadoEn = (f) => {
+    const otros = (data.eventos || []).filter(
+      (ev) => ev.id !== excluirEventoId && (ev.indumentaria || []).some((x) => x.id === item.id && x.cantidad > 0) && (ev.tipo === "renta" ? rentaOcupa(ev, f) : ev.fecha === f)
+    );
+    return { cant: otros.reduce((a, ev) => a + (ev.indumentaria.find((x) => x.id === item.id)?.cantidad || 0), 0), nombres: otros.map((ev) => (ev.tipo === "renta" ? `renta a ${ev.nombre}` : ev.nombre)) };
+  };
+  const dias = diasEntre(fecha || fmt(hoy), fechaFin || fecha || fmt(hoy));
+  let peor = Infinity;
+  const nombres = new Set();
+  dias.forEach((d) => {
+    const a = apartadoEn(d);
+    peor = Math.min(peor, base - a.cant);
+    a.nombres.forEach((n) => nombres.add(n));
+  });
+  if (peor === Infinity) peor = base;
+  return { disponible: Math.max(0, peor), otrosEventos: [...nombres] };
 }
 
 /* Mismo cálculo que disponibleIndumentariaPara, pero para piezas de
@@ -9538,6 +9597,10 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
   const [categoriaEquipoAbierta, setCategoriaEquipoAbierta] = useState(null);
   const [indumentariaCant, setIndumentariaCant] = useState({}); // { [itemId]: "3" }
   const [tipoIndumentariaAbierto, setTipoIndumentariaAbierto] = useState(null);
+  const [tipoEvento, setTipoEvento] = useState("sesion"); // "sesion" (la llevamos nosotros) o "renta" (a una escuela)
+  const [fechaRegreso, setFechaRegreso] = useState("");
+  const [devolviendoRenta, setDevolviendoRenta] = useState(null); // { ev, regresaron: { [itemId]: "n" }, nota }
+  const esRenta = tipoEvento === "renta";
 
   /* La indumentaria agrupada por tipo (togas, birretes, bandas, borlas...)
      para mostrarla como apartados que se abren/cierran, en vez de una sola
@@ -9604,6 +9667,8 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
 
   const usarEventoGoogle = (evG) => {
     setEditandoEventoId(null);
+    setTipoEvento("sesion");
+    setFechaRegreso("");
     setNombre(evG.titulo);
     setFecha(evG.fecha);
     setEquipoIds([]);
@@ -9620,6 +9685,8 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
      capturarlo de nuevo. */
   const abrirEdicionEvento = (ev) => {
     setEditandoEventoId(ev.id);
+    setTipoEvento(ev.tipo === "renta" ? "renta" : "sesion");
+    setFechaRegreso(ev.fechaRegreso || "");
     setNombre(ev.nombre);
     setFecha(ev.fecha);
     setEquipoIds(ev.equipoIds || []);
@@ -9645,6 +9712,8 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
      estaba editando. */
   const abrirNuevoEvento = () => {
     setEditandoEventoId(null);
+    setTipoEvento("sesion");
+    setFechaRegreso("");
     setNombre("");
     setFecha("");
     setEquipoIds([]);
@@ -9673,6 +9742,17 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
       })
       .filter(Boolean);
     const detalles = [...nombresEquipo, ...nombresEquipoCantidad, ...nombresIndumentaria];
+    if (ev.tipo === "renta") {
+      const atrasada = !ev.devuelta && (ev.fechaRegreso || ev.fecha) < fmt(hoy);
+      return {
+        fecha: ev.fecha,
+        texto: `Renta a ${ev.nombre} (regresa el ${ev.fechaRegreso || ev.fecha})${detalles.length ? " — " + detalles.join(", ") : ""}${ev.devuelta ? ` · devuelta el ${ev.devueltaEl}` : ""}`,
+        tipo: ev.devuelta ? "Devuelta" : atrasada ? "Atrasado" : "Rentada",
+        conflictos: [],
+        eventoId: ev.id,
+        renta: !ev.devuelta,
+      };
+    }
     return {
       fecha: ev.fecha,
       texto: `${ev.nombre}${detalles.length ? " — " + detalles.join(", ") : ""}`,
@@ -9703,8 +9783,32 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
     setEquipoCant((c) => ({ ...c, [id]: String(cant) }));
   };
 
+  const confirmarDevolucion = () => {
+    if (!devolviendoRenta) return;
+    const { ev, regresaron, nota } = devolviendoRenta;
+    const detalle = (ev.indumentaria || []).map((x) => {
+      const r = Math.max(0, Math.min(x.cantidad, parseInt(regresaron[x.id] ?? x.cantidad, 10) || 0));
+      return { id: x.id, cantidad: x.cantidad, regresaron: r, faltan: x.cantidad - r };
+    });
+    const faltantes = detalle.filter((x) => x.faltan > 0);
+    setData((d) => ({
+      ...d,
+      eventos: (d.eventos || []).map((e) => (e.id === ev.id ? { ...e, devuelta: true, devueltaEl: fmt(hoy), devueltaPor: usuarioActual || "", devolucion: detalle, notaDevolucion: nota || "" } : e)),
+      indumentaria: (d.indumentaria || []).map((i) => {
+        const f = faltantes.find((x) => x.id === i.id);
+        if (!f) return i;
+        return { ...i, cantidadTotal: Math.max(0, (Number(i.cantidadTotal) || 0) - f.faltan), movimientos: [...(i.movimientos || []), movimientoBase("baja-renta", -f.faltan, usuarioActual, `No regresó de la renta a ${ev.nombre}${nota ? ` — ${nota}` : ""}`)] };
+      }),
+    }));
+    const nombreItem = (id) => { const it = (data.indumentaria || []).find((i) => i.id === id); return it ? `${it.tipo}${it.detalle ? ` (${it.detalle})` : ""}` : "pieza"; };
+    bitacora(`Renta devuelta: ${ev.nombre}${faltantes.length ? " — faltaron " + faltantes.map((f) => `${f.faltan} ${nombreItem(f.id)}`).join(", ") : " — regresó completa"}`, usuarioActual);
+    mostrarToast(faltantes.length ? "Renta cerrada — se descontaron las que faltaron" : "Renta devuelta completa ✓");
+    setDevolviendoRenta(null);
+  };
+
   const guardarEvento = () => {
     if (!nombre || !fecha) return;
+    if (esRenta && (!fechaRegreso || fechaRegreso < fecha)) return;
     const indumentariaSeleccion = Object.entries(indumentariaCant)
       .map(([id, cant]) => ({ id: parseInt(id, 10), cantidad: parseInt(cant, 10) || 0 }))
       .filter((x) => x.cantidad > 0);
@@ -9715,15 +9819,15 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
       setData((d) => ({
         ...d,
         eventos: (d.eventos || []).map((ev) =>
-          ev.id === editandoEventoId ? { ...ev, nombre, fecha, equipoIds, equipoCantidades: equipoCantidadSeleccion, indumentaria: indumentariaSeleccion } : ev
+          ev.id === editandoEventoId ? { ...ev, nombre, fecha, equipoIds: esRenta ? [] : equipoIds, equipoCantidades: esRenta ? [] : equipoCantidadSeleccion, indumentaria: indumentariaSeleccion, tipo: esRenta ? "renta" : "sesion", fechaRegreso: esRenta ? fechaRegreso : "" } : ev
         ),
       }));
       bitacora(`Evento editado: ${nombre} (${fecha})`, usuarioActual);
       mostrarToast("Cambios guardados ✓");
     } else {
       const nuevoId = Math.max(0, ...(data.eventos || []).map((e) => e.id)) + 1;
-      setData((d) => ({ ...d, eventos: [...(d.eventos || []), { id: nuevoId, nombre, fecha, equipoIds, equipoCantidades: equipoCantidadSeleccion, indumentaria: indumentariaSeleccion, notas: "" }] }));
-      bitacora(`Evento creado: ${nombre} (${fecha})`, usuarioActual);
+      setData((d) => ({ ...d, eventos: [...(d.eventos || []), { id: nuevoId, nombre, fecha, equipoIds: esRenta ? [] : equipoIds, equipoCantidades: esRenta ? [] : equipoCantidadSeleccion, indumentaria: indumentariaSeleccion, notas: "", tipo: esRenta ? "renta" : "sesion", ...(esRenta ? { fechaRegreso, devuelta: false } : {}) }] }));
+      bitacora(esRenta ? `Renta a escuela: ${nombre} (${fecha} a ${fechaRegreso})` : `Evento creado: ${nombre} (${fecha})`, usuarioActual);
       mostrarToast("Evento agregado ✓");
     }
     setModalNuevo(false);
@@ -9794,6 +9898,17 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
                       pueden editar — para agregar o quitar equipo e
                       indumentaria sin tener que borrar y volver a capturar
                       el evento completo. */}
+                  {e.renta && (
+                    <button
+                      onClick={() => {
+                        const ev = data.eventos.find((x) => x.id === e.eventoId);
+                        if (ev) setDevolviendoRenta({ ev, regresaron: {}, nota: "" });
+                      }}
+                      style={{ background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 999, padding: "5px 11px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}
+                    >
+                      Devuelta
+                    </button>
+                  )}
                   {e.eventoId != null && (
                     <button
                       onClick={() => {
@@ -9824,11 +9939,25 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
       <FAB color={C.secondary} onClick={abrirNuevoEvento} />
 
       {modalNuevo && (
-        <Modal title={editandoEventoId ? "Editar evento" : "Nuevo evento"} onClose={cerrarModalEvento}>
-          <FieldLabel>Nombre del evento</FieldLabel>
-          <TextInput value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Sesión XV Fernández" />
-          <FieldLabel>Fecha</FieldLabel>
+        <Modal title={editandoEventoId ? (esRenta ? "Editar renta" : "Editar evento") : esRenta ? "Nueva renta a escuela" : "Nuevo evento"} onClose={cerrarModalEvento}>
+          <FieldLabel>Tipo</FieldLabel>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <FilterPill label="Sesión de fotos (la llevamos)" active={!esRenta} onClick={() => setTipoEvento("sesion")} />
+            <FilterPill label="Renta a escuela" active={esRenta} onClick={() => setTipoEvento("renta")} color={C.secondary} />
+          </div>
+          <FieldLabel>{esRenta ? "Escuela" : "Nombre del evento"}</FieldLabel>
+          <TextInput value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder={esRenta ? "Ej. Preparatoria Norte" : "Ej. Sesión XV Fernández"} />
+          <FieldLabel>{esRenta ? "Fecha de salida" : "Fecha"}</FieldLabel>
           <TextInput type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          {esRenta && (
+            <>
+              <FieldLabel>Fecha de regreso</FieldLabel>
+              <TextInput type="date" value={fechaRegreso} onChange={(e) => setFechaRegreso(e.target.value)} />
+              {fecha && fechaRegreso && fechaRegreso < fecha && <div style={{ fontSize: 12, color: C.error, marginTop: 6 }}>La fecha de regreso no puede ser antes de la salida.</div>}
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 8 }}>Mientras dure la renta, estas piezas no se cuentan como disponibles. Regresan cuando se toca "Devuelta".</div>
+            </>
+          )}
+          {!esRenta && <>
           <FieldLabel>¿Qué equipo se necesita? (opcional)</FieldLabel>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 320, overflowY: "auto", marginBottom: 4 }}>
             {gruposEquipo.length === 0 && (
@@ -9906,7 +10035,8 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
               );
             })}
           </div>
-          <FieldLabel>¿Cuánta indumentaria se necesita? (togas, birretes, bandas, borlas... opcional)</FieldLabel>
+          </>}
+          <FieldLabel>{esRenta ? "¿Qué indumentaria se renta?" : "¿Cuánta indumentaria se necesita? (togas, birretes, bandas, borlas... opcional)"}</FieldLabel>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 280, overflowY: "auto", marginBottom: 4 }}>
             {(data.indumentaria || []).length === 0 && (
               <div style={{ fontSize: 11.5, color: C.muted }}>Todavía no hay indumentaria capturada en Inventario.</div>
@@ -9933,7 +10063,7 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
                   {estaAbierto && (
                     <div style={{ padding: 8, background: C.background, display: "flex", flexDirection: "column", gap: 6 }}>
                       {items.map((item) => {
-                        const { disponible, otrosEventos } = disponibleIndumentariaPara(data, item, fecha, editandoEventoId);
+                        const { disponible, otrosEventos } = disponibleIndumentariaPara(data, item, fecha, editandoEventoId, esRenta ? fechaRegreso : "");
                         const cant = indumentariaCant[item.id] || "0";
                         return (
                           <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: C.surface, border: `1px solid ${C.border}` }}>
@@ -9941,7 +10071,7 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
                               <div style={{ fontSize: 13, color: C.foreground }}>{item.detalle || item.tipo}</div>
                               <div style={{ fontSize: 10.5, color: disponible <= 0 ? C.error : C.muted }}>{disponible} disponible{disponible === 1 ? "" : "s"}</div>
                               {otrosEventos.length > 0 && (
-                                <div style={{ fontSize: 10.5, color: C.error }}>Ya apartado ese día para: {otrosEventos.join(", ")}</div>
+                                <div style={{ fontSize: 10.5, color: C.error }}>{esRenta ? "Ya apartado en esas fechas para" : "Ya apartado ese día para"}: {otrosEventos.join(", ")}</div>
                               )}
                             </div>
                             <input
@@ -9963,7 +10093,33 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
               );
             })}
           </div>
-          <PrimaryButton onClick={guardarEvento} color={C.secondary} disabled={!nombre || !fecha}>{editandoEventoId ? "Guardar cambios" : "Guardar evento"}</PrimaryButton>
+          <PrimaryButton onClick={guardarEvento} color={C.secondary} disabled={!nombre || !fecha || (esRenta && (!fechaRegreso || fechaRegreso < fecha))}>{editandoEventoId ? "Guardar cambios" : esRenta ? "Guardar renta" : "Guardar evento"}</PrimaryButton>
+        </Modal>
+      )}
+
+      {devolviendoRenta && (
+        <Modal title={`Devolución · ${devolviendoRenta.ev.nombre}`} onClose={() => setDevolviendoRenta(null)}>
+          <div style={{ fontSize: 13, color: C.muted }}>Escribe cuántas regresaron de cada una. Si regresaron todas, solo confirma. Las que falten o vengan dañadas se descuentan del total.</div>
+          {(devolviendoRenta.ev.indumentaria || []).map((x) => {
+            const it = (data.indumentaria || []).find((i) => i.id === x.id);
+            const val = devolviendoRenta.regresaron[x.id] ?? String(x.cantidad);
+            const n = parseInt(val, 10);
+            const faltan = isNaN(n) ? 0 : Math.max(0, x.cantidad - n);
+            return (
+              <div key={x.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderTop: `1px solid ${C.border}`, marginTop: 6 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.foreground }}>{it ? `${it.tipo}${it.detalle ? ` · ${it.detalle}` : ""}` : "Pieza"}</div>
+                  <div style={{ fontSize: 11.5, color: faltan ? C.error : C.muted }}>Salieron {x.cantidad}{faltan ? ` · faltan ${faltan}` : ""}</div>
+                </div>
+                <input type="number" inputMode="numeric" min="0" max={x.cantidad} value={val}
+                  onChange={(e) => setDevolviendoRenta({ ...devolviendoRenta, regresaron: { ...devolviendoRenta.regresaron, [x.id]: e.target.value } })}
+                  style={{ width: 80, border: `1.5px solid ${faltan ? C.error : C.border}`, borderRadius: 12, padding: "9px 10px", fontSize: 15, color: C.foreground, background: C.background, boxSizing: "border-box", outline: "none", textAlign: "center" }} />
+              </div>
+            );
+          })}
+          <FieldLabel>Nota (opcional)</FieldLabel>
+          <TextInput value={devolviendoRenta.nota} onChange={(e) => setDevolviendoRenta({ ...devolviendoRenta, nota: e.target.value })} placeholder="Ej. 2 togas manchadas" />
+          <PrimaryButton onClick={confirmarDevolucion} color={C.success}>Confirmar devolución</PrimaryButton>
         </Modal>
       )}
     </div>
