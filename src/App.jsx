@@ -1713,7 +1713,7 @@ function calcularAlertas(data, config) {
   data.bases.forEach((b) => choquesDePano(data.bases, b).forEach((c) => alertas.push({ tipo: "Choque de reservas", texto: `${b.nombre}: el ${c.fecha} piden ${c.cant}, solo hay ${tenemosBase(b)}`, color: C.error })));
   data.bases.forEach((b) => b.reservas.forEach((r) => {
     const tol = estadoTolerancia(r);
-    if (tol?.nivel === "vencido") alertas.push({ tipo: "Paquete vencido", texto: `${r.evento} (${b.nombre}) lleva ${tol.dias - TOLERANCIA_DIAS} día(s) sin recogerse — desármalo`, color: C.error });
+    if (tol?.nivel === "vencido") alertas.push({ tipo: "Paquete vencido", texto: `${r.evento} (${b.nombre}) cumplió 4 meses en resguardo — ${tol.ultimoAviso ? "ya se mandó el último mensaje, se puede desarmar" : "manda el último mensaje"}`, color: C.error });
   }));
   data.equipo.filter((e) => e.estado === "En uso" && e.fechaDevolucion && e.fechaDevolucion < fmt(hoy)).forEach((e) => alertas.push({ tipo: "Equipo atrasado", texto: `${e.nombre} debía devolverse el ${e.fechaDevolucion}`, color: C.error }));
   data.equipo
@@ -2068,7 +2068,7 @@ function paquetesSinRecoger(allData) {
     allData[s].bases.flatMap((b) =>
       b.reservas
         .filter((r) => r.estado === "Reservada")
-        .map((r) => ({ ...r, base: b.nombre, baseId: b.id, precio: b.precio || 0, sucursal: s, dias: diasTranscurridos(r.fecha) }))
+        .map((r) => ({ ...r, base: b.nombre, baseId: b.id, precio: b.precio || 0, sucursal: s, dias: diasTranscurridos(inicioRetencion(r)) }))
     )
   ).sort((a, b) => b.dias - a.dias);
 }
@@ -4812,7 +4812,15 @@ function HomeScreen({ data, config, goTo, goToMas, alertas, sucursalNombre, most
   if (indumentariaAtrasada > 0) pendientesHoy.push({ icon: Shirt, color: C.error, texto: `${indumentariaAtrasada} indumentaria(s) sin devolver`, onClick: () => goToMas("indumentaria") });
   eventosHoy.forEach((ev) => pendientesHoy.push({ icon: CalendarIcon, color: C.secondary, texto: `Evento hoy: ${ev.nombre}`, onClick: () => goToMas("calendario") }));
   eventosManana.forEach((ev) => pendientesHoy.push({ icon: CalendarIcon, color: C.muted, texto: `Mañana: ${ev.nombre}`, onClick: () => goToMas("calendario") }));
-  if (paquetesVencidos > 0) pendientesHoy.push({ icon: Package, color: C.error, texto: `${paquetesVencidos} paquete(s) vencido(s) por desarmar`, onClick: () => goTo("almacen") });
+  {
+    const vencidas = data.bases.flatMap((b) => b.reservas.filter((r) => estadoTolerancia(r)?.nivel === "vencido"));
+    const paraUltimo = vencidas.filter((r) => !r.ultimoMensajeEl).length;
+    const porDesarmar = vencidas.length - paraUltimo;
+    if (paraUltimo > 0) pendientesHoy.push({ icon: MessageCircle, color: C.warning, texto: `${paraUltimo} paquete(s) cumplieron 4 meses: manda el último mensaje`, onClick: () => goTo("almacen") });
+    if (porDesarmar > 0) pendientesHoy.push({ icon: Package, color: C.error, texto: `${porDesarmar} paquete(s) con último mensaje enviado: ya se pueden desarmar`, onClick: () => goTo("almacen") });
+    const cd = conteoDelDia(data, true);
+    if (!cd.hechoHoy && cd.elegidas.length > 0) pendientesHoy.push({ icon: ClipboardCheck, color: C.primary, texto: `Conteo del día: ${cd.elegidas.map((f) => f.nombre + (f.color ? ` ${f.color}` : "")).join(", ")}`, onClick: () => goTo("almacen") });
+  }
   if (alertas.length > 0) pendientesHoy.push({ icon: Bell, color: C.warning, texto: `${alertas.length} alerta(s) activa(s)`, onClick: () => goToMas("notificaciones") });
 
   const compartirResumen = async () => {
@@ -5450,24 +5458,29 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
   const [conteoBusca, setConteoBusca] = useState("");
   /* Un renglón por base (o por color, si tiene colores). Los panos que comparten
      existencia física entre catálogos se cuentan una sola vez. */
-  const renglonesConteo = (() => {
-    const vistos = new Set();
-    const filas = [];
-    data.bases
-      .filter((b) => (sucursal === "queretaro" || b.catalogo !== "UNICEQ") && !b.descontinuada)
-      .forEach((b) => {
-        if (vistos.has(b.id)) return;
-        vistos.add(b.id);
-        if ((b.variantes || []).length > 0) {
-          b.variantes.forEach((v) => filas.push({ clave: `${b.id}::${v.color}`, baseId: b.id, color: v.color, nombre: b.nombre, sistema: Number(v.tenemos) || 0 }));
-          return;
-        }
-        const hermanas = hermanasDePano(data.bases, b);
-        hermanas.forEach((h) => vistos.add(h.id));
-        filas.push({ clave: String(b.id), baseId: b.id, color: "", nombre: b.nombre, sistema: Number(b.tenemos) || 0, tambien: hermanas.map((h) => h.nombre) });
-      });
-    return filas;
-  })();
+  const renglonesConteo = filasConteoBases(data.bases, sucursal === "queretaro");
+  const [conteoSolo, setConteoSolo] = useState(null); // claves del conteo del día, o null = todas
+  const conteoHoy = conteoDelDia(data, sucursal === "queretaro");
+
+  /* Aviso al cliente por WhatsApp ("listo" o "ultimo"); se registra aunque no haya teléfono */
+  const registrarAviso = (baseId, r, tipo) => {
+    const nombreSuc = NOMBRES_SUCURSAL[sucursal] || "Photograf";
+    const tel = telefonoWhatsApp(r.telefono);
+    if (tel) {
+      const texto = tipo === "ultimo" ? mensajeUltimoAviso(r.evento, nombreSuc) : mensajePaqueteListo(r.evento, nombreSuc);
+      window.open(`https://wa.me/${tel}?text=${encodeURIComponent(texto)}`, "_blank");
+    }
+    setData((d) => ({
+      ...d,
+      bases: d.bases.map((b) =>
+        b.id === baseId
+          ? { ...b, reservas: b.reservas.map((x) => (x.id === r.id ? { ...x, ...(tipo === "ultimo" ? { ultimoMensajeEl: fmt(hoy) } : { fechaAviso: fmt(hoy) }), historial: [...(x.historial || []), pasoHistorial(tipo === "ultimo" ? "Último mensaje enviado" : "Aviso de paquete listo")] } : x)) }
+          : b
+      ),
+    }));
+    bitacora(`${tipo === "ultimo" ? "Último mensaje enviado" : "Aviso de paquete listo"}: ${r.evento}${tel ? " (WhatsApp)" : " (sin teléfono, solo se registró)"}`, usuarioActual);
+    mostrarToast(tipo === "ultimo" ? "Último mensaje registrado ✓" : "Aviso registrado ✓ — empiezan los 4 meses");
+  };
   const capturadosConteo = renglonesConteo.filter((f) => String(conteoValores[f.clave] ?? "").trim() !== "" && !isNaN(parseInt(conteoValores[f.clave], 10)));
   const conDiferenciaConteo = capturadosConteo.filter((f) => parseInt(conteoValores[f.clave], 10) !== f.sistema);
   const ultimoConteo = (data.conteosBases || []).slice(-1)[0];
@@ -5716,6 +5729,12 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
                     <div style={{ fontSize: 13, color: C.foreground, fontWeight: 600 }}>{r.evento}</div>
                     <div style={{ fontSize: 11, color: C.muted }}>{r.fecha}{r.color ? ` · ${r.color}` : ""}{r.correo ? ` · ${r.correo}` : ""}{r.telefono ? ` · ${r.telefono}` : ""}</div>
                     {r.estado === "Entregada" && r.entregadaEl && <div style={{ fontSize: 11, color: C.success, marginTop: 2 }}>Entregado el {r.entregadaEl}{r.entregadaPor ? ` por ${r.entregadaPor}` : ""}</div>}
+                    {r.estado === "Reservada" && (r.fechaAviso || r.ultimoMensajeEl) && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{[r.fechaAviso ? `Avisado el ${r.fechaAviso}` : "", r.ultimoMensajeEl ? `Último mensaje el ${r.ultimoMensajeEl}` : ""].filter(Boolean).join(" · ")}</div>}
+                    {r.estado === "Reservada" && !r.fechaAviso && !r.ultimoMensajeEl && (
+                      <button onClick={() => registrarAviso(b.id, r, "listo")} style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 700, background: `${C.success}18`, color: C.success, border: "none", borderRadius: 999, padding: "5px 11px", cursor: "pointer" }}>
+                        <MessageCircle size={13} /> {r.telefono ? "Avisar que está listo" : "Marcar como avisado"}
+                      </button>
+                    )}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <Badge estado={tol?.nivel === "vencido" ? "Vencido" : r.estado} />
@@ -5731,10 +5750,15 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
                     <div style={{ fontSize: 11, color: tol.nivel === "vencido" ? C.error : C.warning, display: "flex", alignItems: "center", gap: 6 }}>
                       <AlertTriangle size={12} />
                       {tol.nivel === "vencido"
-                        ? `Vencido hace ${tol.dias - TOLERANCIA_DIAS} día(s) — pasó la tolerancia de 3 meses`
-                        : `Quedan ${TOLERANCIA_DIAS - tol.dias} día(s) antes de que se desarme`}
+                        ? (tol.ultimoAviso ? `Pasaron los 4 meses y ya se mandó el último mensaje` : `Cumplió 4 meses en resguardo — manda el último mensaje`)
+                        : `Quedan ${TOLERANCIA_DIAS - tol.dias} día(s) para el último aviso`}
                     </div>
-                    {tol.nivel === "vencido" && (
+                    {tol.nivel === "vencido" && !tol.ultimoAviso && (
+                      <button onClick={() => registrarAviso(b.id, r, "ultimo")} style={{ fontSize: 11, fontWeight: 700, background: C.warning, color: textoContraste(C.warning), border: "none", borderRadius: 999, padding: "4px 10px", cursor: "pointer", flexShrink: 0 }}>
+                        {r.telefono ? "Enviar último mensaje" : "Marcar último aviso"}
+                      </button>
+                    )}
+                    {tol.nivel === "vencido" && tol.ultimoAviso && (
                       <button onClick={() => setPorDesarmar({ baseId: b.id, reservaId: r.id, evento: r.evento, descontada: !!r.descontada })} style={{ fontSize: 11, background: C.error, color: textoContraste(C.error), border: "none", borderRadius: 999, padding: "4px 10px", cursor: "pointer" }}>
                         Desarmar
                       </button>
@@ -6318,11 +6342,25 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
             </div>
           )}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, margin: "14px 16px 0", flexWrap: "wrap" }}>
-            <button onClick={() => { setConteoValores({}); setConteoBusca(""); setConteoAbierto(true); }} className="pf-press" style={{ display: "flex", alignItems: "center", gap: 8, background: C.ink, color: textoContraste(C.ink), border: "none", borderRadius: 999, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+            <button onClick={() => { setConteoValores({}); setConteoBusca(""); setConteoSolo(null); setConteoAbierto(true); }} className="pf-press" style={{ display: "flex", alignItems: "center", gap: 8, background: C.ink, color: textoContraste(C.ink), border: "none", borderRadius: 999, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
               <ClipboardCheck size={16} /> Conteo rápido
             </button>
             <span style={{ fontSize: 12, color: C.muted }}>{ultimoConteo ? `Último conteo: ${ultimoConteo.fecha}${ultimoConteo.quien ? ` · ${ultimoConteo.quien}` : ""}` : "Todavía no hay conteos registrados"}</span>
           </div>
+          {conteoHoy.elegidas.length > 0 && (
+            <div style={{ margin: "10px 16px 0", display: "flex", alignItems: "center", gap: 12, background: conteoHoy.hechoHoy ? `${C.success}14` : C.surface, border: `1px solid ${conteoHoy.hechoHoy ? C.success + "55" : C.border}`, borderRadius: 18, padding: "12px 14px", boxShadow: conteoHoy.hechoHoy ? "none" : SOMBRA_TARJETA }}>
+              <ClipboardCheck size={20} color={conteoHoy.hechoHoy ? C.success : C.primary} style={{ flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: C.foreground }}>{conteoHoy.hechoHoy ? "Conteo de hoy hecho ✓" : "Conteo del día (5 minutos)"}</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{conteoHoy.hechoHoy ? "Mañana tocan otros modelos." : conteoHoy.elegidas.map((f) => f.nombre + (f.color ? ` ${f.color}` : "")).join(" · ")}</div>
+              </div>
+              {!conteoHoy.hechoHoy && (
+                <button onClick={() => { setConteoValores({}); setConteoBusca(""); setConteoSolo(conteoHoy.elegidas.map((f) => f.clave)); setConteoAbierto(true); }} style={{ flexShrink: 0, background: C.primary, color: textoContraste(C.primary), border: "none", borderRadius: 999, padding: "7px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+                  Contar ahora
+                </button>
+              )}
+            </div>
+          )}
           <SearchBar placeholder="Buscar paquete por cliente, teléfono o correo" value={buscaPaquete} onChange={(e) => setBuscaPaquete(e.target.value)} />
           {textoBusca && (() => {
             const encontrados = basesFiltradas.reduce((a, b) => a + b.reservas.filter((r) => r.estado !== "Desarmada" && coincidePaquete(r)).length, 0);
@@ -6688,7 +6726,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
       {agregandoPaqueteA !== null && (
         <Modal title="Asignar paquete a cliente" onClose={() => setAgregandoPaqueteA(null)}>
           <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 8 }}>
-            Tiene {TOLERANCIA_DIAS} días (3 meses) desde la fecha de entrega para recogerlo antes de que se desarme.
+            Tiene 4 meses de resguardo para recogerlo, contados desde que se le avisa que su paquete está listo.
           </div>
           <FieldLabel>Nombre del cliente</FieldLabel>
           <TextInput value={nuevoPaquete.cliente} onChange={(e) => setNuevoPaquete({ ...nuevoPaquete, cliente: e.target.value })} placeholder="Ej. Andrea Martínez" />
@@ -6734,7 +6772,14 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
             <TextInput value={conteoBusca} onChange={(e) => setConteoBusca(e.target.value)} placeholder="Buscar base o color…" />
           </div>
           <div style={{ marginTop: 10 }}>
+            {conteoSolo && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12.5, color: C.muted, marginBottom: 4 }}>
+                <span>Conteo del día: {conteoSolo.length} modelo(s)</span>
+                <button onClick={() => setConteoSolo(null)} style={{ background: "none", border: "none", color: C.primary, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>Ver todas</button>
+              </div>
+            )}
             {renglonesConteo
+              .filter((f) => !conteoSolo || conteoSolo.includes(f.clave))
               .filter((f) => !conteoBusca.trim() || normalizar(`${f.nombre} ${f.color}`).includes(normalizar(conteoBusca.trim())))
               .map((f) => {
                 const texto = conteoValores[f.clave] ?? "";
@@ -6803,7 +6848,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
       {porDesarmar && (
         <Modal title="Desarmar paquete" onClose={() => setPorDesarmar(null)} danger>
           <div style={{ fontSize: 14, color: C.foreground }}>
-            El paquete de "{porDesarmar.evento}" pasó los {TOLERANCIA_DIAS} días de tolerancia sin que lo recogieran. ¿Desarmarlo? Si el cliente lo vuelve a querer, se puede volver a armar.
+            El paquete de "{porDesarmar.evento}" pasó los 4 meses de resguardo y ya se le mandó el último mensaje. ¿Desarmarlo? Si el cliente lo vuelve a querer, se puede volver a armar.
           </div>
           {porDesarmar.descontada ? (
             <>
@@ -9295,7 +9340,64 @@ function ReportesScreen({ data, config, onBack }) {
   );
 }
 
-const TOLERANCIA_DIAS = 90; // 3 meses desde la fecha de entrega antes de desarmar un paquete no recogido
+const TOLERANCIA_DIAS = 120; // 4 meses de resguardo, contados desde que se le avisa al cliente que su paquete está listo
+
+/* Desde cuándo corre el resguardo: el día que se avisó al cliente; si nunca se
+   registró el aviso (paquetes anteriores a este cambio), la fecha del paquete. */
+function inicioRetencion(r) {
+  return r.fechaAviso || r.fecha;
+}
+
+/* WhatsApp: número con lada de México si viene a 10 dígitos */
+function telefonoWhatsApp(tel) {
+  const n = String(tel || "").replace(/[^0-9]/g, "");
+  if (!n) return "";
+  return n.length === 10 ? `52${n}` : n;
+}
+function mensajePaqueteListo(nombre, sucursalNombre) {
+  return `Hola ${nombre}, te saludamos de ${sucursalNombre}. Tu paquete de graduación ya está listo para recoger. Te esperamos en nuestro horario de atención. ¡Gracias!`;
+}
+function mensajeUltimoAviso(nombre, sucursalNombre) {
+  return `Hola ${nombre}, te saludamos de ${sucursalNombre}. Tu paquete de graduación lleva 4 meses en resguardo. Este es nuestro último aviso: si no lo recoges en los próximos días, tendremos que desarmarlo. Si necesitas más tiempo, respóndenos por aquí. ¡Gracias!`;
+}
+
+/* ---- Conteo del día: renglones contables y los 3 que tocan hoy ---- */
+function filasConteoBases(bases, incluirUniceq) {
+  const vistos = new Set();
+  const filas = [];
+  (bases || [])
+    .filter((b) => (incluirUniceq || b.catalogo !== "UNICEQ") && !b.descontinuada)
+    .forEach((b) => {
+      if (vistos.has(b.id)) return;
+      vistos.add(b.id);
+      if ((b.variantes || []).length > 0) {
+        b.variantes.forEach((v) => filas.push({ clave: `${b.id}::${v.color}`, baseId: b.id, color: v.color, nombre: b.nombre, sistema: Number(v.tenemos) || 0 }));
+        return;
+      }
+      const hermanas = hermanasDePano(bases, b);
+      hermanas.forEach((h) => vistos.add(h.id));
+      filas.push({ clave: String(b.id), baseId: b.id, color: "", nombre: b.nombre, sistema: Number(b.tenemos) || 0, tambien: hermanas.map((h) => h.nombre) });
+    });
+  return filas;
+}
+const MODELOS_CONTEO_DIA = 3;
+/* Rota por los modelos que hace más tiempo no se cuentan (los nunca contados primero). */
+function conteoDelDia(sucData, incluirUniceq) {
+  const filas = filasConteoBases(sucData?.bases, incluirUniceq);
+  const conteos = sucData?.conteosBases || [];
+  const hoyStr = fmt(hoy);
+  const hechoHoy = conteos.some((c) => c.fecha === hoyStr);
+  const ultimaVez = {};
+  conteos.filter((c) => c.fecha !== hoyStr).forEach((c) => (c.filas || []).forEach((f) => { ultimaVez[`${f.base}::${f.color || ""}`] = c.fecha; }));
+  const elegidas = [...filas]
+    .sort((a, b) => {
+      const fa = ultimaVez[`${a.nombre}::${a.color}`] || "";
+      const fb = ultimaVez[`${b.nombre}::${b.color}`] || "";
+      return fa === fb ? a.nombre.localeCompare(b.nombre) : fa < fb ? -1 : 1;
+    })
+    .slice(0, MODELOS_CONTEO_DIA);
+  return { hechoHoy, elegidas };
+}
 
 function diasTranscurridos(fechaStr) {
   return Math.floor((new Date(fmt(hoy)) - new Date(fechaStr)) / 86400000);
@@ -9303,10 +9405,11 @@ function diasTranscurridos(fechaStr) {
 
 function estadoTolerancia(reserva) {
   if (reserva.estado !== "Reservada") return null;
-  const dias = diasTranscurridos(reserva.fecha);
-  if (dias >= TOLERANCIA_DIAS) return { nivel: "vencido", dias };
-  if (dias >= TOLERANCIA_DIAS - 15) return { nivel: "por_vencer", dias };
-  return { nivel: "normal", dias };
+  const dias = diasTranscurridos(inicioRetencion(reserva));
+  const ultimoAviso = !!reserva.ultimoMensajeEl;
+  if (dias >= TOLERANCIA_DIAS) return { nivel: "vencido", dias, ultimoAviso };
+  if (dias >= TOLERANCIA_DIAS - 15) return { nivel: "por_vencer", dias, ultimoAviso };
+  return { nivel: "normal", dias, ultimoAviso };
 }
 
 /* Revisa si un equipo ya está comprometido para una fecha: o sigue prestado
