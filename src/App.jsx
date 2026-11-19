@@ -1651,9 +1651,16 @@ function BarraApilada({ titulo, tramos }) {
 /* Detecta, para una base, si en alguna fecha se juntan más reservas activas
    de las que hay en existencia — a diferencia de solo sumar el total de
    reservas contra el stock, esto sí distingue fechas que no chocan entre sí. */
+/* Un paquete armado desde que existe el descuento automático ya sacó su base del
+   inventario ("descontada"), así que ya no compite por las que quedan. Solo los
+   paquetes registrados antes de ese cambio siguen contando como "por ocupar". */
+function ocupaSinDescontar(r) {
+  return r.estado === "Reservada" && !r.descontada;
+}
+
 function choquesDeBase(base) {
   const porFecha = {};
-  base.reservas.filter((r) => r.estado === "Reservada").forEach((r) => {
+  base.reservas.filter(ocupaSinDescontar).forEach((r) => {
     porFecha[r.fecha] = (porFecha[r.fecha] || 0) + 1;
   });
   const total = tenemosBase(base);
@@ -1673,7 +1680,7 @@ function choquesDePano(bases, base) {
   const grupo = [base, ...hermanas];
   const porFecha = {};
   grupo.forEach((b) => {
-    b.reservas.filter((r) => r.estado === "Reservada").forEach((r) => {
+    b.reservas.filter(ocupaSinDescontar).forEach((r) => {
       porFecha[r.fecha] = (porFecha[r.fecha] || 0) + 1;
     });
   });
@@ -4442,7 +4449,7 @@ function exportarInventarioExcel(allData, config) {
           Base: b.nombre,
           Color: m.color || "",
           Fecha: m.fecha,
-          Tipo: { entrada: "Entrada", "salida-entrega": "Salida (entrega)", "salida-prestamo": "Salida (préstamo)", ajuste: "Ajuste" }[m.tipo] || m.tipo,
+          Tipo: { entrada: "Entrada", "salida-entrega": "Salida (entrega)", "salida-prestamo": "Salida (préstamo)", "salida-paquete": "Paquete armado", "entrada-desarme": "Paquete desarmado (regresó)", ajuste: "Ajuste" }[m.tipo] || m.tipo,
           Cantidad: m.cantidad,
           Quién: m.quien || "",
           Nota: m.nota || "",
@@ -5402,7 +5409,37 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
   const [fotoRecibo, setFotoRecibo] = useState(null);
   const [porEliminarBase, setPorEliminarBase] = useState(null);
   const [agregandoPaqueteA, setAgregandoPaqueteA] = useState(null);
-  const [nuevoPaquete, setNuevoPaquete] = useState({ cliente: "", correo: "", telefono: "", fecha: fmt(hoy) });
+  const [nuevoPaquete, setNuevoPaquete] = useState({ cliente: "", correo: "", telefono: "", fecha: fmt(hoy), color: "" });
+  const [verDesarmadosDe, setVerDesarmadosDe] = useState(null); // id de la base con la lista de desarmados abierta
+  const [rearmando, setRearmando] = useState(null); // { baseId, reserva, color }
+
+  /* Mueve existencia de una base por un paquete (armar = -1, desarmar con base buena = +1).
+     Respeta colores y mantiene sincronizados los panos que comparten existencia. */
+  const moverBasePaquete = (bases, baseId, delta, color, tipo, nota) => {
+    const b0 = bases.find((x) => x.id === baseId);
+    if (!b0) return bases;
+    const conColores = (b0.variantes || []).length > 0;
+    let nuevas = bases.map((b) => {
+      if (b.id !== baseId) return b;
+      if (conColores) {
+        return {
+          ...b,
+          variantes: b.variantes.map((v) => (v.color === color ? { ...v, tenemos: (Number(v.tenemos) || 0) + delta } : v)),
+          movimientos: [...(b.movimientos || []), movimientoBase(tipo, delta, usuarioActual, `${nota} — color ${color}`, { color })],
+        };
+      }
+      return { ...b, tenemos: (Number(b.tenemos) || 0) + delta, movimientos: [...(b.movimientos || []), movimientoBase(tipo, delta, usuarioActual, nota)] };
+    });
+    if (!conColores) nuevas = conPanoSincronizado(nuevas, b0, (Number(b0.tenemos) || 0) + delta, usuarioActual, `Sincronizado: ${nota} en ${panoDe(b0.nombre)}`);
+    return nuevas;
+  };
+  /* Cuántas piezas hay para armar un paquete (del color elegido si la base tiene colores) */
+  const disponibleParaPaquete = (b, color) => {
+    if (!b) return 0;
+    if ((b.variantes || []).length > 0) return Number((b.variantes.find((v) => v.color === color) || {}).tenemos) || 0;
+    return Number(b.tenemos) || 0;
+  };
+  const pasoHistorial = (accion) => ({ accion, fecha: fmt(hoy), quien: usuarioActual || "" });
   const [porDesarmar, setPorDesarmar] = useState(null);
   const [panoAmpliado, setPanoAmpliado] = useState(null); // { pano, entradas }
   const [agregandoGrupoAlmacen, setAgregandoGrupoAlmacen] = useState(false);
@@ -5481,7 +5518,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
   // desde qué pestaña se muestre (Bases, Panorámicas o Diplomas), para que
   // Panorámica y Diploma tengan exactamente el mismo trato que Bases.
   const renderTarjetaBase = (b) => {
-    const reservadas = b.reservas.filter((r) => r.estado === "Reservada").length;
+    const reservadas = b.reservas.filter(ocupaSinDescontar).length;
     const sobre = reservadas > b.tenemos;
     return (
       <div key={b.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 22, padding: 16, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
@@ -5596,7 +5633,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase" }}>Paquetes de clientes</div>
             <button
-              onClick={() => { setAgregandoPaqueteA(b.id); setNuevoPaquete({ cliente: "", correo: "", telefono: "", fecha: fmt(hoy) }); }}
+              onClick={() => { setAgregandoPaqueteA(b.id); setNuevoPaquete({ cliente: "", correo: "", telefono: "", fecha: fmt(hoy), color: "" }); }}
               style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: C.primary, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
             >
               <Plus size={14} /> Asignar paquete
@@ -5609,7 +5646,8 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
                     <div style={{ fontSize: 13, color: C.foreground, fontWeight: 600 }}>{r.evento}</div>
-                    <div style={{ fontSize: 11, color: C.muted }}>{r.fecha}{r.correo ? ` · ${r.correo}` : ""}{r.telefono ? ` · ${r.telefono}` : ""}</div>
+                    <div style={{ fontSize: 11, color: C.muted }}>{r.fecha}{r.color ? ` · ${r.color}` : ""}{r.correo ? ` · ${r.correo}` : ""}{r.telefono ? ` · ${r.telefono}` : ""}</div>
+                    {r.estado === "Entregada" && r.entregadaEl && <div style={{ fontSize: 11, color: C.success, marginTop: 2 }}>Entregado el {r.entregadaEl}{r.entregadaPor ? ` por ${r.entregadaPor}` : ""}</div>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <Badge estado={tol?.nivel === "vencido" ? "Vencido" : r.estado} />
@@ -5629,7 +5667,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
                         : `Quedan ${TOLERANCIA_DIAS - tol.dias} día(s) antes de que se desarme`}
                     </div>
                     {tol.nivel === "vencido" && (
-                      <button onClick={() => setPorDesarmar({ baseId: b.id, reservaId: r.id, evento: r.evento })} style={{ fontSize: 11, background: C.error, color: textoContraste(C.error), border: "none", borderRadius: 999, padding: "4px 10px", cursor: "pointer" }}>
+                      <button onClick={() => setPorDesarmar({ baseId: b.id, reservaId: r.id, evento: r.evento, descontada: !!r.descontada })} style={{ fontSize: 11, background: C.error, color: textoContraste(C.error), border: "none", borderRadius: 999, padding: "4px 10px", cursor: "pointer" }}>
                         Desarmar
                       </button>
                     )}
@@ -5641,40 +5679,108 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
           {b.reservas.filter((r) => r.estado !== "Desarmada").length === 0 && (
             <div style={{ fontSize: 12, color: C.muted, padding: "8px 0" }}>Sin paquetes asignados todavía.</div>
           )}
+          {!textoBusca && b.reservas.some((r) => r.estado === "Desarmada") && (
+            <div style={{ marginTop: 6 }}>
+              <button onClick={() => setVerDesarmadosDe(verDesarmadosDe === b.id ? null : b.id)} style={{ background: "none", border: "none", padding: "6px 0", color: C.muted, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                {verDesarmadosDe === b.id ? "Ocultar desarmados" : `Ver desarmados (${b.reservas.filter((r) => r.estado === "Desarmada").length})`}
+              </button>
+              {verDesarmadosDe === b.id && b.reservas.filter((r) => r.estado === "Desarmada").map((r) => (
+                <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: C.foreground, fontWeight: 600 }}>{r.evento}</div>
+                    <div style={{ fontSize: 11, color: C.muted }}>Desarmado{r.desarmadaEl ? ` el ${r.desarmadaEl}` : ""}{r.baseDañada ? " · la base se dañó" : ""}{r.telefono ? ` · ${r.telefono}` : ""}</div>
+                  </div>
+                  <button onClick={() => setRearmando({ baseId: b.id, reserva: r, color: r.color || "" })} style={{ flexShrink: 0, fontSize: 11, fontWeight: 600, background: C.secondary, color: textoContraste(C.secondary), border: "none", borderRadius: 999, padding: "5px 12px", cursor: "pointer" }}>
+                    Volver a armar
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
   };
 
   const marcarEntregada = (baseId, reservaId, evento) => {
-    setData((d) => ({ ...d, bases: d.bases.map((b) => (b.id === baseId ? { ...b, reservas: b.reservas.map((r) => (r.id === reservaId ? { ...r, estado: "Entregada" } : r)) } : b)) }));
-    bitacora(`Reserva entregada: ${evento}`, usuarioActual);
+    setData((d) => ({ ...d, bases: d.bases.map((b) => (b.id === baseId ? { ...b, reservas: b.reservas.map((r) => (r.id === reservaId ? { ...r, estado: "Entregada", entregadaEl: fmt(hoy), entregadaPor: usuarioActual || "", historial: [...(r.historial || []), pasoHistorial("Entregado")] } : r)) } : b)) }));
+    bitacora(`Paquete entregado: ${evento}`, usuarioActual);
     mostrarToast("Marcado como entregado ✓");
   };
 
   const agregarPaquete = () => {
     if (!nuevoPaquete.cliente || !nuevoPaquete.fecha) return;
     const base = data.bases.find((b) => b.id === agregandoPaqueteA);
+    if (!base) return;
+    const conColores = (base.variantes || []).length > 0;
+    const color = conColores ? nuevoPaquete.color : "";
+    if (conColores && !color) return;
+    if (disponibleParaPaquete(base, color) < 1) {
+      mostrarToast("No hay piezas de esta base para armar el paquete");
+      return;
+    }
     const nuevoId = Math.max(0, ...base.reservas.map((r) => r.id), ...data.bases.flatMap((b) => b.reservas.map((r) => r.id))) + 1;
-    setData((d) => ({
-      ...d,
-      bases: d.bases.map((b) =>
-        b.id === agregandoPaqueteA
-          ? { ...b, reservas: [...b.reservas, { id: nuevoId, evento: nuevoPaquete.cliente, correo: nuevoPaquete.correo, telefono: nuevoPaquete.telefono, fecha: nuevoPaquete.fecha, estado: "Reservada" }] }
+    const cliente = nuevoPaquete.cliente.trim();
+    setData((d) => {
+      let bases = moverBasePaquete(d.bases, base.id, -1, color, "salida-paquete", `Paquete armado: ${cliente}`);
+      bases = bases.map((b) =>
+        b.id === base.id
+          ? { ...b, reservas: [...b.reservas, { id: nuevoId, evento: cliente, correo: nuevoPaquete.correo, telefono: nuevoPaquete.telefono, fecha: nuevoPaquete.fecha, estado: "Reservada", descontada: true, ...(color ? { color } : {}), historial: [pasoHistorial("Armado")] }] }
           : b
-      ),
-    }));
-    bitacora(`Paquete asignado: ${nuevoPaquete.cliente} (${base.nombre})`, usuarioActual);
-    mostrarToast("Paquete asignado ✓");
+      );
+      return { ...d, bases };
+    });
+    bitacora(`Paquete armado: ${cliente} (${base.nombre}${color ? ` · ${color}` : ""}) — se descontó 1 base`, usuarioActual);
+    mostrarToast("Paquete armado ✓ — se descontó 1 base");
     setAgregandoPaqueteA(null);
-    setNuevoPaquete({ cliente: "", correo: "", telefono: "", fecha: fmt(hoy) });
+    setNuevoPaquete({ cliente: "", correo: "", telefono: "", fecha: fmt(hoy), color: "" });
   };
 
-  const desarmarPaquete = () => {
+  const volverAArmar = () => {
+    if (!rearmando) return;
+    const base = data.bases.find((b) => b.id === rearmando.baseId);
+    if (!base) return;
+    const conColores = (base.variantes || []).length > 0;
+    const color = conColores ? rearmando.color : "";
+    if (conColores && !color) return;
+    if (disponibleParaPaquete(base, color) < 1) {
+      mostrarToast("No hay piezas de esta base para volver a armarlo");
+      return;
+    }
+    const r0 = rearmando.reserva;
+    setData((d) => {
+      let bases = moverBasePaquete(d.bases, base.id, -1, color, "salida-paquete", `Paquete armado otra vez: ${r0.evento}`);
+      bases = bases.map((b) =>
+        b.id === base.id
+          ? { ...b, reservas: b.reservas.map((r) => (r.id === r0.id ? { ...r, estado: "Reservada", descontada: true, ...(color ? { color } : {}), historial: [...(r.historial || []), pasoHistorial("Armado otra vez")] } : r)) }
+          : b
+      );
+      return { ...d, bases };
+    });
+    bitacora(`Paquete armado otra vez: ${r0.evento} (${base.nombre}${color ? ` · ${color}` : ""}) — se descontó 1 base`, usuarioActual);
+    mostrarToast("Paquete armado otra vez ✓");
+    setRearmando(null);
+  };
+
+  /* regresa: true = la base vuelve al inventario, false = se dañó, null = paquete anterior al cambio (no mueve nada) */
+  const desarmarPaquete = (regresa) => {
     const { baseId, reservaId, evento } = porDesarmar;
-    setData((d) => ({ ...d, bases: d.bases.map((b) => (b.id === baseId ? { ...b, reservas: b.reservas.map((r) => (r.id === reservaId ? { ...r, estado: "Desarmada" } : r)) } : b)) }));
-    bitacora(`Paquete desarmado por no recogerse a tiempo: ${evento}`, usuarioActual);
-    mostrarToast("Paquete desarmado");
+    const base = data.bases.find((b) => b.id === baseId);
+    const reserva = base?.reservas.find((r) => r.id === reservaId);
+    if (!base || !reserva) { setPorDesarmar(null); return; }
+    const color = reserva.color || "";
+    setData((d) => {
+      let bases = d.bases;
+      if (reserva.descontada && regresa === true) bases = moverBasePaquete(bases, baseId, 1, color, "entrada-desarme", `Base recuperada al desarmar: ${evento}`);
+      bases = bases.map((b) =>
+        b.id === baseId
+          ? { ...b, reservas: b.reservas.map((r) => (r.id === reservaId ? { ...r, estado: "Desarmada", descontada: false, desarmadaEl: fmt(hoy), ...(regresa === false ? { baseDañada: true } : {}), historial: [...(r.historial || []), pasoHistorial(regresa === true ? "Desarmado — la base regresó" : regresa === false ? "Desarmado — la base se dañó" : "Desarmado")] } : r)) }
+          : b
+      );
+      return { ...d, bases };
+    });
+    bitacora(`Paquete desarmado: ${evento}${regresa === true ? " — la base regresó al inventario" : regresa === false ? " — la base se dañó" : ""}`, usuarioActual);
+    mostrarToast(regresa === true ? "Paquete desarmado — la base regresó ✓" : "Paquete desarmado");
     setPorDesarmar(null);
   };
 
@@ -6457,6 +6563,8 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
               entrada: { label: "Entrada", color: C.success },
               "salida-entrega": { label: "Salida (entrega)", color: C.warning },
               "salida-prestamo": { label: "Salida (préstamo)", color: C.secondary },
+              "salida-paquete": { label: "Paquete armado", color: C.secondary },
+              "entrada-desarme": { label: "Paquete desarmado (regresó)", color: C.success },
               ajuste: { label: "Ajuste", color: C.muted },
             }[m.tipo] || { label: m.tipo, color: C.muted };
             return (
@@ -6516,16 +6624,76 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
           <TextInput value={nuevoPaquete.telefono} onChange={(e) => setNuevoPaquete({ ...nuevoPaquete, telefono: e.target.value })} placeholder="442 123 4567" />
           <FieldLabel>Fecha de entrega del paquete escolar</FieldLabel>
           <TextInput type="date" value={nuevoPaquete.fecha} onChange={(e) => setNuevoPaquete({ ...nuevoPaquete, fecha: e.target.value })} />
-          <PrimaryButton onClick={agregarPaquete} color={C.secondary} disabled={!nuevoPaquete.cliente || !nuevoPaquete.fecha}>Asignar paquete</PrimaryButton>
+          {(() => {
+            const bp = data.bases.find((x) => x.id === agregandoPaqueteA);
+            const conColores = (bp?.variantes || []).length > 0;
+            const hay = disponibleParaPaquete(bp, nuevoPaquete.color);
+            const falta = conColores && !nuevoPaquete.color;
+            return (
+              <>
+                {conColores && (
+                  <>
+                    <FieldLabel>Color de la base</FieldLabel>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {bp.variantes.map((v) => (
+                        <FilterPill key={v.id || v.color} label={`${v.color} (${Number(v.tenemos) || 0})`} active={nuevoPaquete.color === v.color} onClick={() => setNuevoPaquete({ ...nuevoPaquete, color: v.color })} />
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div style={{ marginTop: 14, fontSize: 12.5, borderRadius: 14, padding: "10px 12px", background: !falta && hay < 1 ? `${C.error}14` : `${C.primary}10`, color: !falta && hay < 1 ? C.error : C.foreground }}>
+                  {falta ? "Elige el color de la base." : hay < 1 ? "No hay piezas de esta base para armar el paquete. Registra primero una entrada." : `Al asignarlo se descuenta 1 base del inventario (quedarían ${hay - 1}).`}
+                </div>
+                <PrimaryButton onClick={agregarPaquete} color={C.secondary} disabled={!nuevoPaquete.cliente || !nuevoPaquete.fecha || falta || hay < 1}>Asignar paquete</PrimaryButton>
+              </>
+            );
+          })()}
         </Modal>
       )}
+
+      {rearmando && (() => {
+        const br = data.bases.find((x) => x.id === rearmando.baseId);
+        const conColores = (br?.variantes || []).length > 0;
+        const hay = disponibleParaPaquete(br, rearmando.color);
+        const falta = conColores && !rearmando.color;
+        return (
+          <Modal title="Volver a armar paquete" onClose={() => setRearmando(null)}>
+            <div style={{ fontSize: 14, color: C.foreground }}>"{rearmando.reserva.evento}" volvió a querer su paquete de {br?.nombre}.</div>
+            {conColores && (
+              <>
+                <FieldLabel>Color de la base</FieldLabel>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {br.variantes.map((v) => (
+                    <FilterPill key={v.id || v.color} label={`${v.color} (${Number(v.tenemos) || 0})`} active={rearmando.color === v.color} onClick={() => setRearmando({ ...rearmando, color: v.color })} />
+                  ))}
+                </div>
+              </>
+            )}
+            <div style={{ marginTop: 14, fontSize: 12.5, borderRadius: 14, padding: "10px 12px", background: !falta && hay < 1 ? `${C.error}14` : `${C.primary}10`, color: !falta && hay < 1 ? C.error : C.foreground }}>
+              {falta ? "Elige el color de la base." : hay < 1 ? "No hay piezas de esta base para volver a armarlo." : `Se descuenta 1 base del inventario (quedarían ${hay - 1}).`}
+            </div>
+            <PrimaryButton onClick={volverAArmar} color={C.secondary} disabled={falta || hay < 1}>Volver a armar</PrimaryButton>
+          </Modal>
+        );
+      })()}
 
       {porDesarmar && (
         <Modal title="Desarmar paquete" onClose={() => setPorDesarmar(null)} danger>
           <div style={{ fontSize: 14, color: C.foreground }}>
-            El paquete de "{porDesarmar.evento}" pasó los {TOLERANCIA_DIAS} días de tolerancia sin que lo recogieran. ¿Desarmarlo? Esto no se puede deshacer.
+            El paquete de "{porDesarmar.evento}" pasó los {TOLERANCIA_DIAS} días de tolerancia sin que lo recogieran. ¿Desarmarlo? Si el cliente lo vuelve a querer, se puede volver a armar.
           </div>
-          <PrimaryButton onClick={desarmarPaquete} color={C.error}>Sí, desarmar</PrimaryButton>
+          {porDesarmar.descontada ? (
+            <>
+              <div style={{ fontSize: 13, color: C.muted, marginTop: 12 }}>¿Cómo quedó la base?</div>
+              <PrimaryButton onClick={() => desarmarPaquete(true)} color={C.success}>La base está bien — regresa al inventario</PrimaryButton>
+              <PrimaryButton onClick={() => desarmarPaquete(false)} color={C.error}>La base se dañó</PrimaryButton>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 12.5, color: C.muted, marginTop: 10 }}>Este paquete se registró antes del descuento automático, así que desarmarlo no mueve el inventario. Si la base regresó, regístrala con "Entrada".</div>
+              <PrimaryButton onClick={() => desarmarPaquete(null)} color={C.error}>Sí, desarmar</PrimaryButton>
+            </>
+          )}
         </Modal>
       )}
 
