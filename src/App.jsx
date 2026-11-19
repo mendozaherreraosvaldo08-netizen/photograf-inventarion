@@ -995,6 +995,8 @@ function GlobalStyles() {
         .pf-fab { bottom: 28px !important; }
         .pf-toast, .pf-aviso-guardado { bottom: 28px !important; left: calc(50% + 128px) !important; }
       }
+      .pf-lista-tarjeta > .pf-renglon:last-child { border-bottom: none !important; }
+      @media (min-width: 900px) { .pf-solo-movil { display: none !important; } }
       * { scrollbar-width: thin; scrollbar-color: rgba(110,90,130,0.22) transparent; }
       /* El listón dorado — el único adorno recurrente de la app. Aparece
          bajo el nombre "Photograf" y en los momentos de mayor peso (el
@@ -1247,22 +1249,22 @@ function TopHeader({ sucursal, onLogout, onSearch, onScan }) {
   return (
     <div style={{ background: "transparent", padding: "16px 16px 14px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
+        <div className="pf-solo-movil">
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <img src={LOGO_PHOTOGRAF} alt="Photograf" style={{ width: 24, height: 24 }} />
             <div className="pf-heading" style={{ fontSize: 24, fontWeight: 700, color: C.foreground }}>Photograf</div>
           </div>
           <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{NOMBRES_SUCURSAL[sucursal]}</div>
         </div>
-        <div style={{ display: "flex", gap: 4 }}>
-          <button onClick={onScan} style={{ background: "none", border: "none", padding: 8, color: C.primary, cursor: "pointer" }} aria-label="Escanear código">
-            <ScanLine size={22} />
+        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+          <button onClick={onScan} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 999, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, color: C.foreground, cursor: "pointer", boxShadow: SOMBRA_TARJETA }} aria-label="Escanear código">
+            <ScanLine size={18} />
           </button>
-          <button onClick={onSearch} style={{ background: "none", border: "none", padding: 8, color: C.primary, cursor: "pointer" }} aria-label="Buscar">
-            <Search size={22} />
+          <button onClick={onSearch} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 999, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, color: C.foreground, cursor: "pointer", boxShadow: SOMBRA_TARJETA }} aria-label="Buscar">
+            <Search size={18} />
           </button>
-          <button onClick={onLogout} style={{ background: "none", border: "none", padding: 8, color: C.primary, cursor: "pointer" }} aria-label="Cerrar sesión">
-            <LogOut size={22} />
+          <button onClick={onLogout} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 999, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, color: C.foreground, cursor: "pointer", boxShadow: SOMBRA_TARJETA }} aria-label="Cerrar sesión">
+            <LogOut size={18} />
           </button>
         </div>
       </div>
@@ -1465,10 +1467,8 @@ function StatCard({ icon: Icon, value, label, color }) {
 function QuickActionCard({ icon: Icon, label, color, onClick }) {
   return (
     <button className="pf-press" onClick={onClick} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 18, boxShadow: SOMBRA_TARJETA, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
-      <div style={{ width: 46, height: 46, borderRadius: 15, background: color, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Icon size={23} color="#fff" />
-      </div>
-      <div style={{ fontSize: 13, fontWeight: 600, color: C.foreground }}>{label}</div>
+      <IconoSuave icon={Icon} color={color} size={46} iconSize={22} />
+      <div style={{ fontSize: 14, fontWeight: 700, color: C.foreground }}>{label}</div>
     </button>
   );
 }
@@ -1479,15 +1479,29 @@ function QuickActionCard({ icon: Icon, label, color, onClick }) {
    la pieza clave del nuevo "Resumen del Día": antes ese resumen solo veía
    equipo de cámara, ahora hay una lectura rápida de cada área, y tocar la
    tarjeta lleva directo a esa pantalla. */
+/* Título de sección del rediseño */
+const tituloSeccion = () => ({ fontSize: 17, fontWeight: 800, letterSpacing: "-0.02em", color: C.foreground });
+/* Ícono dentro de un cuadrito de color suave */
+function IconoSuave({ icon: Icon, color, size = 34, iconSize = 17 }) {
+  const tono = color === C.accent1 ? shadeColor(C.accent1, -38) : color;
+  return (
+    <div style={{ width: size, height: size, borderRadius: size * 0.34, background: color + "22", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <Icon size={iconSize} color={tono} />
+    </div>
+  );
+}
+
 function AreaTile({ icon: Icon, label, value, onClick }) {
   const bien = value === 0;
   const color = bien ? C.success : C.warning;
   return (
-    <button className="pf-press" onClick={onClick} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: "14px 12px", boxShadow: SOMBRA_TARJETA, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer", textAlign: "center" }}>
-      <Icon size={22} color={color} />
-      <div className="pf-pop" style={{ fontSize: 20, fontWeight: 700, color: C.foreground }}>{value}</div>
-      <div style={{ fontSize: 11.5, color: C.muted, fontWeight: 600 }}>{label}</div>
-      <div style={{ fontSize: 10, color, fontWeight: 600 }}>{bien ? "Sin pendientes" : "Por atender"}</div>
+    <button className="pf-press" onClick={onClick} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 14, boxShadow: SOMBRA_TARJETA, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, cursor: "pointer", textAlign: "left" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+        <IconoSuave icon={Icon} color={color} />
+        <div className="pf-pop" style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.03em", color: C.foreground }}>{value}</div>
+      </div>
+      <div style={{ fontSize: 13, color: C.foreground, fontWeight: 700 }}>{label}</div>
+      <span style={{ fontSize: 10.5, color, background: color + "1A", fontWeight: 700, borderRadius: 999, padding: "3px 9px" }}>{bien ? "Sin pendientes" : "Por atender"}</span>
     </button>
   );
 }
@@ -1500,10 +1514,12 @@ function PendienteItem({ icon: Icon, color, texto, onClick }) {
   return (
     <button
       onClick={onClick}
-      style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", borderBottom: `1px solid ${C.border}`, padding: "10px 2px", cursor: onClick ? "pointer" : "default", textAlign: "left" }}
+      className="pf-renglon"
+      style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: "none", border: "none", borderBottom: `1px solid ${C.border}`, padding: "11px 2px", cursor: onClick ? "pointer" : "default", textAlign: "left" }}
     >
-      <Icon size={16} color={color} style={{ flexShrink: 0 }} />
-      <span style={{ fontSize: 13, color: C.foreground, fontWeight: 500 }}>{texto}</span>
+      <IconoSuave icon={Icon} color={color} size={32} iconSize={16} />
+      <span style={{ flex: 1, fontSize: 13.5, color: C.foreground, fontWeight: 600 }}>{texto}</span>
+      {onClick && <ChevronRight size={16} color={C.muted} />}
     </button>
   );
 }
@@ -4810,20 +4826,23 @@ function HomeScreen({ data, config, goTo, goToMas, alertas, sucursalNombre, most
 
   return (
     <div style={{ paddingBottom: 90 }}>
-      <div style={{ padding: "20px 16px 0" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 2 }}>
-          <div className="pf-heading" style={{ fontSize: 21, fontWeight: 600, color: C.foreground }}>
-            {saludoDeHora(usuarioActual)}
+      <div style={{ padding: "8px 16px 0" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ minWidth: 0 }}>
+            <div className="pf-heading" style={{ fontSize: 28, lineHeight: 1.12, color: C.foreground }}>
+              {saludoDeHora(usuarioActual)}
+            </div>
+            <div style={{ fontSize: 14, color: C.muted, marginTop: 5 }}>Esto es lo que pasa hoy en {sucursalNombre}</div>
           </div>
-          <button onClick={compartirResumen} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 10px", color: C.primary, fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0, marginLeft: 10 }}>
-            <Share2 size={14} /> Compartir
+          <button onClick={compartirResumen} className="pf-press" style={{ display: "flex", alignItems: "center", gap: 6, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 999, padding: "8px 14px", color: C.foreground, fontSize: 12.5, fontWeight: 700, cursor: "pointer", flexShrink: 0, boxShadow: SOMBRA_TARJETA }}>
+            <Share2 size={14} /> Compartir resumen
           </button>
         </div>
 
-        <div style={{ fontSize: 18, fontWeight: 700, color: C.foreground, margin: "18px 0 10px" }}>Pendientes de hoy</div>
+        <div style={{ ...tituloSeccion(), margin: "24px 0 10px" }}>Pendientes de hoy</div>
         {pendientesHoy.length === 0 && <EmptyState icon={Check} text="Todo en orden — sin pendientes ni alertas por ahora." />}
         {pendientesHoy.length > 0 && (
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "2px 12px", marginBottom: 20, boxShadow: SOMBRA_TARJETA }}>
+          <div className="pf-lista-tarjeta" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 22, padding: "4px 14px", marginBottom: 22, boxShadow: SOMBRA_TARJETA }}>
             {pendientesHoy.map((p, idx) => (
               <PendienteItem key={idx} icon={p.icon} color={p.color} texto={p.texto} onClick={p.onClick} />
             ))}
@@ -4835,9 +4854,9 @@ function HomeScreen({ data, config, goTo, goToMas, alertas, sucursalNombre, most
             className="pf-pop"
             style={{
               background: `linear-gradient(135deg, ${shadeColor(C.primary, 6)}, ${shadeColor(C.primary, -22)})`,
-              borderRadius: 16,
-              padding: "17px 18px",
-              marginBottom: 20,
+              borderRadius: 22,
+              padding: "18px 20px",
+              marginBottom: 22,
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
@@ -4859,14 +4878,14 @@ function HomeScreen({ data, config, goTo, goToMas, alertas, sucursalNombre, most
           </div>
         )}
 
-        <div style={{ fontSize: 18, fontWeight: 700, color: C.foreground, marginBottom: 12 }}>Salud por Área</div>
+        <div style={{ ...tituloSeccion(), marginBottom: 10 }}>Salud por área</div>
         <div className="pf-tile-grid" style={{ marginBottom: 24 }}>
           {areas.map((a) => (
             <AreaTile key={a.key} icon={a.icon} label={a.label} value={a.value} onClick={a.onClick} />
           ))}
         </div>
 
-        <div style={{ fontSize: 18, fontWeight: 700, color: C.foreground, marginBottom: 12 }}>Acceso Rápido</div>
+        <div style={{ ...tituloSeccion(), marginBottom: 10 }}>Acceso rápido</div>
         <div className="pf-tile-grid" style={{ marginBottom: 24 }}>
           <QuickActionCard icon={Camera} label="Equipo" color={C.primary} onClick={() => goTo("equipo")} />
           <QuickActionCard icon={Warehouse} label="Almacén" color={C.secondary} onClick={() => goTo("almacen")} />
@@ -4874,14 +4893,19 @@ function HomeScreen({ data, config, goTo, goToMas, alertas, sucursalNombre, most
           <QuickActionCard icon={User} label="Mi Inventario" color={C.muted} onClick={() => goTo("miInventario")} />
         </div>
 
-        <div style={{ fontSize: 18, fontWeight: 700, color: C.foreground, marginBottom: 12 }}>Movimientos Recientes</div>
+        <div style={{ ...tituloSeccion(), marginBottom: 10 }}>Movimientos recientes</div>
         {movimientos.length === 0 && <EmptyState icon={Activity} text="Sin movimientos todavía. Aquí verás la actividad reciente." />}
-        {movimientos.map((m, idx) => (
-          <div key={idx} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", marginBottom: 10, display: "flex", justifyContent: "space-between", boxShadow: SOMBRA_TARJETA }}>
-            <span style={{ fontSize: 13, color: C.foreground }}>{m.texto}{m.quien ? ` · ${m.quien}` : ""}</span>
-            <span style={{ fontSize: 12, color: C.muted }}>{m.fecha}</span>
+        {movimientos.length > 0 && (
+          <div className="pf-lista-tarjeta" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 22, padding: "4px 14px", boxShadow: SOMBRA_TARJETA }}>
+            {movimientos.map((m, idx) => (
+              <div key={idx} className="pf-renglon" style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 2px", borderBottom: `1px solid ${C.border}` }}>
+                {m.quien ? <AvatarIniciales nombre={m.quien} size={32} /> : <IconoSuave icon={Activity} color={C.muted} size={32} iconSize={16} />}
+                <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: C.foreground }}>{m.texto}{m.quien ? <span style={{ color: C.muted }}>{` · ${m.quien}`}</span> : ""}</span>
+                <span style={{ fontSize: 12, color: C.muted, flexShrink: 0 }}>{m.fecha}</span>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
@@ -8652,14 +8676,14 @@ function PlacasScreen({ data, setData, bitacora, usuarioActual, mostrarToast, co
    PANTALLA: Mi Inventario — filtra por el usuario actual, no por todos
    ========================================================================= */
 
-function MiInventarioScreen({ allData, usuarioActual }) {
+function MiInventarioScreen({ allData, usuarioActual, onBack }) {
   const mio = Object.entries(allData).flatMap(([s, d]) => d.equipo.filter((e) => e.estado === "En uso" && e.quienLoTiene === usuarioActual).map((e) => ({ ...e, sucursal: NOMBRES_SUCURSAL[s] })));
 
   return (
     <div style={{ paddingBottom: 90 }}>
-      <SectionHeader title="Mi Inventario" subtitle={`Lo que tiene ${usuarioActual}, de ambas sucursales`} />
+      <SectionHeader title="Mi Inventario" subtitle={`Lo que tiene ${usuarioActual}, de ambas sucursales`} onBack={onBack} />
       <div style={{ padding: "16px 16px 0" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: C.foreground, marginBottom: 12 }}>Equipo en Uso</div>
+        <div style={{ ...tituloSeccion(), marginBottom: 10 }}>Equipo en uso</div>
         {mio.length === 0 && <EmptyState icon={User} text="No tienes equipo prestado en ninguna sucursal." />}
         {mio.map((e) => (
           <InventoryCard key={`${e.sucursal}-${e.id}`} nombre={e.nombre} categoria={`${e.categoria} · ${e.sucursal}`} foto={e.foto} estados={[e.estado]} />
@@ -9890,24 +9914,23 @@ function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isD
       <SectionHeader title="Más" subtitle={`Sesión: ${usuarioActual}`} />
       <div style={{ padding: 16 }}>
         {gruposMenu.map((grupo) => (
-          <div key={grupo.titulo} style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.6, margin: "4px 2px 8px" }}>{grupo.titulo}</div>
-            {grupo.opciones.map((o) => {
-              const Icon = o.icon;
-              return (
-                <button key={o.key} onClick={() => (o.ir && onIr ? onIr(o.key) : setSub(o.key))} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12, cursor: "pointer" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <Icon size={20} color={o.color} />
-                    <span style={{ fontSize: 14, fontWeight: 600, color: C.foreground }}>{o.label}</span>
-                  </div>
-                  {!!o.badge && <span style={{ background: C.error, color: textoContraste(C.error), fontSize: 11, fontWeight: 700, borderRadius: 10, padding: "2px 8px" }}>{o.badge}</span>}
+          <div key={grupo.titulo} style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.muted, margin: "0 4px 8px" }}>{grupo.titulo}</div>
+            <div className="pf-lista-tarjeta" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 22, padding: "2px 14px", boxShadow: SOMBRA_TARJETA }}>
+              {grupo.opciones.map((o) => (
+                <button key={o.key} className="pf-renglon" onClick={() => (o.ir && onIr ? onIr(o.key) : setSub(o.key))} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: "none", border: "none", borderBottom: `1px solid ${C.border}`, padding: "11px 0", cursor: "pointer", textAlign: "left" }}>
+                  <IconoSuave icon={o.icon} color={o.color} />
+                  <span style={{ flex: 1, fontSize: 14.5, fontWeight: 600, color: C.foreground }}>{o.label}</span>
+                  {!!o.badge && <span style={{ background: C.error, color: textoContraste(C.error), fontSize: 11, fontWeight: 700, borderRadius: 999, padding: "2px 8px" }}>{o.badge}</span>}
+                  <ChevronRight size={16} color={C.muted} />
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
         ))}
 
-        <button onClick={onDeshacer} disabled={!puedeDeshacer} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12, cursor: puedeDeshacer ? "pointer" : "not-allowed", opacity: puedeDeshacer ? 1 : 0.5 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.muted, margin: "0 4px 8px" }}>Ajustes</div>
+        <button onClick={onDeshacer} disabled={!puedeDeshacer} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, padding: "13px 14px", marginBottom: 8, boxShadow: SOMBRA_TARJETA, cursor: puedeDeshacer ? "pointer" : "not-allowed", opacity: puedeDeshacer ? 1 : 0.5 }}>
           <Undo2 size={20} color={C.muted} />
           <span style={{ fontSize: 14, fontWeight: 600, color: C.foreground }}>Deshacer último movimiento</span>
         </button>
@@ -9916,7 +9939,7 @@ function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isD
           <button
             onClick={permisoNotificaciones === "granted" ? undefined : onActivarNotificaciones}
             disabled={permisoNotificaciones === "granted"}
-            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12, cursor: permisoNotificaciones === "granted" ? "default" : "pointer" }}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, padding: "13px 14px", marginBottom: 8, boxShadow: SOMBRA_TARJETA, cursor: permisoNotificaciones === "granted" ? "default" : "pointer" }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <Bell size={20} color={permisoNotificaciones === "granted" ? C.success : C.muted} />
@@ -9928,22 +9951,22 @@ function MasScreen({ data, setData, bitacora, mostrarToast, alertas, config, isD
           </button>
         )}
 
-        <button onClick={onToggleDark} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12, cursor: "pointer" }}>
+        <button onClick={onToggleDark} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, padding: "13px 14px", marginBottom: 8, boxShadow: SOMBRA_TARJETA, cursor: "pointer" }}>
           {isDark ? <Sun size={20} color={C.warning} /> : <Moon size={20} color={C.muted} />}
           <span style={{ fontSize: 14, fontWeight: 600, color: C.foreground }}>{isDark ? "Modo claro" : "Modo oscuro"}</span>
         </button>
 
-        <button onClick={onCambiarUsuario} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12, cursor: "pointer" }}>
+        <button onClick={onCambiarUsuario} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, padding: "13px 14px", marginBottom: 8, boxShadow: SOMBRA_TARJETA, cursor: "pointer" }}>
           <UserCircle size={20} color={C.muted} />
           <span style={{ fontSize: 14, fontWeight: 600, color: C.foreground }}>Cambiar de usuario</span>
         </button>
 
-        <button onClick={onVolverHub} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12, cursor: "pointer" }}>
+        <button onClick={onVolverHub} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, padding: "13px 14px", marginBottom: 8, boxShadow: SOMBRA_TARJETA, cursor: "pointer" }}>
           <img src={LOGO_PHOTOGRAF} alt="Photograf" style={{ width: 20, height: 20 }} />
           <span style={{ fontSize: 14, fontWeight: 600, color: C.foreground }}>Cambiar de app (Inventario / Asistencia)</span>
         </button>
 
-        <button onClick={onAdminMode} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, cursor: "pointer" }}>
+        <button onClick={onAdminMode} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, padding: "13px 14px", cursor: "pointer", boxShadow: SOMBRA_TARJETA }}>
           <Shield size={20} color={C.muted} />
           <span style={{ fontSize: 14, fontWeight: 600, color: C.foreground }}>Panel de administrador</span>
         </button>
@@ -10893,8 +10916,7 @@ export default function PhotografInventario() {
       return (
         <div className="pf-shell" style={{ fontFamily: 'Inter, -apple-system, "Segoe UI", Roboto, sans-serif', background: "transparent", minHeight: "100vh" }}>
         <GlobalStyles />
-          <SectionHeader title="Mi Inventario" onBack={() => setVistaExterna(null)} />
-          <MiInventarioScreen allData={allData} usuarioActual={usuarioActual} />
+          <MiInventarioScreen allData={allData} usuarioActual={usuarioActual} onBack={() => setVistaExterna(null)} />
         </div>
       );
     }
