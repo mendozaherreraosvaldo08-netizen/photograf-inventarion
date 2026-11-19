@@ -5076,7 +5076,7 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
           </button>
         } />
         <div style={{ padding: 16 }}>
-          {selected.foto && <img src={selected.foto} alt={selected.nombre} style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 12, marginBottom: 16 }} />}
+          {selected.foto && <img src={selected.foto} alt={selected.nombre} style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 20, marginBottom: 16 }} />}
           <div style={{ marginBottom: 16 }}>
             {selected.estado === "Baja" ? (
               <EstadoBadges estados={["Baja"]} />
@@ -5106,7 +5106,7 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
             const dias = diasTranscurridos(selected.mantenimientoUltima);
             const vencido = dias >= selected.mantenimientoIntervaloDias;
             return (
-              <div style={{ background: C.surface, border: `1px solid ${vencido ? C.warning : C.border}`, borderRadius: 12, padding: 14, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ background: C.surface, border: `1px solid ${vencido ? C.warning : C.border}`, borderRadius: 20, padding: 16, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <Wrench size={18} color={vencido ? C.warning : C.muted} />
                   <div>
@@ -5126,7 +5126,7 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
             );
           })()}
           {selected.estado === "En uso" && (
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 16 }}>
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 16 }}>
               <div style={{ fontSize: 13, color: C.foreground }}><strong>Quién lo tiene:</strong> {selected.quienLoTiene}</div>
               <div style={{ fontSize: 13, color: C.foreground, marginTop: 4 }}><strong>Autorizó:</strong> {selected.quienAutorizo}</div>
               <div style={{ fontSize: 13, color: C.foreground, marginTop: 4 }}><strong>Préstamo:</strong> {selected.fechaPrestamo} &nbsp; <strong>Devolución:</strong> {selected.fechaDevolucion}</div>
@@ -5165,7 +5165,7 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
             {selected.estado === "Baja" && (
               <button
                 onClick={() => setPorEliminarEquipo(true)}
-                style={{ width: "100%", background: "none", border: `1px solid ${C.error}`, color: C.error, borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                style={{ width: "100%", background: "none", border: `1px solid ${C.error}`, color: C.error, borderRadius: 999, padding: 14, fontSize: 14, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
               >
                 <Trash2 size={16} /> Eliminar del inventario
               </button>
@@ -5217,7 +5217,7 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
             <FieldLabel>Tu nombre</FieldLabel>
             <TextInput value={form.quien} onChange={(e) => setForm({ ...form, quien: e.target.value })} placeholder="Quién da de baja" disabled={confirmandoBaja} />
             {confirmandoBaja && (
-              <div style={{ background: C.error, borderRadius: 10, padding: 12, marginTop: 12, display: "flex", gap: 10 }}>
+              <div style={{ background: C.error, borderRadius: 16, padding: 14, marginTop: 12, display: "flex", gap: 10 }}>
                 <AlertTriangle size={20} color={textoContraste(C.error)} style={{ flexShrink: 0 }} />
                 <div style={{ fontSize: 13, color: textoContraste(C.error) }}>
                   Esto es definitivo: {selected.nombre} dejará de aparecer como equipo utilizable. ¿Seguro?
@@ -5232,7 +5232,7 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
 
         {porEliminarEquipo && (
           <Modal title="Eliminar del inventario" onClose={() => setPorEliminarEquipo(false)} danger>
-            <div style={{ background: C.error, borderRadius: 10, padding: 12, display: "flex", gap: 10 }}>
+            <div style={{ background: C.error, borderRadius: 16, padding: 14, display: "flex", gap: 10 }}>
               <AlertTriangle size={20} color={textoContraste(C.error)} style={{ flexShrink: 0 }} />
               <div style={{ fontSize: 13, color: textoContraste(C.error) }}>
                 "{selected.nombre}" se borra por completo del inventario, junto con su historial. Esto no se puede deshacer. ¿Seguro?
@@ -5485,7 +5485,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
     const reservadas = b.reservas.filter((r) => r.estado === "Reservada").length;
     const sobre = reservadas > b.tenemos;
     return (
-      <div key={b.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
+      <div key={b.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 22, padding: 16, marginBottom: 14, boxShadow: SOMBRA_TARJETA }}>
         <div style={{ display: "flex", gap: 12 }}>
           {b.imagen && (
             <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
@@ -5494,7 +5494,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
                 alt={b.nombre}
                 loading="lazy"
                 onClick={() => setImagenAmpliada(b.imagen)}
-                style={{ width: b.imagenDiploma ? 54 : 64, height: 64, objectFit: "cover", borderRadius: 8, border: `1px solid ${C.border}`, cursor: "pointer" }}
+                style={{ width: b.imagenDiploma ? 54 : 64, height: 64, objectFit: "cover", borderRadius: 14, border: `1px solid ${C.border}`, cursor: "pointer" }}
               />
               {b.imagenDiploma && (
                 <img
@@ -5502,7 +5502,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
                   alt={`${b.nombre} diploma`}
                   loading="lazy"
                   onClick={() => setImagenAmpliada(b.imagenDiploma)}
-                  style={{ width: 54, height: 64, objectFit: "cover", borderRadius: 8, border: `1px solid ${C.border}`, cursor: "pointer" }}
+                  style={{ width: 54, height: 64, objectFit: "cover", borderRadius: 14, border: `1px solid ${C.border}`, cursor: "pointer" }}
                 />
               )}
             </div>
@@ -5511,8 +5511,8 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", flex: 1 }}>
             <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{b.nombre}</div>
-            {b.catalogo === "Panoramica" && <span style={{ fontSize: 10, fontWeight: 700, color: textoContraste(C.primary), background: C.primary, borderRadius: 6, padding: "2px 6px" }}>Panorámica</span>}
-            {b.catalogo === "Diploma" && <span style={{ fontSize: 10, fontWeight: 700, color: textoContraste(C.accent1), background: C.accent1, borderRadius: 6, padding: "2px 6px" }}>Diploma</span>}
+            {b.catalogo === "Panoramica" && <span style={{ fontSize: 10, fontWeight: 700, color: textoContraste(C.primary), background: C.primary, borderRadius: 999, padding: "2px 8px" }}>Panorámica</span>}
+            {b.catalogo === "Diploma" && <span style={{ fontSize: 10, fontWeight: 700, color: textoContraste(C.accent1), background: C.accent1, borderRadius: 999, padding: "2px 8px" }}>Diploma</span>}
             {!!b.precio && <span style={{ fontSize: 13, fontWeight: 700, color: C.success }}>{fmtMoneda(b.precio)}</span>}
           </div>
           {(!b.variantes || b.variantes.length === 0) && (
@@ -5535,15 +5535,15 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <div style={{ flex: 1, textAlign: "center" }}>
-            <div style={{ fontSize: 22, fontWeight: 700, color: C.primary }}>{tenemosBase(b)}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", color: C.primary }}>{tenemosBase(b)}</div>
             <div style={{ fontSize: 11, color: C.muted }}>Tenemos</div>
           </div>
           <div style={{ flex: 1, textAlign: "center" }}>
-            <div style={{ fontSize: 22, fontWeight: 700, color: sobre ? C.error : C.primary }}>{reservadas}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", color: sobre ? C.error : C.primary }}>{reservadas}</div>
             <div style={{ fontSize: 11, color: C.muted }}>Se van a ocupar</div>
           </div>
           <div style={{ flex: 1, textAlign: "center" }}>
-            <div style={{ fontSize: 22, fontWeight: 700, color: C.primary }}>{b.pedidoProveedor}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", color: C.primary }}>{b.pedidoProveedor}</div>
             <div style={{ fontSize: 11, color: C.muted }}>Pedido</div>
           </div>
         </div>
@@ -5551,13 +5551,13 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
           <button
             onClick={() => { setRegistrandoSalida(b); setSalidaForm({ tipo: "entrega", cantidad: "1", nota: "", color: b.variantes?.[0]?.color || "" }); }}
             disabled={tenemosBase(b) < 1}
-            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: tenemosBase(b) < 1 ? C.muted : C.foreground, cursor: tenemosBase(b) < 1 ? "not-allowed" : "pointer", opacity: tenemosBase(b) < 1 ? 0.5 : 1 }}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.ink + "0B", border: "1px solid transparent", borderRadius: 12, padding: "10px 10px", fontSize: 12, fontWeight: 600, color: tenemosBase(b) < 1 ? C.muted : C.foreground, cursor: tenemosBase(b) < 1 ? "not-allowed" : "pointer", opacity: tenemosBase(b) < 1 ? 0.5 : 1 }}
           >
             <ArrowUpRight size={13} /> Salida
           </button>
           <button
             onClick={() => { setRegistrandoEntrada(b); setEntradaForm({ cantidad: "1", nota: "", color: b.variantes?.[0]?.color || "" }); }}
-            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.ink + "0B", border: "1px solid transparent", borderRadius: 12, padding: "10px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
           >
             <Inbox size={13} /> Entrada
           </button>
@@ -5565,13 +5565,13 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
           <button
             onClick={() => setVerMovimientosDe(b)}
-            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.ink + "0B", border: "1px solid transparent", borderRadius: 12, padding: "10px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
           >
             <History size={13} /> Movimientos
           </button>
           <button
             onClick={() => setEditandoFotoDe(b)}
-            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.ink + "0B", border: "1px solid transparent", borderRadius: 12, padding: "10px 10px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}
           >
             <CameraIcon size={13} /> {b.imagen ? "Cambiar foto" : "Foto"}
           </button>
@@ -5587,7 +5587,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
         {b.catalogo === "Universidad" && (
           <button
             onClick={() => setGestionandoVariantesDe(b)}
-            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1px dashed ${C.accent1}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 600, color: C.accent1, cursor: "pointer", marginTop: 8 }}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: `1.5px dashed ${shadeColor(C.accent1, -20)}`, borderRadius: 12, padding: "10px 10px", fontSize: 12, fontWeight: 600, color: C.accent1, cursor: "pointer", marginTop: 8 }}
           >
             <Palette size={13} />
             {(b.variantes || []).length > 0 ? `Variantes de color (${b.variantes.length})` : "Agregar variantes de color"}
@@ -5615,14 +5615,14 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <Badge estado={tol?.nivel === "vencido" ? "Vencido" : r.estado} />
                     {r.estado === "Reservada" && (
-                      <button onClick={() => marcarEntregada(b.id, r.id, r.evento)} style={{ fontSize: 11, background: "none", border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 8px", cursor: "pointer", color: C.foreground }}>
+                      <button onClick={() => marcarEntregada(b.id, r.id, r.evento)} style={{ fontSize: 11, background: "none", border: `1px solid ${C.border}`, borderRadius: 999, padding: "4px 10px", cursor: "pointer", color: C.foreground }}>
                         Marcar entregada
                       </button>
                     )}
                   </div>
                 </div>
                 {tol && tol.nivel !== "normal" && (
-                  <div style={{ marginTop: 6, display: "flex", justifyContent: "space-between", alignItems: "center", background: tol.nivel === "vencido" ? `${C.error}18` : `${C.warning}18`, borderRadius: 8, padding: "6px 10px" }}>
+                  <div style={{ marginTop: 6, display: "flex", justifyContent: "space-between", alignItems: "center", background: tol.nivel === "vencido" ? `${C.error}18` : `${C.warning}18`, borderRadius: 12, padding: "8px 12px" }}>
                     <div style={{ fontSize: 11, color: tol.nivel === "vencido" ? C.error : C.warning, display: "flex", alignItems: "center", gap: 6 }}>
                       <AlertTriangle size={12} />
                       {tol.nivel === "vencido"
@@ -5630,7 +5630,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
                         : `Quedan ${TOLERANCIA_DIAS - tol.dias} día(s) antes de que se desarme`}
                     </div>
                     {tol.nivel === "vencido" && (
-                      <button onClick={() => setPorDesarmar({ baseId: b.id, reservaId: r.id, evento: r.evento })} style={{ fontSize: 11, background: C.error, color: textoContraste(C.error), border: "none", borderRadius: 6, padding: "4px 8px", cursor: "pointer" }}>
+                      <button onClick={() => setPorDesarmar({ baseId: b.id, reservaId: r.id, evento: r.evento })} style={{ fontSize: 11, background: C.error, color: textoContraste(C.error), border: "none", borderRadius: 999, padding: "4px 10px", cursor: "pointer" }}>
                         Desarmar
                       </button>
                     )}
@@ -6077,16 +6077,16 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
             <div
               key={g.pano}
               onClick={() => setPanoAmpliado(g)}
-              style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12, boxShadow: SOMBRA_TARJETA, display: "flex", gap: 12, alignItems: "center", cursor: "pointer" }}
+              style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 12, boxShadow: SOMBRA_TARJETA, display: "flex", gap: 12, alignItems: "center", cursor: "pointer" }}
             >
               {(tab === "panoramicas" ? g.imagen : g.imagenDiploma) && (
-                <img src={tab === "panoramicas" ? g.imagen : g.imagenDiploma} alt={g.pano} loading="lazy" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8, border: `1px solid ${C.border}`, flexShrink: 0 }} />
+                <img src={tab === "panoramicas" ? g.imagen : g.imagenDiploma} alt={g.pano} loading="lazy" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 14, border: `1px solid ${C.border}`, flexShrink: 0 }} />
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{g.pano}</div>
               </div>
               <div style={{ textAlign: "center", flexShrink: 0 }}>
-                <div style={{ fontSize: 22, fontWeight: 700, color: C.primary }}>{g.tenemos}</div>
+                <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", color: C.primary }}>{g.tenemos}</div>
                 <div style={{ fontSize: 11, color: C.muted }}>Tenemos</div>
               </div>
             </div>
@@ -6225,27 +6225,27 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
         <div style={{ padding: "16px 16px 90px" }}>
           <button
             onClick={() => { setPedidoForm({ item: "", cantidad: "1", urgencia: "Normal", tipo: "material", color: "" }); setModalPedido(true); }}
-            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.secondary, color: textoContraste(C.secondary), border: "none", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 12 }}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.secondary, color: textoContraste(C.secondary), border: "none", borderRadius: 16, padding: "14px 18px", fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 12 }}
           >
             <Plus size={16} /> Pedir algo al proveedor
           </button>
           {data.pedidos.length > 0 && (
             <button
               onClick={exportarPedidosExcel}
-              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 16 }}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 16, padding: "14px 18px", fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 16 }}
             >
               <Share2 size={16} /> Exportar a Excel
             </button>
           )}
           {data.pedidos.length === 0 && <EmptyState icon={Truck} text="No hay pedidos. Cuando algo se esté acabando, pídelo desde aquí." />}
           {data.pedidos.map((p) => (
-            <div key={p.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12, boxShadow: SOMBRA_TARJETA }}>
+            <div key={p.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 12, boxShadow: SOMBRA_TARJETA }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
                   <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{p.item}</div>
                   <div style={{ fontSize: 13, color: C.muted, margin: "2px 0 6px" }}>Cantidad: {p.cantidad}</div>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <span style={{ display: "inline-block", background: p.urgencia === "Urgente" ? C.error : C.success, color: textoContraste(p.urgencia === "Urgente" ? C.error : C.success), fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 8 }}>{p.urgencia}</span>
+                    <span style={{ display: "inline-block", background: p.urgencia === "Urgente" ? C.error : C.success, color: textoContraste(p.urgencia === "Urgente" ? C.error : C.success), fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 999 }}>{p.urgencia}</span>
                     <Badge estado={p.estado} />
                   </div>
                 </div>
@@ -6254,7 +6254,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
                     quedaron como "Pendiente" antes de que existiera este
                     paso). Lo rechazado ya no se puede recibir. */}
                 {(p.estado === "Pendiente" || p.estado === "Aprobado") && (
-                  <button onClick={() => setRecibiendo(p)} style={{ display: "flex", alignItems: "center", gap: 4, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                  <button onClick={() => setRecibiendo(p)} style={{ display: "flex", alignItems: "center", gap: 4, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 999, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                     <Truck size={14} /> Recibido
                   </button>
                 )}
@@ -6269,7 +6269,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
 
       {imagenAmpliada && (
         <div onClick={() => setImagenAmpliada(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <img src={imagenAmpliada} alt="Paquete" style={{ maxWidth: "100%", maxHeight: "90vh", borderRadius: 10 }} />
+          <img src={imagenAmpliada} alt="Paquete" style={{ maxWidth: "100%", maxHeight: "90vh", borderRadius: 18 }} />
         </div>
       )}
 
