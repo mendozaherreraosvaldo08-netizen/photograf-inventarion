@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect, forwardRef } from "react";
 import * as XLSX from "xlsx";
+import jsQR from "jsqr";
+import qrcodeGenerator from "qrcode-generator";
 import { doc, onSnapshot, runTransaction, setDoc, collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { getToken, onMessage } from "firebase/messaging";
 import { db, messaging, VAPID_KEY } from "./firebase";
@@ -1227,8 +1229,22 @@ function MultiPhotoInput({ value = [], onChange }) {
    partir del texto — no requiere ninguna librería instalada). Al escanearlo
    con la pantalla de "Escanear" de la app, se abre directo su ficha. */
 function CodigoQR({ codigo, tamaño = 140 }) {
+  /* El QR se genera aquí mismo; el contenido sigue siendo el mismo código de
+     texto de siempre, así que las etiquetas ya impresas siguen funcionando. */
+  const imagenQR = useMemo(() => {
+    try {
+      const qr = qrcodeGenerator(0, "M");
+      qr.addData(String(codigo || ""));
+      qr.make();
+      const modulos = qr.getModuleCount() + 2;
+      const celda = Math.max(2, Math.floor(tamaño / modulos));
+      return qr.createDataURL(celda, celda);
+    } catch (e) {
+      return null;
+    }
+  }, [codigo, tamaño]);
   const [fallo, setFallo] = useState(false);
-  if (fallo) {
+  if (fallo || !imagenQR) {
     return (
       <div style={{ width: tamaño, height: tamaño, borderRadius: 8, background: C.surface, border: `1px dashed ${C.border}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 12, textAlign: "center" }}>
         <QrCodeIcon size={28} color={C.muted} style={{ marginBottom: 8 }} />
@@ -1238,12 +1254,12 @@ function CodigoQR({ codigo, tamaño = 140 }) {
   }
   return (
     <img
-      src={`https://api.qrserver.com/v1/create-qr-code/?size=${tamaño}x${tamaño}&data=${encodeURIComponent(codigo)}`}
+      src={imagenQR}
       alt={`Código QR ${codigo}`}
       width={tamaño}
       height={tamaño}
       onError={() => setFallo(true)}
-      style={{ borderRadius: 8, background: "#fff", padding: 8 }}
+      style={{ borderRadius: 8, background: "#fff", padding: 8, imageRendering: "pixelated" }}
     />
   );
 }
@@ -5289,7 +5305,7 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
               <CodigoQR codigo={folio} tamaño={200} />
               <div style={{ fontFamily: "monospace", fontSize: 14, fontWeight: 700, color: C.foreground }}>{folio}</div>
               <div style={{ fontSize: 12, color: C.muted, textAlign: "center" }}>
-                Imprímelo y pégalo en el equipo. Escanéalo desde "Escanear" en Inicio para llegar directo a esta ficha.
+                Imprímelo y pégalo en el equipo. Escanéalo con el botón "Escanear QR" para llegar directo a esta ficha.
               </div>
             </div>
           </Modal>
@@ -9078,13 +9094,34 @@ function EscanearScreen({ sucursalActiva, onClose, onEncontrado }) {
   };
 
   useEffect(() => {
-    if (!("BarcodeDetector" in window)) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setSoportado(false);
       return;
     }
     let activo = true;
     let intervalo;
-    const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+    /* Lector nativo del navegador (rápido) cuando existe; si no, jsQR lee el
+       QR de la imagen de la cámara — así funciona también en iPhone. */
+    let detector = null;
+    try {
+      if ("BarcodeDetector" in window) detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+    } catch (e) {
+      detector = null;
+    }
+    const lienzo = document.createElement("canvas");
+    const ctx = lienzo.getContext("2d", { willReadFrequently: true });
+    const leerConJsQR = (video) => {
+      const w0 = video.videoWidth, h0 = video.videoHeight;
+      if (!w0 || !h0 || !ctx) return null;
+      const escala = Math.min(1, 640 / Math.max(w0, h0));
+      const w = Math.round(w0 * escala), h = Math.round(h0 * escala);
+      if (lienzo.width !== w) lienzo.width = w;
+      if (lienzo.height !== h) lienzo.height = h;
+      ctx.drawImage(video, 0, 0, w, h);
+      const img = ctx.getImageData(0, 0, w, h);
+      const res = jsQR(img.data, w, h, { inversionAttempts: "dontInvert" });
+      return res && res.data ? res.data : null;
+    };
 
     navigator.mediaDevices
       .getUserMedia({ video: { facingMode: "environment" } })
@@ -9095,19 +9132,31 @@ function EscanearScreen({ sucursalActiva, onClose, onEncontrado }) {
           videoRef.current.srcObject = stream;
           videoRef.current.play().catch(() => {});
         }
+        let ocupado = false;
         intervalo = setInterval(async () => {
-          if (!videoRef.current) return;
+          const video = videoRef.current;
+          if (!video || ocupado || video.readyState < 2) return;
+          ocupado = true;
           try {
-            const codigos = await detector.detect(videoRef.current);
-            if (codigos.length > 0) {
-              procesarDeteccion(codigos[0].rawValue);
+            let texto = null;
+            if (detector) {
+              try {
+                const codigos = await detector.detect(video);
+                if (codigos.length > 0) texto = codigos[0].rawValue;
+              } catch (e) {
+                detector = null; // si el lector nativo falla, se sigue con jsQR
+              }
             }
+            if (!texto && !detector) texto = leerConJsQR(video);
+            if (texto) procesarDeteccion(String(texto).trim());
           } catch (e) {
-            // Un frame fallido no es grave, se intenta de nuevo en el siguiente.
+            // Un cuadro fallido no es grave, se intenta de nuevo en el siguiente.
+          } finally {
+            ocupado = false;
           }
-        }, 400);
+        }, 350);
       })
-      .catch(() => setError("No se pudo acceder a la cámara. Puedes escribir el código a mano."));
+      .catch(() => setError("No se pudo acceder a la cámara. Revisa que la app tenga permiso de cámara, o escribe el código a mano."));
 
     return () => {
       activo = false;
@@ -9134,14 +9183,14 @@ function EscanearScreen({ sucursalActiva, onClose, onEncontrado }) {
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 16, display: "flex", gap: 10 }}>
             <AlertTriangle size={18} color={C.warning} style={{ flexShrink: 0 }} />
             <div style={{ fontSize: 13, color: C.foreground }}>
-              {error || "Tu navegador no soporta escaneo automático de QR. Escribe el código que aparece debajo del QR (ej. EQ-queretaro-2)."}
+              {error || "Este navegador no permite usar la cámara. Escribe el código que aparece debajo del QR (ej. EQ-QRO-2)."}
             </div>
           </div>
         )}
         <FieldLabel>O escribe el código a mano</FieldLabel>
         <div style={{ display: "flex", gap: 8 }}>
           <div style={{ flex: 1 }}>
-            <TextInput value={manual} onChange={(e) => setManual(e.target.value)} placeholder="EQ-queretaro-2" />
+            <TextInput value={manual} onChange={(e) => setManual(e.target.value)} placeholder="EQ-QRO-2" />
           </div>
           <button
             onClick={() => { if (manual) { procesarDeteccion(manual); setManual(""); } }}
@@ -10820,12 +10869,23 @@ export default function PhotografInventario() {
     // ser cualquiera que el administrador haya creado — así que aquí se
     // acepta cualquier palabra y se valida aparte que sea una sucursal que
     // de verdad existe.
+    // El QR impreso usa el prefijo corto de la sucursal (EQ-QRO-3, EQ-SAL-3; ver
+    // codigoArticulo). Antes aquí solo se aceptaba el id largo (EQ-queretaro-3),
+    // así que ningún QR impreso se reconocía. Ahora se aceptan las dos formas.
     const match = codigo.trim().match(/^(EQ|BASE)-([a-z0-9]+)-(\d+)$/i);
-    if (!match || !allData[match[2].toLowerCase()]) {
+    const prefijoASucursal = (txt) => {
+      const t = String(txt || "").toLowerCase();
+      if (allData[t]) return t;
+      const porPrefijo = Object.entries(PREFIJO_SUC).find(([, pre]) => pre.toLowerCase() === t);
+      return porPrefijo && allData[porPrefijo[0]] ? porPrefijo[0] : null;
+    };
+    const sucDelCodigo = match ? prefijoASucursal(match[2]) : null;
+    if (!match || !sucDelCodigo) {
       mostrarToast("Código no reconocido");
       return null;
     }
-    const [, tipo, suc, idStr] = match;
+    const [, tipo, , idStr] = match;
+    const suc = sucDelCodigo;
     const id = parseInt(idStr, 10);
     if (suc.toLowerCase() !== sucursalActiva) {
       mostrarToast(`Ese código es de ${NOMBRES_SUCURSAL[suc.toLowerCase()]}, no de aquí`);
