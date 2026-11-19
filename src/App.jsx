@@ -982,6 +982,8 @@ function GlobalStyles() {
       button, input, select, textarea { font-family: inherit; }
       .pf-hub-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
       @media (min-width: 700px) { .pf-hub-grid { grid-template-columns: repeat(3, 1fr); } }
+      .pf-entrada-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+      @media (min-width: 700px) { .pf-entrada-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; } }
       * { scrollbar-width: thin; scrollbar-color: rgba(110,90,130,0.22) transparent; }
       /* El listón dorado — el único adorno recurrente de la app. Aparece
          bajo el nombre "Photograf" y en los momentos de mayor peso (el
@@ -1789,32 +1791,76 @@ function calcularAlertas(data, config) {
    PANTALLA: ¿Quién eres? — identificación ligera, sin contraseña individual.
    Sirve para autocompletar "quién autoriza/edita" y para filtrar Mi Inventario.
    ========================================================================= */
+/* Iniciales para el círculo de cada persona (solo visual) */
+function inicialesDe(nombre) {
+  const partes = String(nombre || "").trim().split(/\s+/).filter(Boolean);
+  if (!partes.length) return "?";
+  return ((partes[0][0] || "") + (partes.length > 1 ? partes[1][0] || "" : "")).toUpperCase();
+}
+const TONOS_AVATAR = ["#1572B8", "#B3195F", "#7C4DDB", "#0E9F6E", "#E58A00", "#0891B2"];
+function tonoDe(nombre) {
+  let h = 0;
+  for (const ch of String(nombre || "")) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return TONOS_AVATAR[h % TONOS_AVATAR.length];
+}
+function AvatarIniciales({ nombre, size = 40 }) {
+  const tono = tonoDe(nombre);
+  return (
+    <div style={{ width: size, height: size, borderRadius: 999, background: tono + "1F", color: tono, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.36, fontWeight: 800, flexShrink: 0, letterSpacing: "-0.02em" }}>
+      {inicialesDe(nombre)}
+    </div>
+  );
+}
+function MarcaPhotograf({ derecha }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 26 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <img src={LOGO_PHOTOGRAF} alt="Photograf" style={{ width: 30, height: 30 }} />
+        <div>
+          <div className="pf-heading" style={{ fontSize: 20, color: C.foreground }}>Photograf</div>
+          <span className="pf-ribbon" />
+        </div>
+      </div>
+      {derecha}
+    </div>
+  );
+}
+function PildoraUsuario({ usuario, onClick }) {
+  return (
+    <button onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 6, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 12px", color: C.foreground, fontSize: 12.5, fontWeight: 600, cursor: "pointer", boxShadow: SOMBRA_TARJETA }}>
+      <UserCircle size={16} color={C.muted} /> {usuario}
+    </button>
+  );
+}
+
 function UserPicker({ empleados, onSelect, onAdminMode }) {
   const [custom, setCustom] = useState("");
   return (
     <div style={{ padding: 20, minHeight: "100vh", background: "transparent" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-        <img src={LOGO_PHOTOGRAF} alt="Photograf" style={{ width: 32, height: 32 }} />
-        <div>
-          <div className="pf-heading" style={{ fontSize: 24, fontWeight: 700, color: C.foreground }}>Photograf</div>
-          <span className="pf-ribbon" />
-        </div>
-      </div>
-      <div style={{ fontSize: 13, color: C.muted, marginBottom: 24, marginTop: 10 }}>¿Quién eres? Esto se usa para saber quién hace cada movimiento — no es una contraseña, es solo identificación.</div>
+      <MarcaPhotograf />
+      <div className="pf-heading" style={{ fontSize: 30, lineHeight: 1.1, color: C.foreground }}>¿Quién eres?</div>
+      <div style={{ fontSize: 13.5, color: C.muted, marginTop: 8, marginBottom: 22, maxWidth: 520 }}>Esto se usa para saber quién hace cada movimiento — no es una contraseña, es solo identificación.</div>
       {empleados.length === 0 && <div style={{ fontSize: 13, color: C.muted, marginBottom: 12 }}>Todavía no hay empleados registrados. Pide al administrador que agregue uno, o escribe tu nombre abajo.</div>}
-      {empleados.map((u) => (
-        <button key={u} onClick={() => onSelect(u)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 10, cursor: "pointer" }}>
-          <UserCircle size={22} color={C.primary} />
-          <span style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{u}</span>
-        </button>
-      ))}
-      <FieldLabel>O escribe tu nombre</FieldLabel>
-      <TextInput value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="Tu nombre" />
-      <PrimaryButton onClick={() => onSelect(custom)} disabled={!custom}>Continuar</PrimaryButton>
+      <div className="pf-entrada-grid">
+        {empleados.map((u) => (
+          <button key={u} className="pf-press" onClick={() => onSelect(u)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: "12px 14px", cursor: "pointer", boxShadow: SOMBRA_TARJETA, textAlign: "left" }}>
+            <AvatarIniciales nombre={u} />
+            <span style={{ flex: 1, fontSize: 15, fontWeight: 700, color: C.foreground }}>{u}</span>
+            <ChevronRight size={18} color={C.muted} />
+          </button>
+        ))}
+      </div>
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 22, padding: "4px 16px 16px", marginTop: 16, boxShadow: SOMBRA_TARJETA }}>
+        <FieldLabel>O escribe tu nombre</FieldLabel>
+        <TextInput value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="Tu nombre" />
+        <PrimaryButton onClick={() => onSelect(custom)} disabled={!custom}>Continuar</PrimaryButton>
+      </div>
 
-      <button onClick={onAdminMode} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "none", border: "none", color: C.muted, fontSize: 12, cursor: "pointer", marginTop: 24 }}>
-        <Shield size={14} /> Soy administrador
-      </button>
+      <div style={{ display: "flex", justifyContent: "center", marginTop: 22 }}>
+        <button onClick={onAdminMode} style={{ display: "flex", alignItems: "center", gap: 8, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 999, padding: "9px 16px", color: C.muted, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+          <Shield size={14} /> Soy administrador
+        </button>
+      </div>
     </div>
   );
 }
@@ -1874,8 +1920,13 @@ function AdminGate({ config, onSuccess, onCancel }) {
           e.preventDefault();
           if (pass) confirmar();
         }}
-        style={{ padding: "20px 0" }}
+        style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 24, padding: 20, marginTop: 8, boxShadow: SOMBRA_TARJETA, maxWidth: 480 }}
       >
+        <div style={{ width: 52, height: 52, borderRadius: 17, background: C.ink + "14", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+          <Shield size={25} color={C.ink} />
+        </div>
+        <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.02em", color: C.foreground }}>Solo para administradores</div>
+        <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>Escribe la contraseña para abrir el panel.</div>
         <FieldLabel>Contraseña de administrador</FieldLabel>
         <PasswordInput ref={inputRef} enterKeyHint="go" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="••••••••" autoFocus disabled={bloqueado} />
         {error && <div style={{ color: C.error, fontSize: 12, marginTop: 8 }}>{error}{bloqueado ? ` (${segundosRestantes}s)` : ""}</div>}
@@ -4614,39 +4665,47 @@ function SucursalSelector({ usuario, onCambiarUsuario, onUnlock, onOpenMiInventa
 
   return (
     <div style={{ padding: 20, minHeight: "100vh", background: "transparent" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <img src={LOGO_PHOTOGRAF} alt="Photograf" style={{ width: 28, height: 28 }} />
-          <div>
-            <div className="pf-heading" style={{ fontSize: 24, fontWeight: 700, color: C.foreground }}>Photograf</div>
-            <span className="pf-ribbon" />
-          </div>
-        </div>
-        <button onClick={onCambiarUsuario} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: C.muted, fontSize: 12, cursor: "pointer" }}>
-          <UserCircle size={16} /> {usuario}
-        </button>
-      </div>
-      <div style={{ fontSize: 13, color: C.muted, marginBottom: 24, marginTop: 10 }}>Elige una sucursal para entrar</div>
+      <MarcaPhotograf derecha={<PildoraUsuario usuario={usuario} onClick={onCambiarUsuario} />} />
+      <div className="pf-heading" style={{ fontSize: 30, lineHeight: 1.1, color: C.foreground }}>{`Hola, ${String(usuario || "").trim().split(/\s+/)[0] || ""}`}</div>
+      <div style={{ fontSize: 14.5, color: C.muted, marginTop: 6, marginBottom: 22 }}>Elige una sucursal para entrar</div>
 
-      {SUCURSALES.map((s) => (
-        <button key={s} onClick={() => setIntento(s)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", boxShadow: SOMBRA_TARJETA }}>
-          <div style={{ textAlign: "left" }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: C.foreground }}>{NOMBRES_SUCURSAL[s]}</div>
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Requiere contraseña</div>
-          </div>
-          <Lock size={22} color={C.primary} />
-        </button>
-      ))}
-
-      <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
-        <button onClick={onOpenMiInventario} style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14, fontSize: 13, fontWeight: 600, color: C.foreground, cursor: "pointer" }}>
-          Mi Inventario
-        </button>
-        <button onClick={onOpenBuscar} style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14, fontSize: 13, fontWeight: 600, color: C.foreground, cursor: "pointer" }}>
-          Buscar artículo
-        </button>
+      <div className="pf-entrada-grid">
+        {SUCURSALES.map((s, i) => {
+          const tono = i % 2 === 0 ? C.primary : C.secondary;
+          return (
+            <button key={s} className="pf-press" onClick={() => setIntento(s)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 22, padding: 16, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", boxShadow: SOMBRA_TARJETA, textAlign: "left" }}>
+              <div style={{ width: 50, height: 50, borderRadius: 16, background: tono + "1F", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Warehouse size={24} color={tono} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.01em", color: C.foreground }}>{NOMBRES_SUCURSAL[s]}</div>
+                <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>Requiere contraseña</div>
+              </div>
+              <div style={{ width: 34, height: 34, borderRadius: 999, background: C.ink, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Lock size={15} color={textoContraste(C.ink)} />
+              </div>
+            </button>
+          );
+        })}
       </div>
-      <div style={{ fontSize: 12, color: C.muted, marginTop: 12, textAlign: "center" }}>Todos pueden ver info general; entrar a trabajar en una sucursal requiere su contraseña.</div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 16 }}>
+        {[
+          { icon: User, label: "Mi Inventario", detalle: "El equipo que tienes prestado", onClick: onOpenMiInventario },
+          { icon: Search, label: "Buscar artículo", detalle: "En todas las sucursales", onClick: onOpenBuscar },
+        ].map(({ icon: Icon, label, detalle, onClick }) => (
+          <button key={label} className="pf-press" onClick={onClick} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 14, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10, cursor: "pointer", boxShadow: SOMBRA_TARJETA, textAlign: "left" }}>
+            <div style={{ width: 38, height: 38, borderRadius: 13, background: C.ink + "12", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Icon size={19} color={C.ink} />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.foreground }}>{label}</div>
+              <div style={{ fontSize: 11.5, color: C.muted, marginTop: 2 }}>{detalle}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+      <div style={{ fontSize: 12, color: C.muted, marginTop: 14, textAlign: "center" }}>Todos pueden ver info general; entrar a trabajar en una sucursal requiere su contraseña.</div>
 
       {intento && (
         <Modal title={NOMBRES_SUCURSAL[intento]} onClose={() => { setIntento(null); setPass(""); setError(""); }}>
