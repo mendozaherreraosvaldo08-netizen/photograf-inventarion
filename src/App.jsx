@@ -1245,7 +1245,7 @@ function CodigoQR({ codigo, tamaño = 140 }) {
   );
 }
 
-function TopHeader({ sucursal, onLogout, onSearch, onScan }) {
+function TopHeader({ sucursal, onLogout, onSearch }) {
   return (
     <div style={{ background: "transparent", padding: "16px 16px 14px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -1257,9 +1257,6 @@ function TopHeader({ sucursal, onLogout, onSearch, onScan }) {
           <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{NOMBRES_SUCURSAL[sucursal]}</div>
         </div>
         <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          <button onClick={onScan} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 999, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, color: C.foreground, cursor: "pointer", boxShadow: SOMBRA_TARJETA }} aria-label="Escanear código">
-            <ScanLine size={18} />
-          </button>
           <button onClick={onSearch} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 999, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, color: C.foreground, cursor: "pointer", boxShadow: SOMBRA_TARJETA }} aria-label="Buscar">
             <Search size={18} />
           </button>
@@ -4883,14 +4880,6 @@ function HomeScreen({ data, config, goTo, goToMas, alertas, sucursalNombre, most
           {areas.map((a) => (
             <AreaTile key={a.key} icon={a.icon} label={a.label} value={a.value} onClick={a.onClick} />
           ))}
-        </div>
-
-        <div style={{ ...tituloSeccion(), marginBottom: 10 }}>Acceso rápido</div>
-        <div className="pf-tile-grid" style={{ marginBottom: 24 }}>
-          <QuickActionCard icon={Camera} label="Equipo" color={C.primary} onClick={() => goTo("equipo")} />
-          <QuickActionCard icon={Warehouse} label="Almacén" color={C.secondary} onClick={() => goTo("almacen")} />
-          <QuickActionCard icon={Package} label="Materiales" color={C.accent1} onClick={() => goTo("materiales")} />
-          <QuickActionCard icon={User} label="Mi Inventario" color={C.muted} onClick={() => goTo("miInventario")} />
         </div>
 
         <div style={{ ...tituloSeccion(), marginBottom: 10 }}>Movimientos recientes</div>
@@ -10983,7 +10972,7 @@ export default function PhotografInventario() {
   return (
     <div className="pf-shell pf-app" style={{ fontFamily: 'Inter, -apple-system, "Segoe UI", Roboto, sans-serif', background: "transparent", minHeight: "100vh", position: "relative" }}>
         <GlobalStyles />
-      {screen === "home" && <TopHeader sucursal={sucursalActiva} onLogout={() => setSucursalActiva(null)} onSearch={() => setVistaExterna("buscar")} onScan={() => setVistaExterna("escanear")} />}
+      {screen === "home" && <TopHeader sucursal={sucursalActiva} onLogout={() => setSucursalActiva(null)} onSearch={() => setVistaExterna("buscar")} />}
       <div key={screen} className="pf-fade-in pf-app-contenido">{screens[screen]}</div>
       <BottomNav active={screen} onChange={setScreen} onScan={() => setVistaExterna("escanear")} sucursalNombre={NOMBRES_SUCURSAL[sucursalActiva]} badge={alertas.length + transferenciasPendientes.filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito").length + transferenciasBasesPendientes.filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito").length + transferenciasIndumentariaPendientes.filter((t) => t.destino === sucursalActiva && t.estado === "En tránsito").length} />
       <Toast text={toast} />
