@@ -299,6 +299,60 @@ function minimoDe(material, config) {
    existían "eventos" ni "fotos"). Antes eso tronaba la pantalla completa.
    Aquí se rellena lo que falte antes de usarlos.
    --------------------------------------------------------------------- */
+/* Lee el Excel de "REQUERIMIENTO DE BASES" tal como lo usa la oficina:
+   modelo en la 1a columna (o 2a en algunos formatos), tipo (pan, pan c/ ampl,
+   diploma…) en la siguiente, y una columna "TOTAL"/"SUMA" con lo que se necesita. */
+function leerRequerimientoBases(filas) {
+  const texto = (v) => (v === null || v === undefined ? "" : String(v).trim());
+  const esNum = (v) => typeof v === "number" || (typeof v === "string" && v.trim() !== "" && !isNaN(Number(v)));
+  let idxTotal = -1;
+  for (const f of filas.slice(0, 15)) {
+    const i = (f || []).findIndex((c) => /total|suma/i.test(texto(c)));
+    if (i >= 0) { idxTotal = i; break; }
+  }
+  if (idxTotal < 0) return { error: 'No encontré la columna "TOTAL" o "SUMA" en el Excel.', renglones: [] };
+  /* Cada modelo ocupa un grupo de renglones (pan c/ ampl, pan, diploma…). En unos
+     formatos el nombre va en un renglón de encabezado arriba del grupo; en otros
+     (celdas combinadas) aparece en el renglón de en medio. Por eso primero se arman
+     los grupos y luego cada grupo toma el nombre que traiga. */
+  const renglones = [];
+  let encabezado = "";
+  let grupo = [];
+  const cerrarGrupo = () => {
+    if (!grupo.length) return;
+    const nombre = (grupo.find((x) => x.a) || {}).a || encabezado;
+    grupo.forEach((x) => {
+      if (!nombre || x.n <= 0) return;
+      renglones.push({ clave: `${nombre}|${x.b}`.toLowerCase(), modelo: nombre, tipo: x.b, necesitas: x.n });
+    });
+    grupo = [];
+  };
+  filas.forEach((f) => {
+    f = f || [];
+    const a = texto(f[0]), b = texto(f[1]);
+    const total = f[idxTotal];
+    if (/total|suma|folio|fecha|entrega|lista|escuela/i.test(`${a} ${b}`) && !esNum(total)) return;
+    if (!esNum(total)) {
+      // renglón de encabezado (sin cantidades): define el modelo de lo que sigue
+      if (a || b) { cerrarGrupo(); encabezado = b || a; }
+      return;
+    }
+    const n = Math.round(Number(total)) || 0;
+    if (a && !b) {
+      // modelo de un solo renglón (ej. COLLAGE 3D)
+      cerrarGrupo();
+      if (n > 0) renglones.push({ clave: `${a}|`.toLowerCase(), modelo: a, tipo: "", necesitas: n });
+      return;
+    }
+    const empiezaGrupo = /\bamp/i.test(b);
+    const yaTieneNombre = grupo.some((x) => x.a);
+    if (empiezaGrupo || (a && yaTieneNombre)) cerrarGrupo();
+    grupo.push({ a, b, n });
+  });
+  cerrarGrupo();
+  return { error: renglones.length ? "" : "No encontré renglones con cantidades en el Excel.", renglones };
+}
+
 function normalizarSucursal(d) {
   const base = d || {};
   return {
@@ -356,6 +410,8 @@ function normalizarSucursal(d) {
     eventos: base.eventos || [],
     // Conteos rápidos de bases (quién contó, cuándo y qué diferencias salieron)
     conteosBases: base.conteosBases || [],
+    // Requerimiento de bases (Excel): qué base de la app corresponde a cada renglón
+    mapeoRequerimiento: base.mapeoRequerimiento || {},
     transferencias: base.transferencias || [],
     bitacora: base.bitacora || [],
     // Pestañas que el propio usuario crea desde la app (botón "Nueva
@@ -469,7 +525,7 @@ const LLAVES_SUCURSAL = [
   "mobiliario", "piezas", "hojasGrandes", "placasChicas", "rendimientos",
   "produccionPlacas", "eventos", "transferencias", "bitacora", "gruposPersonalizados", "gruposAlmacen",
   "tiposIndumentaria", "tiposEmblematicos", "tiposMobiliario", "tiposPorGrupoPieza", "tiposPlacaChica",
-  "conteosBases",
+  "conteosBases", "mapeoRequerimiento",
 ];
 
 function fusionarPorLlave(base, propio, servidor, llaves) {
@@ -5418,6 +5474,88 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
   };
   const [modalPedido, setModalPedido] = useState(false);
   const [pedidoForm, setPedidoForm] = useState({ item: "", cantidad: "1", urgencia: "Normal", tipo: "material", color: "" });
+  /* ---- Requerimiento de bases (Excel) ---- */
+  const [requerimiento, setRequerimiento] = useState(null); // { archivo, renglones: [{clave, modelo, tipo, necesitas, baseId, color}] }
+  const inputRequerimientoRef = useRef(null);
+  const normalizarTxt = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  /* Adivina qué base de la app es un renglón del Excel (por nombre y por tipo pan/diploma) */
+  const adivinarBase = (r) => {
+    const guardado = (data.mapeoRequerimiento || {})[r.clave];
+    if (guardado && data.bases.some((b) => b.id === guardado.baseId)) return guardado;
+    const m = normalizarTxt(r.modelo);
+    const t = normalizarTxt(r.tipo);
+    const catalogo = /dip/.test(t) ? "Diploma" : /pan/.test(t) ? "Panoramica" : null;
+    const candidatos = data.bases.filter((b) => !b.descontinuada && (normalizarTxt(panoDe(b.nombre)) === m || normalizarTxt(b.nombre).includes(m)));
+    const conCatalogo = catalogo ? candidatos.filter((b) => b.catalogo === catalogo) : candidatos;
+    const elegida = (conCatalogo.length === 1 ? conCatalogo[0] : candidatos.length === 1 ? candidatos[0] : null);
+    return elegida ? { baseId: elegida.id, color: "" } : { baseId: null, color: "" };
+  };
+  const yaPedidoDe = (b, color) => {
+    if (!b) return 0;
+    const pendientes = (data.pedidos || [])
+      .filter((p) => p.tipo === "base" && p.item === b.nombre && ["Por aprobar", "Pendiente", "Aprobado"].includes(p.estado) && (!color || (p.color || "").toLowerCase() === color.toLowerCase()))
+      .reduce((a, p) => a + (Number(p.cantidad) || 0), 0);
+    return pendientes + (color ? 0 : Number(b.pedidoProveedor) || 0);
+  };
+  const tienesDe = (b, color) => {
+    if (!b) return 0;
+    if (color && (b.variantes || []).length) return Number((b.variantes.find((v) => v.color === color) || {}).tenemos) || 0;
+    return tenemosBase(b);
+  };
+  const calculoRenglon = (r) => {
+    const b = data.bases.find((x) => x.id === r.baseId);
+    const tienes = tienesDe(b, r.color);
+    const yaPedido = yaPedidoDe(b, r.color);
+    return { b, tienes, yaPedido, falta: b ? Math.max(0, r.necesitas - tienes - yaPedido) : r.necesitas };
+  };
+  const abrirArchivoRequerimiento = async (e) => {
+    const archivo = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!archivo) return;
+    try {
+      const buf = await archivo.arrayBuffer();
+      const libro = XLSX.read(buf, { type: "array" });
+      const hoja = libro.Sheets[libro.SheetNames[0]];
+      const filas = XLSX.utils.sheet_to_json(hoja, { header: 1, blankrows: false });
+      const { error, renglones } = leerRequerimientoBases(filas);
+      if (error) { mostrarToast(error); return; }
+      setRequerimiento({ archivo: archivo.name, hoja: libro.SheetNames[0], renglones: renglones.map((r) => ({ ...r, ...adivinarBase(r) })) });
+    } catch (err) {
+      mostrarToast("No pude leer ese archivo. ¿Es un Excel (.xlsx)?");
+    }
+  };
+  const cambiarRenglonReq = (clave, cambios) => {
+    setRequerimiento((rq) => ({ ...rq, renglones: rq.renglones.map((r) => (r.clave === clave ? { ...r, ...cambios } : r)) }));
+  };
+  const recordarMapeo = () => {
+    if (!requerimiento) return;
+    const nuevos = {};
+    requerimiento.renglones.forEach((r) => { if (r.baseId) nuevos[r.clave] = { baseId: r.baseId, color: r.color || "" }; });
+    setData((d) => ({ ...d, mapeoRequerimiento: { ...(d.mapeoRequerimiento || {}), ...nuevos } }));
+  };
+  const descargarPedidoFaltante = () => {
+    if (!requerimiento) return;
+    const filas = requerimiento.renglones.map((r) => ({ r, c: calculoRenglon(r) }));
+    const aFila = ({ r, c }) => ({ Modelo: r.modelo, Tipo: r.tipo, "Base en la app": c.b ? c.b.nombre : "(sin elegir)", Color: r.color || "", Necesitas: r.necesitas, Tienes: c.tienes, "Ya pedido": c.yaPedido, "Falta pedir": c.falta });
+    const libro = XLSX.utils.book_new();
+    const h1 = XLSX.utils.json_to_sheet(filas.filter((x) => x.c.falta > 0).map(aFila));
+    h1["!cols"] = [{ wch: 18 }, { wch: 14 }, { wch: 28 }, { wch: 12 }, { wch: 10 }, { wch: 9 }, { wch: 10 }, { wch: 11 }];
+    XLSX.utils.book_append_sheet(libro, h1, "Pedir al proveedor");
+    const h2 = XLSX.utils.json_to_sheet(filas.map(aFila));
+    h2["!cols"] = h1["!cols"];
+    XLSX.utils.book_append_sheet(libro, h2, "Comparación completa");
+    XLSX.writeFile(libro, `Pedido_bases_${fmt(hoy)}.xlsx`);
+    recordarMapeo();
+    mostrarToast("Excel del pedido descargado ✓");
+  };
+  const crearPedidosFaltantes = () => {
+    if (!requerimiento) return;
+    const porPedir = requerimiento.renglones.map((r) => ({ r, c: calculoRenglon(r) })).filter((x) => x.c.b && x.c.falta > 0);
+    porPedir.forEach(({ r, c }) => onPedir(c.b.nombre, "base", c.falta, "Normal", r.color || ""));
+    recordarMapeo();
+    mostrarToast(`Se mandaron ${porPedir.length} pedido(s) a autorizar ✓`);
+    setRequerimiento(null);
+  };
   const [imagenAmpliada, setImagenAmpliada] = useState(null);
   const [registrandoSalida, setRegistrandoSalida] = useState(null); // base
   const [salidaForm, setSalidaForm] = useState({ tipo: "entrega", cantidad: "1", nota: "", color: "", destino: "" });
@@ -6485,6 +6623,15 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
           >
             <Plus size={16} /> Pedir algo al proveedor
           </button>
+          <input ref={inputRequerimientoRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={abrirArchivoRequerimiento} />
+          <button
+            onClick={() => inputRequerimientoRef.current && inputRequerimientoRef.current.click()}
+            className="pf-press"
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.ink, color: textoContraste(C.ink), border: "none", borderRadius: 16, padding: "14px 18px", fontSize: 14, fontWeight: 700, cursor: "pointer", marginTop: 10 }}
+          >
+            <FileSpreadsheet size={16} /> Subir requerimiento de bases (Excel)
+          </button>
+          <div style={{ fontSize: 12, color: C.muted, textAlign: "center", margin: "6px 0 4px" }}>La app compara con lo que hay y te dice cuánto falta pedir.</div>
           {data.pedidos.length > 0 && (
             <button
               onClick={exportarPedidosExcel}
@@ -6786,6 +6933,52 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
           })()}
         </Modal>
       )}
+
+      {requerimiento && (() => {
+        const filas = requerimiento.renglones.map((r) => ({ r, c: calculoRenglon(r) }));
+        const sinBase = filas.filter((x) => !x.c.b).length;
+        const porPedir = filas.filter((x) => x.c.b && x.c.falta > 0);
+        const totalFalta = porPedir.reduce((a, x) => a + x.c.falta, 0);
+        const opcionesBases = [...data.bases].filter((b) => !b.descontinuada).sort((a, b) => a.nombre.localeCompare(b.nombre));
+        return (
+          <Modal title="Requerimiento de bases" onClose={() => setRequerimiento(null)}>
+            <div style={{ fontSize: 12.5, color: C.muted }}>{requerimiento.archivo} · hoja "{requerimiento.hoja}" · {filas.length} renglón(es)</div>
+            <div style={{ marginTop: 10, fontSize: 12.5, borderRadius: 14, padding: "10px 12px", background: sinBase ? `${C.warning}18` : `${C.primary}10`, color: C.foreground }}>
+              {sinBase ? `${sinBase} renglón(es) sin base elegida: elige a qué base corresponde cada uno (la app lo recuerda para la próxima). ` : ""}
+              Falta pedir <b>{totalFalta}</b> pieza(s) en {porPedir.length} modelo(s).
+            </div>
+            <div style={{ marginTop: 6 }}>
+              {filas.map(({ r, c }) => (
+                <div key={r.clave} style={{ padding: "10px 0", borderTop: `1px solid ${C.border}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.foreground }}>{r.modelo}{r.tipo ? <span style={{ color: C.muted, fontWeight: 600 }}>{` · ${r.tipo}`}</span> : null}</div>
+                    <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 800, borderRadius: 999, padding: "3px 10px", background: c.falta > 0 ? `${C.error}14` : `${C.success}1A`, color: c.falta > 0 ? C.error : C.success }}>
+                      {c.falta > 0 ? `Pedir ${c.falta}` : "Alcanza"}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                    <select value={r.baseId ?? ""} onChange={(e) => cambiarRenglonReq(r.clave, { baseId: e.target.value ? Number(e.target.value) : null, color: "" })}
+                      style={{ flex: 1, minWidth: 160, border: `1.5px solid ${c.b ? C.border : C.warning}`, borderRadius: 12, padding: "8px 10px", fontSize: 13, background: C.background, color: C.foreground }}>
+                      <option value="">— ¿Qué base es? —</option>
+                      {opcionesBases.map((b) => <option key={b.id} value={b.id}>{b.nombre}{b.catalogo && b.catalogo !== "General" && !b.nombre.includes(b.catalogo) ? ` (${b.catalogo === "Panoramica" ? "Panorámica" : b.catalogo})` : ""}</option>)}
+                    </select>
+                    {c.b && (c.b.variantes || []).length > 0 && (
+                      <select value={r.color || ""} onChange={(e) => cambiarRenglonReq(r.clave, { color: e.target.value })}
+                        style={{ border: `1.5px solid ${C.border}`, borderRadius: 12, padding: "8px 10px", fontSize: 13, background: C.background, color: C.foreground }}>
+                        <option value="">Todos los colores</option>
+                        {c.b.variantes.map((v) => <option key={v.color} value={v.color}>{v.color}</option>)}
+                      </select>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 5 }}>Necesitas {r.necesitas} · Tienes {c.tienes} · Ya pedido {c.yaPedido}</div>
+                </div>
+              ))}
+            </div>
+            <PrimaryButton onClick={descargarPedidoFaltante} color={C.success} disabled={porPedir.length === 0}>Descargar Excel del pedido</PrimaryButton>
+            <PrimaryButton onClick={crearPedidosFaltantes} color={C.secondary} disabled={porPedir.length === 0}>{`Crear ${porPedir.length} pedido(s) a proveedor`}</PrimaryButton>
+          </Modal>
+        );
+      })()}
 
       {conteoAbierto && (
         <Modal title="Conteo rápido de bases" onClose={() => setConteoAbierto(false)}>
