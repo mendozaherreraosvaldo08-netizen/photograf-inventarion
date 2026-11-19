@@ -352,6 +352,8 @@ function normalizarSucursal(d) {
     rendimientos: base.rendimientos || {},
     produccionPlacas: base.produccionPlacas || [],
     eventos: base.eventos || [],
+    // Conteos rápidos de bases (quién contó, cuándo y qué diferencias salieron)
+    conteosBases: base.conteosBases || [],
     transferencias: base.transferencias || [],
     bitacora: base.bitacora || [],
     // Pestañas que el propio usuario crea desde la app (botón "Nueva
@@ -465,6 +467,7 @@ const LLAVES_SUCURSAL = [
   "mobiliario", "piezas", "hojasGrandes", "placasChicas", "rendimientos",
   "produccionPlacas", "eventos", "transferencias", "bitacora", "gruposPersonalizados", "gruposAlmacen",
   "tiposIndumentaria", "tiposEmblematicos", "tiposMobiliario", "tiposPorGrupoPieza", "tiposPlacaChica",
+  "conteosBases",
 ];
 
 function fusionarPorLlave(base, propio, servidor, llaves) {
@@ -5440,6 +5443,71 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
     return Number(b.tenemos) || 0;
   };
   const pasoHistorial = (accion) => ({ accion, fecha: fmt(hoy), quien: usuarioActual || "" });
+
+  /* ---- Conteo rápido de bases ---- */
+  const [conteoAbierto, setConteoAbierto] = useState(false);
+  const [conteoValores, setConteoValores] = useState({}); // clave de renglón -> lo que se escribió
+  const [conteoBusca, setConteoBusca] = useState("");
+  /* Un renglón por base (o por color, si tiene colores). Los panos que comparten
+     existencia física entre catálogos se cuentan una sola vez. */
+  const renglonesConteo = (() => {
+    const vistos = new Set();
+    const filas = [];
+    data.bases
+      .filter((b) => (sucursal === "queretaro" || b.catalogo !== "UNICEQ") && !b.descontinuada)
+      .forEach((b) => {
+        if (vistos.has(b.id)) return;
+        vistos.add(b.id);
+        if ((b.variantes || []).length > 0) {
+          b.variantes.forEach((v) => filas.push({ clave: `${b.id}::${v.color}`, baseId: b.id, color: v.color, nombre: b.nombre, sistema: Number(v.tenemos) || 0 }));
+          return;
+        }
+        const hermanas = hermanasDePano(data.bases, b);
+        hermanas.forEach((h) => vistos.add(h.id));
+        filas.push({ clave: String(b.id), baseId: b.id, color: "", nombre: b.nombre, sistema: Number(b.tenemos) || 0, tambien: hermanas.map((h) => h.nombre) });
+      });
+    return filas;
+  })();
+  const capturadosConteo = renglonesConteo.filter((f) => String(conteoValores[f.clave] ?? "").trim() !== "" && !isNaN(parseInt(conteoValores[f.clave], 10)));
+  const conDiferenciaConteo = capturadosConteo.filter((f) => parseInt(conteoValores[f.clave], 10) !== f.sistema);
+  const ultimoConteo = (data.conteosBases || []).slice(-1)[0];
+
+  const guardarConteo = () => {
+    if (capturadosConteo.length === 0) return;
+    const quienCuenta = usuarioActual || "";
+    setData((d) => {
+      const resumen = [];
+      let bases = d.bases;
+      capturadosConteo.forEach((f) => {
+        const contado = Math.max(0, parseInt(conteoValores[f.clave], 10));
+        const b0 = bases.find((x) => x.id === f.baseId);
+        if (!b0) return;
+        if (f.color) {
+          const v0 = (b0.variantes || []).find((v) => v.color === f.color);
+          const sistema = Number(v0?.tenemos) || 0;
+          const diferencia = contado - sistema;
+          resumen.push({ base: f.nombre, color: f.color, sistema, contado, diferencia });
+          if (diferencia === 0) return;
+          bases = bases.map((b) => (b.id === f.baseId ? { ...b, variantes: b.variantes.map((v) => (v.color === f.color ? { ...v, tenemos: contado } : v)), movimientos: [...(b.movimientos || []), movimientoBase("ajuste", diferencia, quienCuenta, `Conteo rápido — color ${f.color}`, { color: f.color })] } : b));
+          return;
+        }
+        const sistema = Number(b0.tenemos) || 0;
+        const diferencia = contado - sistema;
+        resumen.push({ base: f.nombre, color: "", sistema, contado, diferencia });
+        if (diferencia === 0) return;
+        bases = bases.map((b) => (b.id === f.baseId ? { ...b, tenemos: contado, movimientos: [...(b.movimientos || []), movimientoBase("ajuste", diferencia, quienCuenta, "Conteo rápido")] } : b));
+        bases = conPanoSincronizado(bases, b0, contado, quienCuenta, `Sincronizado: conteo rápido de "${b0.nombre}" en ${panoDe(b0.nombre)}`);
+      });
+      const conteo = { id: Date.now(), fecha: fmt(hoy), quien: quienCuenta, filas: resumen };
+      return { ...d, bases, conteosBases: [...(d.conteosBases || []), conteo].slice(-90) };
+    });
+    const cambios = conDiferenciaConteo.length;
+    bitacora(`Conteo rápido de bases: ${capturadosConteo.length} contada(s), ${cambios} con diferencia${cambios ? " — " + conDiferenciaConteo.map((f) => `${f.nombre}${f.color ? ` ${f.color}` : ""} ${f.sistema}→${parseInt(conteoValores[f.clave], 10)}`).join(", ") : ""}`, quienCuenta);
+    mostrarToast(cambios ? `Conteo guardado ✓ — se corrigieron ${cambios}` : "Conteo guardado ✓ — todo cuadra");
+    setConteoAbierto(false);
+    setConteoValores({});
+    setConteoBusca("");
+  };
   const [porDesarmar, setPorDesarmar] = useState(null);
   const [panoAmpliado, setPanoAmpliado] = useState(null); // { pano, entradas }
   const [agregandoGrupoAlmacen, setAgregandoGrupoAlmacen] = useState(false);
@@ -6249,6 +6317,12 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
               ))}
             </div>
           )}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, margin: "14px 16px 0", flexWrap: "wrap" }}>
+            <button onClick={() => { setConteoValores({}); setConteoBusca(""); setConteoAbierto(true); }} className="pf-press" style={{ display: "flex", alignItems: "center", gap: 8, background: C.ink, color: textoContraste(C.ink), border: "none", borderRadius: 999, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              <ClipboardCheck size={16} /> Conteo rápido
+            </button>
+            <span style={{ fontSize: 12, color: C.muted }}>{ultimoConteo ? `Último conteo: ${ultimoConteo.fecha}${ultimoConteo.quien ? ` · ${ultimoConteo.quien}` : ""}` : "Todavía no hay conteos registrados"}</span>
+          </div>
           <SearchBar placeholder="Buscar paquete por cliente, teléfono o correo" value={buscaPaquete} onChange={(e) => setBuscaPaquete(e.target.value)} />
           {textoBusca && (() => {
             const encontrados = basesFiltradas.reduce((a, b) => a + b.reservas.filter((r) => r.estado !== "Desarmada" && coincidePaquete(r)).length, 0);
@@ -6648,6 +6722,55 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
               </>
             );
           })()}
+        </Modal>
+      )}
+
+      {conteoAbierto && (
+        <Modal title="Conteo rápido de bases" onClose={() => setConteoAbierto(false)}>
+          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.45 }}>
+            Escribe cuántas hay <b>físicamente</b>. Solo cuenta las que quieras: las que dejes vacías no se tocan. Al guardar, el sistema se corrige y queda registrado quién contó.
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <TextInput value={conteoBusca} onChange={(e) => setConteoBusca(e.target.value)} placeholder="Buscar base o color…" />
+          </div>
+          <div style={{ marginTop: 10 }}>
+            {renglonesConteo
+              .filter((f) => !conteoBusca.trim() || normalizar(`${f.nombre} ${f.color}`).includes(normalizar(conteoBusca.trim())))
+              .map((f) => {
+                const texto = conteoValores[f.clave] ?? "";
+                const n = parseInt(texto, 10);
+                const lleno = String(texto).trim() !== "" && !isNaN(n);
+                const dif = lleno ? n - f.sistema : 0;
+                return (
+                  <div key={f.clave} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderTop: `1px solid ${C.border}` }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.foreground }}>{f.nombre}{f.color ? <span style={{ color: C.muted, fontWeight: 600 }}>{` · ${f.color}`}</span> : null}</div>
+                      <div style={{ fontSize: 11.5, color: C.muted }}>Sistema: {f.sistema}{f.tambien && f.tambien.length ? ` · cuenta también para ${f.tambien.join(", ")}` : ""}</div>
+                    </div>
+                    {lleno && (
+                      <span style={{ flexShrink: 0, fontSize: 11.5, fontWeight: 800, borderRadius: 999, padding: "3px 9px", background: dif === 0 ? `${C.success}1A` : `${C.error}1A`, color: dif === 0 ? C.success : C.error }}>
+                        {dif === 0 ? "Cuadra" : dif > 0 ? `+${dif}` : dif}
+                      </span>
+                    )}
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      value={texto}
+                      onChange={(e) => setConteoValores({ ...conteoValores, [f.clave]: e.target.value })}
+                      placeholder="Hay"
+                      style={{ width: 92, flexShrink: 0, border: `1.5px solid ${lleno && dif !== 0 ? C.error : C.border}`, borderRadius: 12, padding: "9px 10px", fontSize: 15, color: C.foreground, background: C.background, boxSizing: "border-box", outline: "none", textAlign: "center" }}
+                    />
+                  </div>
+                );
+              })}
+          </div>
+          <div style={{ marginTop: 12, fontSize: 12.5, borderRadius: 14, padding: "10px 12px", background: conDiferenciaConteo.length ? `${C.warning}18` : `${C.primary}10`, color: C.foreground }}>
+            {capturadosConteo.length === 0
+              ? "Todavía no escribes ningún conteo."
+              : `Contadas: ${capturadosConteo.length} · Con diferencia: ${conDiferenciaConteo.length}${conDiferenciaConteo.length ? " — se corregirán al guardar" : " — todo cuadra"}`}
+          </div>
+          <PrimaryButton onClick={guardarConteo} disabled={capturadosConteo.length === 0}>Guardar conteo</PrimaryButton>
         </Modal>
       )}
 
