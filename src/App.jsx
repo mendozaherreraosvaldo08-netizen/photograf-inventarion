@@ -1966,16 +1966,16 @@ function AdminGate({ config, onSuccess, onCancel }) {
 /* Renglón de menú del panel: mismo patrón visual que la pantalla "Más". */
 function AdminMenuItem({ icon: Icon, label, detalle, badge, color, onClick }) {
   return (
-    <button className="pf-press" onClick={onClick} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 10, cursor: "pointer", textAlign: "left" }}>
+    <button className="pf-press" onClick={onClick} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, padding: "12px 14px", marginBottom: 8, cursor: "pointer", textAlign: "left", boxShadow: SOMBRA_TARJETA }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
-        <Icon size={20} color={color || C.muted} style={{ flexShrink: 0 }} />
+        <IconoSuave icon={Icon} color={color || C.muted} />
         <div>
           <div style={{ fontSize: 14, fontWeight: 600, color: C.foreground }}>{label}</div>
           {detalle && <div style={{ fontSize: 11.5, color: C.muted, marginTop: 2 }}>{detalle}</div>}
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        {!!badge && <span style={{ background: C.error, color: textoContraste(C.error), fontSize: 11, fontWeight: 700, borderRadius: 10, padding: "2px 8px" }}>{badge}</span>}
+        {!!badge && <span style={{ background: C.error, color: textoContraste(C.error), fontSize: 11, fontWeight: 700, borderRadius: 999, padding: "2px 8px" }}>{badge}</span>}
         <ChevronRight size={18} color={C.muted} />
       </div>
     </button>
@@ -2153,7 +2153,7 @@ function AdminResumen({ allData, config, transferenciasBases }) {
           const d = allData[s];
           const al = calcularAlertas(d, config).length;
           return (
-            <div key={s} style={{ flex: "1 1 44%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, boxShadow: SOMBRA_TARJETA }}>
+            <div key={s} style={{ flex: "1 1 44%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, boxShadow: SOMBRA_TARJETA }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: C.foreground, marginBottom: 6 }}>{NOMBRES_SUCURSAL[s].replace("Photograf ", "")}</div>
               <div style={{ fontSize: 12, color: C.muted }}>{d.equipo.filter((e) => e.estado !== "Baja").length} equipos · {d.equipo.filter((e) => e.estado === "En uso").length} en uso</div>
               <div style={{ fontSize: 12, color: C.muted }}>{d.materiales.length} materiales · {d.bases.length} bases</div>
@@ -2174,7 +2174,7 @@ function AdminResumen({ allData, config, transferenciasBases }) {
       <GraficaBarras titulo="Equipo más solicitado" datos={rankingEquipo} color={C.accent1} formato={(v) => `${v}×`} />
 
       {atrasados.length > 0 && (
-        <div style={{ background: `${C.error}12`, border: `1px solid ${C.error}`, borderRadius: 12, padding: 14, marginBottom: 20 }}>
+        <div style={{ background: `${C.error}12`, border: `1px solid ${C.error}`, borderRadius: 20, padding: 16, marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.error, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
             <AlertTriangle size={15} /> {atrasados.length} equipo(s) sin devolver a tiempo
           </div>
@@ -2193,7 +2193,7 @@ function AdminResumen({ allData, config, transferenciasBases }) {
         const prestamosLentos = (transferenciasBases || []).filter((t) => t.estado === "En tránsito" && diasTranscurridos(t.fechaEnvio) >= 5);
         if (prestamosLentos.length === 0) return null;
         return (
-          <div style={{ background: `${C.warning}12`, border: `1px solid ${C.warning}`, borderRadius: 12, padding: 14, marginBottom: 20 }}>
+          <div style={{ background: `${C.warning}12`, border: `1px solid ${C.warning}`, borderRadius: 20, padding: 16, marginBottom: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.warning, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
               <AlertTriangle size={15} /> {prestamosLentos.length} préstamo(s) de bases sin confirmar recepción
             </div>
@@ -2219,7 +2219,7 @@ function AdminResumen({ allData, config, transferenciasBases }) {
         );
         if (sinDevolver.length === 0) return null;
         return (
-          <div style={{ background: `${C.error}12`, border: `1px solid ${C.error}`, borderRadius: 12, padding: 14, marginBottom: 20 }}>
+          <div style={{ background: `${C.error}12`, border: `1px solid ${C.error}`, borderRadius: 20, padding: 16, marginBottom: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.error, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
               <AlertTriangle size={15} /> {sinDevolver.length} préstamo(s) de indumentaria sin devolver
             </div>
@@ -2244,7 +2244,7 @@ function AdminResumen({ allData, config, transferenciasBases }) {
         );
         if (sinFirma.length === 0) return null;
         return (
-          <div style={{ background: `${C.error}12`, border: `1px solid ${C.error}`, borderRadius: 12, padding: 14, marginBottom: 20 }}>
+          <div style={{ background: `${C.error}12`, border: `1px solid ${C.error}`, borderRadius: 20, padding: 16, marginBottom: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.error, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
               <FileSignature size={15} /> {sinFirma.length} anillo(s) de oro en resguardo sin firma de responsiva
             </div>
@@ -2305,7 +2305,7 @@ function AdminEmpleados({ empleados, setEmpleados, allData, onBack, mostrarToast
           <div style={{ flex: 1 }}>
             <TextInput value={nuevo} onChange={(e) => setNuevo(e.target.value)} onKeyDown={(e) => e.key === "Enter" && agregar()} placeholder="Nombre del nuevo empleado" />
           </div>
-          <button onClick={agregar} disabled={!nuevo.trim()} style={{ background: C.primary, border: "none", borderRadius: 8, padding: "0 16px", color: textoContraste(C.primary), cursor: nuevo.trim() ? "pointer" : "not-allowed", opacity: nuevo.trim() ? 1 : 0.5, display: "flex", alignItems: "center" }} aria-label="Agregar empleado">
+          <button onClick={agregar} disabled={!nuevo.trim()} style={{ background: C.primary, border: "none", borderRadius: 14, padding: "0 16px", color: textoContraste(C.primary), cursor: nuevo.trim() ? "pointer" : "not-allowed", opacity: nuevo.trim() ? 1 : 0.5, display: "flex", alignItems: "center" }} aria-label="Agregar empleado">
             <UserPlus size={18} />
           </button>
         </div>
@@ -2314,7 +2314,7 @@ function AdminEmpleados({ empleados, setEmpleados, allData, onBack, mostrarToast
         {empleados.map((nombre) => {
           const { prestado, ultima } = actividadDe(nombre);
           return (
-            <div key={nombre} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12, boxShadow: SOMBRA_TARJETA }}>
+            <div key={nombre} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 12, boxShadow: SOMBRA_TARJETA }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <UserCircle size={20} color={C.primary} />
@@ -2765,7 +2765,7 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
               <button
                 key={s}
                 onClick={() => setSuc(s)}
-                style={{ textAlign: "left", cursor: "pointer", background: C.surface, border: `1.5px solid ${s === suc ? C.primary : C.border}`, borderRadius: 12, padding: 12 }}
+                style={{ textAlign: "left", cursor: "pointer", background: C.surface, border: `1.5px solid ${s === suc ? C.primary : C.border}`, borderRadius: 18, padding: 14 }}
               >
                 <div style={{ fontSize: 12, fontWeight: 700, color: C.foreground, marginBottom: 6 }}>{NOMBRES_SUCURSAL[s]}</div>
                 <div style={{ fontSize: 11.5, color: C.muted }}>
@@ -2799,7 +2799,7 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
           </div>
           <button
             onClick={() => abrirNuevo(TIPO_POR_TAB[tab])}
-            style={{ display: "flex", alignItems: "center", gap: 6, background: C.primary, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+            style={{ display: "flex", alignItems: "center", gap: 6, background: C.primary, color: "#fff", border: "none", borderRadius: 14, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
           >
             <Plus size={16} /> Nuevo
           </button>
@@ -2828,7 +2828,7 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
         {tab === "bases" && d.bases.length > 0 && (
           <button
             onClick={() => setBorrandoBases(true)}
-            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "none", color: C.error, border: `1.5px solid ${C.error}`, borderRadius: 10, padding: "12px 16px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", marginBottom: 14 }}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "none", color: C.error, border: `1.5px solid ${C.error}`, borderRadius: 16, padding: "14px 18px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", marginBottom: 14 }}
           >
             <Trash2 size={16} /> Borrar todas las bases de esta sucursal
           </button>
@@ -3093,7 +3093,7 @@ function AdminInventario({ allData, setAllData, registrar, config, onBack, mostr
               {(editando.item?.variantes || []).length > 0 ? (
                 <>
                   <FieldLabel>Cuántas tenemos (se calcula solo, por color)</FieldLabel>
-                  <div style={{ background: C.background, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, marginBottom: 4 }}>
+                  <div style={{ background: C.background, border: `1px solid ${C.border}`, borderRadius: 16, padding: 14, marginBottom: 4 }}>
                     <div style={{ fontSize: 20, fontWeight: 700, color: C.foreground, marginBottom: 6 }}>{tenemosBase(editando.item)}</div>
                     {editando.item.variantes.map((v) => (
                       <div key={v.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: C.muted, padding: "2px 0" }}>
@@ -3239,7 +3239,7 @@ function AdminPedidos({ allData, setAllData, registrar, onBack, mostrarToast }) 
       <SectionHeader title="Pedidos a proveedor" subtitle={`${porAprobar.length} esperando tu autorización`} onBack={onBack} />
       <div style={{ padding: 16 }}>
         {porAprobar.length > 0 && (
-          <div style={{ background: `${C.warning}15`, border: `1px solid ${C.warning}`, borderRadius: 12, padding: 14, marginBottom: 16 }}>
+          <div style={{ background: `${C.warning}15`, border: `1px solid ${C.warning}`, borderRadius: 20, padding: 16, marginBottom: 16 }}>
             <div style={{ fontSize: 12, color: C.muted }}>Si autorizas todo lo pendiente</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: C.foreground }}>{fmtMoneda(totalPorAprobar)}</div>
             <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Calculado con el costo que tiene capturado cada artículo.</div>
@@ -3256,7 +3256,7 @@ function AdminPedidos({ allData, setAllData, registrar, onBack, mostrarToast }) 
         {lista.map((p) => {
           const costo = costoDe(p);
           return (
-            <div key={`${p.sucursal}-${p.id}`} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12, boxShadow: SOMBRA_TARJETA }}>
+            <div key={`${p.sucursal}-${p.id}`} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 12, boxShadow: SOMBRA_TARJETA }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{p.item}{p.color ? ` — ${p.color}` : ""}</div>
@@ -3273,10 +3273,10 @@ function AdminPedidos({ allData, setAllData, registrar, onBack, mostrarToast }) 
               </div>
               {p.estado === "Por aprobar" && (
                 <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                  <button onClick={() => resolver(p, true)} style={{ flex: 1, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 8, padding: "10px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  <button onClick={() => resolver(p, true)} style={{ flex: 1, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 14, padding: "10px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                     Autorizar
                   </button>
-                  <button onClick={() => resolver(p, false)} style={{ flex: 1, background: "none", color: C.error, border: `1px solid ${C.error}`, borderRadius: 8, padding: "10px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  <button onClick={() => resolver(p, false)} style={{ flex: 1, background: "none", color: C.error, border: `1px solid ${C.error}`, borderRadius: 14, padding: "10px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                     Rechazar
                   </button>
                 </div>
@@ -3310,7 +3310,7 @@ function AdminClientes({ allData, onBack }) {
   const Tarjeta = ({ p }) => {
     const vencido = p.dias >= TOLERANCIA_DIAS;
     return (
-      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderLeft: `4px solid ${vencido ? C.error : C.warning}`, borderRadius: 12, padding: 14, marginBottom: 12, boxShadow: SOMBRA_TARJETA }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderLeft: `4px solid ${vencido ? C.error : C.warning}`, borderRadius: 20, padding: 16, marginBottom: 12, boxShadow: SOMBRA_TARJETA }}>
         <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{p.evento}</div>
         <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
           {p.base}{p.precio ? ` (${fmtMoneda(p.precio)})` : ""} · {NOMBRES_SUCURSAL[p.sucursal].replace("Photograf ", "")} · entregado el {p.fecha}
@@ -3322,12 +3322,12 @@ function AdminClientes({ allData, onBack }) {
           {p.telefono ? (
             <>
               <a href={linkWhatsApp(p)} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", flex: 1, minWidth: 130 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.success, color: textoContraste(C.success), borderRadius: 8, padding: "10px 12px", fontSize: 13, fontWeight: 600 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.success, color: textoContraste(C.success), borderRadius: 14, padding: "10px 12px", fontSize: 13, fontWeight: 600 }}>
                   <MessageCircle size={15} /> WhatsApp
                 </div>
               </a>
               <a href={`tel:${soloDigitos(p.telefono)}`} style={{ textDecoration: "none", flex: 1, minWidth: 100 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", color: C.primary, border: `1px solid ${C.primary}`, borderRadius: 8, padding: "10px 12px", fontSize: 13, fontWeight: 600 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", color: C.primary, border: `1px solid ${C.primary}`, borderRadius: 14, padding: "10px 12px", fontSize: 13, fontWeight: 600 }}>
                   <Phone size={15} /> Llamar
                 </div>
               </a>
@@ -3337,7 +3337,7 @@ function AdminClientes({ allData, onBack }) {
           )}
           {p.correo && (
             <a href={`mailto:${p.correo}?subject=${encodeURIComponent("Su paquete fotográfico Photograf")}`} style={{ textDecoration: "none", flex: 1, minWidth: 100 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", color: C.secondary, border: `1px solid ${C.secondary}`, borderRadius: 8, padding: "10px 12px", fontSize: 13, fontWeight: 600 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", color: C.secondary, border: `1px solid ${C.secondary}`, borderRadius: 14, padding: "10px 12px", fontSize: 13, fontWeight: 600 }}>
                 <Mail size={15} /> Correo
               </div>
             </a>
@@ -3352,12 +3352,12 @@ function AdminClientes({ allData, onBack }) {
       <SectionHeader title="Paquetes sin recoger" subtitle={`${paquetes.length} pendientes en total`} onBack={onBack} />
       <div style={{ padding: 16 }}>
         {dineroEnJuego > 0 && (
-          <div style={{ background: `${C.accent1}15`, border: `1px solid ${C.accent1}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
+          <div style={{ background: `${C.accent1}15`, border: `1px solid ${C.accent1}`, borderRadius: 20, padding: 16, marginBottom: 14 }}>
             <div style={{ fontSize: 12, color: C.muted }}>Valor de los paquetes sin recoger</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: C.foreground }}>{fmtMoneda(dineroEnJuego)}</div>
           </div>
         )}
-        <div style={{ fontSize: 12.5, color: C.muted, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, marginBottom: 18 }}>
+        <div style={{ fontSize: 12.5, color: C.muted, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 14, marginBottom: 18 }}>
           Contacta al cliente antes de desarmar su paquete: el trabajo ya está hecho y pagado, y una llamada suele recuperarlo.
         </div>
 
@@ -3406,7 +3406,7 @@ function AdminMantenimiento({ allData, setAllData, registrar, onBack, mostrarToa
       <SectionHeader title="Equipo fuera de servicio" subtitle={`${fuera.length} artículo(s) parados`} onBack={onBack} />
       <div style={{ padding: 16 }}>
         {fuera.length > 0 && (
-          <div style={{ background: `${C.error}12`, border: `1px solid ${C.error}`, borderRadius: 12, padding: 14, marginBottom: 18 }}>
+          <div style={{ background: `${C.error}12`, border: `1px solid ${C.error}`, borderRadius: 20, padding: 16, marginBottom: 18 }}>
             <div style={{ fontSize: 12, color: C.muted }}>Valor del equipo que no se puede usar</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: C.foreground }}>{fmtMoneda(valorParado)}</div>
           </div>
@@ -3415,7 +3415,7 @@ function AdminMantenimiento({ allData, setAllData, registrar, onBack, mostrarToa
         {fuera.length === 0 && <EmptyState icon={Wrench} text="Todo el equipo está en servicio. Nada que reparar." />}
 
         {fuera.map((e) => (
-          <div key={`${e.sucursal}-${e.id}`} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12, boxShadow: SOMBRA_TARJETA }}>
+          <div key={`${e.sucursal}-${e.id}`} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 12, boxShadow: SOMBRA_TARJETA }}>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <Thumb src={e.foto} fallback={Camera} />
               <div style={{ flex: 1 }}>
@@ -3424,17 +3424,17 @@ function AdminMantenimiento({ allData, setAllData, registrar, onBack, mostrarToa
               </div>
               <Badge estado={e.estado} />
             </div>
-            {e.notas && <div style={{ fontSize: 12.5, color: C.foreground, marginTop: 10, background: C.background, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>{e.notas}</div>}
+            {e.notas && <div style={{ fontSize: 12.5, color: C.foreground, marginTop: 10, background: C.background, border: `1px solid ${C.border}`, borderRadius: 14, padding: 10 }}>{e.notas}</div>}
             <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
               {e.estado === "Dañado" && (
-                <button onClick={() => cambiarEstado(e, "En reparación", "Enviado a reparación")} style={{ flex: 1, minWidth: 130, background: C.warning, color: textoContraste(C.warning), border: "none", borderRadius: 8, padding: "10px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                <button onClick={() => cambiarEstado(e, "En reparación", "Enviado a reparación")} style={{ flex: 1, minWidth: 130, background: C.warning, color: textoContraste(C.warning), border: "none", borderRadius: 14, padding: "10px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                   Mandar a reparar
                 </button>
               )}
-              <button onClick={() => cambiarEstado(e, "Disponible", "Reparado y de vuelta en servicio")} style={{ flex: 1, minWidth: 130, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 8, padding: "10px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              <button onClick={() => cambiarEstado(e, "Disponible", "Reparado y de vuelta en servicio")} style={{ flex: 1, minWidth: 130, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 14, padding: "10px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                 Ya quedó reparado
               </button>
-              <button onClick={() => cambiarEstado(e, "Baja", "Dado de baja: ya no tiene reparación")} style={{ flex: 1, minWidth: 130, background: "none", color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              <button onClick={() => cambiarEstado(e, "Baja", "Dado de baja: ya no tiene reparación")} style={{ flex: 1, minWidth: 130, background: "none", color: C.muted, border: `1px solid ${C.border}`, borderRadius: 14, padding: "10px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                 Ya no sirve
               </button>
             </div>
@@ -3484,13 +3484,13 @@ function AdminBitacora({ allData, onBack, mostrarToast }) {
         </div>
         <TextInput value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar en los movimientos..." />
 
-        <button onClick={exportar} disabled={filtrados.length === 0} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600, cursor: filtrados.length ? "pointer" : "not-allowed", opacity: filtrados.length ? 1 : 0.5, margin: "14px 0 18px" }}>
+        <button onClick={exportar} disabled={filtrados.length === 0} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 16, padding: "14px 18px", fontSize: 14, fontWeight: 600, cursor: filtrados.length ? "pointer" : "not-allowed", opacity: filtrados.length ? 1 : 0.5, margin: "14px 0 18px" }}>
           <Download size={16} /> Descargar lo que estoy viendo
         </button>
 
         {filtrados.length === 0 && <EmptyState icon={History} text="Ningún movimiento coincide con estos filtros." />}
         {filtrados.map((b) => (
-          <div key={b._key} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
+          <div key={b._key} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "10px 12px", marginBottom: 8 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
               <span style={{ fontSize: 13, color: C.foreground, flex: 1 }}>{b.texto}</span>
               <span style={{ fontSize: 11, color: C.muted, whiteSpace: "nowrap" }}>{b.fecha}</span>
@@ -3551,12 +3551,12 @@ function AdminCategorias({ allData, setAllData, registrar, onBack, mostrarToast 
 
         {categorias.length === 0 && <EmptyState icon={Tag} text="Todavía no hay categorías: aparecen al registrar tu primer artículo." />}
         {categorias.map(([nombre, cantidad]) => (
-          <div key={nombre} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 10 }}>
+          <div key={nombre} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 10 }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 600, color: C.foreground }}>{nombre}</div>
               <div style={{ fontSize: 11.5, color: C.muted }}>{cantidad} artículo(s)</div>
             </div>
-            <button onClick={() => { setEditando(nombre); setNombreNuevo(nombre); }} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", color: C.foreground, fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+            <button onClick={() => { setEditando(nombre); setNombreNuevo(nombre); }} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 999, padding: "8px 14px", color: C.foreground, fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
               <Pencil size={13} /> Cambiar
             </button>
           </div>
@@ -3655,7 +3655,7 @@ function AdminMinimosBases({ allData, setAllData, config, onBack, mostrarToast }
             <div key={g.catalogo} style={{ marginBottom: 24 }}>
               <div style={{ fontSize: 13.5, fontWeight: 700, color: C.foreground, marginBottom: 8 }}>{g.titulo}</div>
               {deEsteGrupo.map((b) => (
-                <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12, marginBottom: 8 }}>
+                <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, padding: 14, marginBottom: 8 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: C.foreground, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.nombre}</div>
                     <div style={{ fontSize: 11.5, color: C.muted, marginTop: 2 }}>Tenemos: {tenemosBase(b)}</div>
@@ -3916,7 +3916,7 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
             <button
               onClick={notifAdminOk ? undefined : activarComoAdmin}
               disabled={notifAdminOk || permisoNotificaciones === "denied"}
-              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 8, cursor: notifAdminOk || permisoNotificaciones === "denied" ? "default" : "pointer", opacity: permisoNotificaciones === "denied" && !notifAdminOk ? 0.6 : 1 }}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 8, cursor: notifAdminOk || permisoNotificaciones === "denied" ? "default" : "pointer", opacity: permisoNotificaciones === "denied" && !notifAdminOk ? 0.6 : 1 }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <Bell size={20} color={notifAdminOk ? C.success : C.muted} />
@@ -3938,11 +3938,11 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
         {todasLasSucursales.map((s) => {
           const archivada = s.activa === false;
           return (
-            <div key={s.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12, marginBottom: 10 }}>
+            <div key={s.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, padding: 14, marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, marginTop: 4 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Nombre actual: {NOMBRES_SUCURSAL[s.id] || s.id}</div>
                 {archivada && (
-                  <span style={{ fontSize: 11, fontWeight: 700, color: textoContraste(C.warning), background: C.warning, borderRadius: 8, padding: "2px 8px" }}>Archivada</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: textoContraste(C.warning), background: C.warning, borderRadius: 999, padding: "2px 8px" }}>Archivada</span>
                 )}
               </div>
               <TextInput
@@ -3953,7 +3953,7 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
               {archivada ? (
                 <button
                   onClick={() => reactivarSucursal(s.id)}
-                  style={{ marginTop: 8, width: "100%", background: "none", border: `1px solid ${C.success}`, color: C.success, borderRadius: 10, padding: 10, fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                  style={{ marginTop: 8, width: "100%", background: "none", border: `1px solid ${C.success}`, color: C.success, borderRadius: 14, padding: 12, fontSize: 13, fontWeight: 600, cursor: "pointer" }}
                 >
                   Reactivar sucursal
                 </button>
@@ -3961,7 +3961,7 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
                 <button
                   onClick={() => archivarSucursal(s.id)}
                   disabled={activasCount <= 1}
-                  style={{ marginTop: 8, width: "100%", background: "none", border: `1px solid ${C.error}`, color: activasCount <= 1 ? C.muted : C.error, borderRadius: 10, padding: 10, fontSize: 13, fontWeight: 600, cursor: activasCount <= 1 ? "not-allowed" : "pointer" }}
+                  style={{ marginTop: 8, width: "100%", background: "none", border: `1px solid ${C.error}`, color: activasCount <= 1 ? C.muted : C.error, borderRadius: 14, padding: 12, fontSize: 13, fontWeight: 600, cursor: activasCount <= 1 ? "not-allowed" : "pointer" }}
                 >
                   Archivar sucursal
                 </button>
@@ -3973,7 +3973,7 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
 
         <div style={{ height: 24 }} />
 
-        <div style={{ background: C.surface, border: `1px dashed ${C.border}`, borderRadius: 12, padding: 12 }}>
+        <div style={{ background: C.surface, border: `1px dashed ${C.border}`, borderRadius: 18, padding: 14 }}>
           <div style={{ fontSize: 13.5, fontWeight: 700, color: C.foreground, marginBottom: 8 }}>Crear sucursal nueva</div>
           <FieldLabel>Nombre</FieldLabel>
           <TextInput value={nuevaSuc.nombre} onChange={(e) => setNuevaSuc({ ...nuevaSuc, nombre: e.target.value })} placeholder="Ej. Photograf CDMX" />
@@ -4016,7 +4016,7 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>
           Pega aquí el ID del Google Calendar de cada sucursal para que, en Calendario, se puedan traer sus próximos eventos ya agendados y armarles ahí mismo la lista de equipo que se va a llevar. Es de una sola vía: la app solo lee, nunca crea ni cambia nada en el calendario real.
         </div>
-        <div style={{ fontSize: 11.5, color: C.muted, background: C.background, border: `1px solid ${C.border}`, borderRadius: 10, padding: 10, marginBottom: 12 }}>
+        <div style={{ fontSize: 11.5, color: C.muted, background: C.background, border: `1px solid ${C.border}`, borderRadius: 14, padding: 12, marginBottom: 12 }}>
           Paso previo (una sola vez, por sucursal): en Google Calendar → ⚙️ Configuración de ese calendario → "Compartir con determinadas personas" → agrega el mismo correo de servicio que ya usamos para las notificaciones (el FIREBASE_CLIENT_EMAIL que está en las variables de entorno de Vercel), con permiso "Ver todos los detalles del evento". El ID del calendario está más abajo en esa misma pantalla, en "Integrar calendario".
         </div>
         <FieldLabel>ID del calendario — Querétaro</FieldLabel>
@@ -4063,11 +4063,11 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 12 }}>
           Descarga una copia de todo el inventario. Guárdala cada tanto: si alguien borra algo por error, con este archivo se recupera.
         </div>
-        <button onClick={descargarRespaldo} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.primary, color: textoContraste(C.primary), border: "none", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 10 }}>
+        <button onClick={descargarRespaldo} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.primary, color: textoContraste(C.primary), border: "none", borderRadius: 16, padding: "14px 18px", fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 10 }}>
           <Download size={16} /> Descargar respaldo
         </button>
         <input ref={archivoRef} type="file" accept="application/json,.json" onChange={leerArchivo} style={{ display: "none" }} />
-        <button onClick={() => archivoRef.current.click()} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "none", color: C.foreground, border: `1.5px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+        <button onClick={() => archivoRef.current.click()} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "none", color: C.foreground, border: `1.5px solid ${C.border}`, borderRadius: 16, padding: "14px 18px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
           <Upload size={16} /> Restaurar desde un respaldo
         </button>
 
@@ -4087,13 +4087,13 @@ function AdminAjustes({ config, setConfig, allData, setAllData, empleados, setEm
             <div style={{ display: "flex", gap: 6 }}>
               <button
                 onClick={() => descargarObjeto(`Respaldo_Photograf_${r.fecha}.json`, { app: "photograf-inventario", version: 1, generado: r.fecha, ...r.datos })}
-                style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 10px", color: C.foreground, cursor: "pointer", fontSize: 12 }}
+                style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 999, padding: "6px 12px", color: C.foreground, cursor: "pointer", fontSize: 12 }}
               >
                 Descargar
               </button>
               <button
                 onClick={() => setPorRestaurar({ ...r.datos, generado: r.fecha })}
-                style={{ background: "none", border: `1px solid ${C.error}`, borderRadius: 8, padding: "6px 10px", color: C.error, cursor: "pointer", fontSize: 12 }}
+                style={{ background: "none", border: `1px solid ${C.error}`, borderRadius: 999, padding: "6px 12px", color: C.error, cursor: "pointer", fontSize: 12 }}
               >
                 Restaurar
               </button>
@@ -4555,7 +4555,7 @@ function AdminScreen({ empleados, setEmpleados, allData, setAllData, config, set
 
         <button
           onClick={() => { exportarInventarioExcel(allData, config); mostrarToast("Excel descargado ✓"); }}
-          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 10, padding: "13px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 14 }}
+          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 16, padding: "14px 18px", fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 14 }}
         >
           <FileSpreadsheet size={17} /> Descargar todo en Excel
         </button>
@@ -4651,7 +4651,7 @@ function AsistenciaScreen({ onBack }) {
       <div style={{ padding: "10px 16px", background: C.surface, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <div style={{ fontSize: 11.5, color: C.muted }}>¿No carga aquí abajo? Ábrela directo:</div>
         <a href={URL_ASISTENCIA} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, background: C.secondary, color: textoContraste(C.secondary), borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 600 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, background: C.secondary, color: textoContraste(C.secondary), borderRadius: 999, padding: "8px 14px", fontSize: 12, fontWeight: 600 }}>
             <Share2 size={13} /> Abrir aparte
           </div>
         </a>
@@ -8781,7 +8781,7 @@ function EscanearScreen({ sucursalActiva, onClose, onEncontrado }) {
           </div>
         )}
         {(!soportado || error) && (
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 16, display: "flex", gap: 10 }}>
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 16, display: "flex", gap: 10 }}>
             <AlertTriangle size={18} color={C.warning} style={{ flexShrink: 0 }} />
             <div style={{ fontSize: 13, color: C.foreground }}>
               {error || "Tu navegador no soporta escaneo automático de QR. Escribe el código que aparece debajo del QR (ej. EQ-queretaro-2)."}
@@ -8795,7 +8795,7 @@ function EscanearScreen({ sucursalActiva, onClose, onEncontrado }) {
           </div>
           <button
             onClick={() => { if (manual) { procesarDeteccion(manual); setManual(""); } }}
-            style={{ background: C.primary, color: textoContraste(C.primary), border: "none", borderRadius: 10, padding: "0 18px", fontWeight: 600, cursor: "pointer" }}
+            style={{ background: C.primary, color: textoContraste(C.primary), border: "none", borderRadius: 14, padding: "0 18px", fontWeight: 600, cursor: "pointer" }}
           >
             Buscar
           </button>
@@ -8806,7 +8806,7 @@ function EscanearScreen({ sucursalActiva, onClose, onEncontrado }) {
             <div style={{ fontSize: 14, fontWeight: 700, color: C.foreground, marginBottom: 8 }}>Escaneados en esta sesión ({historial.length})</div>
             {historial.length === 0 && <div style={{ fontSize: 12, color: C.muted }}>Todavía no escaneas nada — sigue apuntando la cámara a cada código.</div>}
             {historial.map((h, i) => (
-              <div key={i} className="pf-pop" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
+              <div key={i} className="pf-pop" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "10px 12px", marginBottom: 8 }}>
                 <span style={{ fontSize: 13, color: C.foreground, fontWeight: 600 }}>{h.resultado ? h.resultado.nombre : h.codigo}</span>
                 <span style={{ fontSize: 11, color: h.resultado ? C.success : C.error }}>{h.resultado ? h.hora : "no encontrado"}</span>
               </div>
@@ -8839,7 +8839,7 @@ function BuscadorGeneral({ data, onClose, onSelect }) {
             key={i}
             className={onSelect ? "pf-press" : ""}
             onClick={onSelect ? () => onSelect(r.tipo, r.id, r.sucursal) : undefined}
-            style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", marginBottom: 10, cursor: onSelect ? "pointer" : "default" }}
+            style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, padding: "12px 14px", marginBottom: 10, cursor: onSelect ? "pointer" : "default" }}
           >
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase" }}>{r.tipo}</div>
@@ -8859,12 +8859,12 @@ function NotificacionesScreen({ alertas, onBack }) {
     <div style={{ paddingBottom: 40 }}>
       <SectionHeader title="Notificaciones" subtitle={`${alertas.length} alertas activas`} onBack={onBack} />
       <div style={{ padding: 16 }}>
-        <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12 }}>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 14 }}>
           Nota: aquí se muestran dentro de la app. Para que lleguen como notificación push al celular con la app cerrada se necesita conectar un servicio como Firebase Cloud Messaging en el backend real.
         </div>
         {alertas.length === 0 && <div style={{ fontSize: 13, color: C.muted, textAlign: "center", marginTop: 24 }}>No hay alertas activas. 🎉</div>}
         {alertas.map((a, i) => (
-          <div key={i} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 10, borderLeft: `4px solid ${a.color}` }}>
+          <div key={i} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 10, borderLeft: `4px solid ${a.color}` }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: a.color, textTransform: "uppercase" }}>{a.tipo}</div>
             <div style={{ fontSize: 14, color: C.foreground, marginTop: 4 }}>{a.texto}</div>
           </div>
@@ -8942,7 +8942,7 @@ function ReportesScreen({ data, config, onBack }) {
           <StatCard icon={AlertTriangle} value={stockBajo} label="Materiales bajos" color={C.warning} />
         </div>
         <div style={{ fontSize: 16, fontWeight: 700, color: C.foreground, marginBottom: 12 }}>Semana actual vs. pasada</div>
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 24 }}>
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 24 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
             <span style={{ fontSize: 13, color: C.foreground }}>Esta semana</span>
             <span style={{ fontSize: 15, fontWeight: 700, color: C.primary }}>{semanaActual} movimientos</span>
@@ -8978,10 +8978,10 @@ function ReportesScreen({ data, config, onBack }) {
             <span style={{ fontSize: 13, fontWeight: 700, color: C.accent1 }}>{r.veces}×</span>
           </div>
         ))}
-        <button onClick={compartirWhatsApp} style={{ width: "100%", background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 24, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        <button onClick={compartirWhatsApp} style={{ width: "100%", background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 16, padding: "14px 18px", fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 24, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
           <Share2 size={16} /> Compartir resumen por WhatsApp
         </button>
-        <button onClick={() => window.print()} style={{ width: "100%", background: "none", border: `1.5px solid ${C.border}`, color: C.foreground, borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        <button onClick={() => window.print()} style={{ width: "100%", background: "none", border: `1.5px solid ${C.border}`, color: C.foreground, borderRadius: 16, padding: "14px 18px", fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
           Descargar como PDF
         </button>
         <div style={{ fontSize: 11, color: C.muted, textAlign: "center", marginTop: 6 }}>Se abre el diálogo de impresión — elige "Guardar como PDF" como destino.</div>
@@ -9301,7 +9301,7 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
             {eventosGoogle.map((evG) => {
               const importado = yaImportado(evG);
               return (
-                <div key={evG.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, marginBottom: 8 }}>
+                <div key={evG.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 14, marginBottom: 8 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, color: C.foreground, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{evG.titulo}</div>
                     <div style={{ fontSize: 11, color: C.muted }}>{evG.fecha}{evG.lugar ? ` · ${evG.lugar}` : ""}</div>
@@ -9327,7 +9327,7 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
         {todos.map((e, i) => (
           <div key={i} style={{ display: "flex", gap: 12, marginBottom: 12 }}>
             <div style={{ width: 64, flexShrink: 0, fontSize: 12, color: C.muted, paddingTop: 12 }}>{e.fecha}</div>
-            <div style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12 }}>
+            <div style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 13, color: C.foreground }}>{e.texto}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -9393,7 +9393,7 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
                       <span style={{ fontSize: 13, fontWeight: 700, color: C.foreground }}>{categoria}</span>
                       <span style={{ fontSize: 11, color: C.muted }}>({items.length})</span>
                       {seleccionadosEnGrupo > 0 && (
-                        <span style={{ fontSize: 10.5, fontWeight: 700, color: "#fff", background: C.secondary, borderRadius: 10, padding: "1px 7px" }}>{seleccionadosEnGrupo}</span>
+                        <span style={{ fontSize: 10.5, fontWeight: 700, color: "#fff", background: C.secondary, borderRadius: 999, padding: "1px 7px" }}>{seleccionadosEnGrupo}</span>
                       )}
                     </div>
                     <ChevronRight size={16} color={C.muted} style={{ transform: estaAbierto ? "rotate(90deg)" : "none", transition: "transform 0.15s" }} />
@@ -9468,7 +9468,7 @@ function CalendarioScreen({ data, setData, bitacora, usuarioActual, mostrarToast
                       <span style={{ fontSize: 13, fontWeight: 700, color: C.foreground }}>{tipo}</span>
                       <span style={{ fontSize: 11, color: C.muted }}>({items.length})</span>
                       {seleccionadosEnGrupo > 0 && (
-                        <span style={{ fontSize: 10.5, fontWeight: 700, color: "#fff", background: C.secondary, borderRadius: 10, padding: "1px 7px" }}>{seleccionadosEnGrupo}</span>
+                        <span style={{ fontSize: 10.5, fontWeight: 700, color: "#fff", background: C.secondary, borderRadius: 999, padding: "1px 7px" }}>{seleccionadosEnGrupo}</span>
                       )}
                     </div>
                     <ChevronRight size={16} color={C.muted} style={{ transform: estaAbierto ? "rotate(90deg)" : "none", transition: "transform 0.15s" }} />
@@ -9649,14 +9649,14 @@ function TransferenciasScreen({ transferencias, transferenciasBases, transferenc
             <div style={{ fontSize: 16, fontWeight: 700, color: C.foreground, marginBottom: 12 }}>Por recibir aquí</div>
             {porRecibir.length === 0 && <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Nada esperando confirmación. ✓</div>}
             {porRecibir.map((t) => (
-              <div key={t.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12, boxShadow: SOMBRA_TARJETA }}>
+              <div key={t.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 12, boxShadow: SOMBRA_TARJETA }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{t.nombre}</div>
                     <div style={{ fontSize: 12, color: C.muted, margin: "2px 0 6px" }}>Desde {NOMBRES_SUCURSAL[t.origen]} · enviado por {t.quienEnvio} el {t.fechaEnvio}</div>
                     <Badge estado={t.estado} />
                   </div>
-                  <button onClick={() => abrirConfirmacion(t)} style={{ display: "flex", alignItems: "center", gap: 4, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                  <button onClick={() => abrirConfirmacion(t)} style={{ display: "flex", alignItems: "center", gap: 4, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 999, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                     <Truck size={14} /> Recibir
                   </button>
                 </div>
@@ -9685,14 +9685,14 @@ function TransferenciasScreen({ transferencias, transferenciasBases, transferenc
             <div style={{ fontSize: 16, fontWeight: 700, color: C.foreground, marginBottom: 12 }}>Por recibir aquí</div>
             {porRecibirBases.length === 0 && <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Nada esperando confirmación. ✓</div>}
             {porRecibirBases.map((t) => (
-              <div key={t.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12, boxShadow: SOMBRA_TARJETA }}>
+              <div key={t.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 12, boxShadow: SOMBRA_TARJETA }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{t.nombre} × {t.cantidad}</div>
                     <div style={{ fontSize: 12, color: C.muted, margin: "2px 0 6px" }}>Préstamo desde {NOMBRES_SUCURSAL[t.origen]} · enviado por {t.quienEnvio} el {t.fechaEnvio}</div>
                     <Badge estado={t.estado} />
                   </div>
-                  <button onClick={() => abrirConfirmacionBase(t)} style={{ display: "flex", alignItems: "center", gap: 4, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                  <button onClick={() => abrirConfirmacionBase(t)} style={{ display: "flex", alignItems: "center", gap: 4, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 999, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                     <Truck size={14} /> Recibir
                   </button>
                 </div>
@@ -9726,14 +9726,14 @@ function TransferenciasScreen({ transferencias, transferenciasBases, transferenc
             <div style={{ fontSize: 16, fontWeight: 700, color: C.foreground, marginBottom: 12 }}>Por recibir aquí</div>
             {porRecibirIndumentaria.length === 0 && <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Nada esperando confirmación. ✓</div>}
             {porRecibirIndumentaria.map((t) => (
-              <div key={t.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 12, boxShadow: SOMBRA_TARJETA }}>
+              <div key={t.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 16, marginBottom: 12, boxShadow: SOMBRA_TARJETA }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 600, color: C.foreground }}>{t.tipo}{t.detalle ? ` (${t.detalle})` : ""} × {t.cantidad}</div>
                     <div style={{ fontSize: 12, color: C.muted, margin: "2px 0 6px" }}>Desde {NOMBRES_SUCURSAL[t.origen]} · enviado por {t.quienEnvio} el {t.fechaEnvio}</div>
                     <Badge estado={t.estado} />
                   </div>
-                  <button onClick={() => abrirConfirmacionIndumentaria(t)} style={{ display: "flex", alignItems: "center", gap: 4, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                  <button onClick={() => abrirConfirmacionIndumentaria(t)} style={{ display: "flex", alignItems: "center", gap: 4, background: C.success, color: textoContraste(C.success), border: "none", borderRadius: 999, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                     <Truck size={14} /> Recibir
                   </button>
                 </div>
