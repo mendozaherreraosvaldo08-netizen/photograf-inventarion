@@ -5364,6 +5364,16 @@ function EquipoScreen({ data, setData, bitacora, usuarioActual, onIniciarTransfe
 
 function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostrarToast, onPedir, onIniciarTransferenciaBase }) {
   const [tab, setTab] = useState("bases");
+  /* Buscador de paquetes de clientes (por nombre, teléfono o correo). Solo filtra lo que se ve. */
+  const [buscaPaquete, setBuscaPaquete] = useState("");
+  const normalizar = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const textoBusca = normalizar(buscaPaquete.trim());
+  const digitosBusca = buscaPaquete.replace(/\D/g, "");
+  const coincidePaquete = (r) => {
+    if (!textoBusca) return true;
+    if (normalizar(r.evento).includes(textoBusca) || normalizar(r.correo).includes(textoBusca)) return true;
+    return digitosBusca.length >= 3 && String(r.telefono || "").replace(/\D/g, "").includes(digitosBusca);
+  };
   const [modalPedido, setModalPedido] = useState(false);
   const [pedidoForm, setPedidoForm] = useState({ item: "", cantidad: "1", urgencia: "Normal", tipo: "material", color: "" });
   const [imagenAmpliada, setImagenAmpliada] = useState(null);
@@ -5592,7 +5602,7 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
               <Plus size={14} /> Asignar paquete
             </button>
           </div>
-          {b.reservas.filter((r) => r.estado !== "Desarmada").map((r) => {
+          {b.reservas.filter((r) => r.estado !== "Desarmada" && coincidePaquete(r)).map((r) => {
             const tol = estadoTolerancia(r);
             return (
               <div key={r.id} style={{ padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
@@ -6133,9 +6143,24 @@ function AlmacenScreen({ data, setData, bitacora, usuarioActual, sucursal, mostr
               ))}
             </div>
           )}
+          <SearchBar placeholder="Buscar paquete por cliente, teléfono o correo" value={buscaPaquete} onChange={(e) => setBuscaPaquete(e.target.value)} />
+          {textoBusca && (() => {
+            const encontrados = basesFiltradas.reduce((a, b) => a + b.reservas.filter((r) => r.estado !== "Desarmada" && coincidePaquete(r)).length, 0);
+            return (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, margin: "10px 18px 0" }}>
+                <span style={{ fontSize: 12.5, color: C.muted }}>{encontrados === 0 ? "Ningún paquete coincide" : `${encontrados} paquete(s) encontrado(s)`}</span>
+                <button onClick={() => setBuscaPaquete("")} style={{ display: "flex", alignItems: "center", gap: 4, background: C.ink + "0B", border: "none", borderRadius: 999, padding: "5px 11px", fontSize: 12, fontWeight: 600, color: C.foreground, cursor: "pointer" }}>
+                  <X size={13} /> Borrar búsqueda
+                </button>
+              </div>
+            );
+          })()}
           <div style={{ padding: "8px 16px 0" }}>
-            {basesFiltradas.map((b) => renderTarjetaBase(b))}
-            {basesFiltradas.length === 0 && (
+            {(textoBusca ? basesFiltradas.filter((b) => b.reservas.some((r) => r.estado !== "Desarmada" && coincidePaquete(r))) : basesFiltradas).map((b) => renderTarjetaBase(b))}
+            {textoBusca && !basesFiltradas.some((b) => b.reservas.some((r) => r.estado !== "Desarmada" && coincidePaquete(r))) && (
+              <EmptyState icon={Search} text={`No hay paquetes de "${buscaPaquete.trim()}". Revisa el nombre o prueba con el teléfono.`} />
+            )}
+            {!textoBusca && basesFiltradas.length === 0 && (
               <EmptyState text={"Todavía no hay bases registradas en esta sucursal. Agrega una con el botón + de aquí abajo."} />
             )}
           </div>
