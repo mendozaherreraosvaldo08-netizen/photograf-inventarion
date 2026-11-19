@@ -980,6 +980,8 @@ function GlobalStyles() {
       html, body { background: ${C.pageBg}; background-attachment: fixed; min-height: 100%; }
       body { font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif; color: ${C.foreground}; }
       button, input, select, textarea { font-family: inherit; }
+      .pf-hub-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+      @media (min-width: 700px) { .pf-hub-grid { grid-template-columns: repeat(3, 1fr); } }
       * { scrollbar-width: thin; scrollbar-color: rgba(110,90,130,0.22) transparent; }
       /* El listón dorado — el único adorno recurrente de la app. Aparece
          bajo el nombre "Photograf" y en los momentos de mayor peso (el
@@ -4492,58 +4494,69 @@ function AdminScreen({ empleados, setEmpleados, allData, setAllData, config, set
    ========================================================================= */
 
 const URL_ASISTENCIA = "https://asistencia-front-ee3eg87bc.vercel.app/";
+/* App del equipo (contratos y portal). Se abre en otra pestaña: no permite mostrarse dentro de otra página. */
+const URL_EMPLEADOS = "https://photograf-equipo.vercel.app/";
+const COLOR_EMPLEADOS = "#7C4DDB";
 
 /* =========================================================================
    PANTALLA: Hub — elige entre las apps de Photograf (Inventario, Asistencia,
    y lo que se agregue después). Vive entre "elige tu nombre" y entrar a
    cualquiera de las apps, para que se sienta como una sola carpeta.
    ========================================================================= */
+function HubTile({ icon: Icon, color, titulo, descripcion, onClick, href, etiqueta }) {
+  const contenido = (
+    <>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
+        <div style={{ width: 52, height: 52, borderRadius: 17, background: color + "1F", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Icon size={25} color={color} />
+        </div>
+        <div style={{ width: 34, height: 34, borderRadius: 999, background: C.ink, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <ArrowUpRight size={17} color={textoContraste(C.ink)} />
+        </div>
+      </div>
+      <div style={{ textAlign: "left", marginTop: 18 }}>
+        <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: "-0.02em", color: C.foreground }}>{titulo}</div>
+        <div style={{ fontSize: 13, color: C.muted, marginTop: 3 }}>{descripcion}</div>
+        {etiqueta && (
+          <span style={{ display: "inline-block", marginTop: 10, fontSize: 11, fontWeight: 700, color, background: color + "1A", borderRadius: 999, padding: "3px 10px" }}>{etiqueta}</span>
+        )}
+      </div>
+    </>
+  );
+  const estilo = { width: "100%", display: "flex", flexDirection: "column", alignItems: "flex-start", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 24, padding: 18, cursor: "pointer", boxShadow: SOMBRA_TARJETA, textDecoration: "none", boxSizing: "border-box", borderTop: `4px solid ${color}` };
+  if (href) {
+    return <a href={href} target="_blank" rel="noopener noreferrer" className="pf-press" style={estilo}>{contenido}</a>;
+  }
+  return <button onClick={onClick} className="pf-press" style={estilo}>{contenido}</button>;
+}
+
 function HubScreen({ usuario, onAbrirInventario, onAbrirAsistencia, onCambiarUsuario }) {
+  const nombre = (usuario || "").trim().split(/\s+/)[0];
   return (
     <div style={{ padding: 20, minHeight: "100vh", background: "transparent" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 26 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <img src={LOGO_PHOTOGRAF} alt="Photograf" style={{ width: 30, height: 30 }} />
           <div>
-            <div className="pf-heading" style={{ fontSize: 22, fontWeight: 700, color: C.foreground }}>Photograf</div>
+            <div className="pf-heading" style={{ fontSize: 20, color: C.foreground }}>Photograf</div>
             <span className="pf-ribbon" />
           </div>
         </div>
         {usuario && (
-          <button onClick={onCambiarUsuario} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: C.muted, fontSize: 12, cursor: "pointer" }}>
-            <UserCircle size={16} /> {usuario}
+          <button onClick={onCambiarUsuario} style={{ display: "flex", alignItems: "center", gap: 6, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 12px", color: C.foreground, fontSize: 12.5, fontWeight: 600, cursor: "pointer", boxShadow: SOMBRA_TARJETA }}>
+            <UserCircle size={16} color={C.muted} /> {usuario}
           </button>
         )}
       </div>
-      <div style={{ fontSize: 13, color: C.muted, marginBottom: 28 }}>¿Qué necesitas hoy?</div>
 
-      <button
-        onClick={onAbrirInventario}
-        className="pf-press"
-        style={{ width: "100%", display: "flex", alignItems: "center", gap: 16, background: `linear-gradient(135deg, ${shadeColor(C.primary, 8)}, ${shadeColor(C.primary, -16)})`, border: "none", borderRadius: 16, padding: 20, marginBottom: 14, cursor: "pointer", boxShadow: `0 6px 16px ${C.primary}40` }}
-      >
-        <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <Warehouse size={26} color={textoContraste(shadeColor(C.primary, 8))} />
-        </div>
-        <div style={{ textAlign: "left" }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: textoContraste(shadeColor(C.primary, 8)) }}>Inventario</div>
-          <div style={{ fontSize: 12, color: textoContraste(shadeColor(C.primary, 8)), opacity: 0.8 }}>Equipo, almacén, pedidos y más</div>
-        </div>
-      </button>
+      <div className="pf-heading" style={{ fontSize: 30, lineHeight: 1.1, color: C.foreground }}>{nombre ? `Hola, ${nombre}` : "Hola"}</div>
+      <div style={{ fontSize: 14.5, color: C.muted, marginTop: 6, marginBottom: 24 }}>¿Qué necesitas hoy?</div>
 
-      <button
-        onClick={onAbrirAsistencia}
-        className="pf-press"
-        style={{ width: "100%", display: "flex", alignItems: "center", gap: 16, background: `linear-gradient(135deg, ${shadeColor(C.secondary, 8)}, ${shadeColor(C.secondary, -16)})`, border: "none", borderRadius: 16, padding: 20, cursor: "pointer", boxShadow: `0 6px 16px ${C.secondary}40` }}
-      >
-        <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <Clock size={26} color={textoContraste(shadeColor(C.secondary, 8))} />
-        </div>
-        <div style={{ textAlign: "left" }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: textoContraste(shadeColor(C.secondary, 8)) }}>Asistencia</div>
-          <div style={{ fontSize: 12, color: textoContraste(shadeColor(C.secondary, 8)), opacity: 0.8 }}>Registro de entradas y salidas</div>
-        </div>
-      </button>
+      <div className="pf-hub-grid">
+        <HubTile icon={Warehouse} color={C.primary} titulo="Inventario" descripcion="Equipo, almacén, pedidos y más" onClick={onAbrirInventario} />
+        <HubTile icon={Clock} color={C.secondary} titulo="Asistencia" descripcion="Registro de entradas y salidas" onClick={onAbrirAsistencia} />
+        <HubTile icon={Users} color={COLOR_EMPLEADOS} titulo="Empleados" descripcion="Contratos, equipo y portal" href={URL_EMPLEADOS} etiqueta="Se abre aparte" />
+      </div>
     </div>
   );
 }
